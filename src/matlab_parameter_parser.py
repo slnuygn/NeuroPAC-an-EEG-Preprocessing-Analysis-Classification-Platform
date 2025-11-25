@@ -85,7 +85,7 @@ class ModuleParameterMapper:
     def __init__(self):
         # Mapping from module display text to MATLAB file path
         self.module_mapping = {
-            'ERP Analysis': 'features/analysis/matlab/ERP/decomp_timelock_func.m',
+            'ERP Analysis': 'features/analysis/matlab/ERP/timelock_func.m',
             'Time-Frequency Analysis': 'features/analysis/matlab/timefrequency/timefreqanalysis.m',
             'Inter-Trial Coherence Analysis': 'features/analysis/matlab/connectivity/intertrial/intertrialcoherenceanalysis.m',
             'Channel-Wise Coherence Analysis': 'features/analysis/matlab/connectivity/channelwise/channelwise.m',

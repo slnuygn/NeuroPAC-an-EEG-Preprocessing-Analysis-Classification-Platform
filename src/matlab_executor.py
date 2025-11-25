@@ -329,17 +329,17 @@ class MatlabExecutor(QObject):
         print("Unable to resolve preprocess_data.m path.")
         return None
 
-    def _get_decomp_timelock_script_path(self) -> Optional[str]:
-        """Return the absolute path to decomp_timelock_func.m if it exists."""
+    def _get_timelock_script_path(self) -> Optional[str]:
+        """Return the absolute path to timelock_func.m if it exists."""
         candidates = [
-            os.path.join(self._project_root, "features", "analysis", "matlab", "decomp_timelock_func.m"),
+            os.path.join(self._project_root, "features", "analysis", "matlab", "ERP", "timelock_func.m"),
         ]
 
         for candidate in candidates:
             if candidate and os.path.exists(candidate):
                 return candidate
 
-        print("Unable to resolve decomp_timelock_func.m path.")
+        print("Unable to resolve timelock_func.m path.")
         return None
 
     def _escape_matlab_single_quotes(self, value: str) -> str:
@@ -649,9 +649,9 @@ class MatlabExecutor(QObject):
 
     @pyqtSlot(result="QVariant")
     def getCurrentErpLatency(self):
-        """Read the current cfg.latency range from decomp_timelock_func.m."""
+        """Read the current cfg.latency range from timelock_func.m."""
         try:
-            script_path = self._get_decomp_timelock_script_path()
+            script_path = self._get_timelock_script_path()
             if not script_path:
                 return []
 
@@ -991,11 +991,11 @@ class MatlabExecutor(QObject):
 
             target_scripts = []
             if normalized_property == "cfg.latency":
-                decomp_path = self._get_decomp_timelock_script_path()
+                decomp_path = self._get_timelock_script_path()
                 if decomp_path:
-                    target_scripts.append(("decomp_timelock_func.m", decomp_path))
+                    target_scripts.append(("timelock_func.m", decomp_path))
                 else:
-                    print("decomp_timelock_func.m not found; cannot persist cfg.latency.")
+                    print("timelock_func.m not found; cannot persist cfg.latency.")
             else:
                 preprocess_path = self._get_preprocess_data_script_path()
                 if preprocess_path:
@@ -1140,9 +1140,9 @@ class MatlabExecutor(QObject):
 
             target_scripts = []
             if normalized_property == "cfg.latency":
-                decomp_path = self._get_decomp_timelock_script_path()
+                decomp_path = self._get_timelock_script_path()
                 if decomp_path:
-                    target_scripts.append(("decomp_timelock_func.m", decomp_path))
+                    target_scripts.append(("timelock_func.m", decomp_path))
             else:
                 preprocess_path = self._get_preprocess_data_script_path()
                 if preprocess_path:

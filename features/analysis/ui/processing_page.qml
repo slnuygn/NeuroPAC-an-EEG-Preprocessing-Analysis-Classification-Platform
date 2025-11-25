@@ -263,7 +263,7 @@ Item {
                         var basePath = sanitizedFolder.length > 0 ? sanitizedFolder : currentFolder
                         var normalizedFolder = basePath.replace(/\\/g, "/")
                         var escapedFolder = normalizedFolder.replace(/'/g, "\\'")
-                        matlabExecutor.runMatlabScriptInteractive("decomp_timelock_func('" + escapedFolder + "')", true)
+                        matlabExecutor.runMatlabScriptInteractive("timelock_func('" + escapedFolder + "')", true)
                     }
                 }
                 

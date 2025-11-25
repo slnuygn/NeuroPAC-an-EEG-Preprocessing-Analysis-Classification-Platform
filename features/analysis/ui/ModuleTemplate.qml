@@ -108,7 +108,7 @@ Item {
     function getMatlabFilePath(moduleName) {
         // Map module names to MATLAB file paths (relative to this QML file)
         var moduleMap = {
-            "ERP Analysis": "../matlab/ERP/decomp_timelock_func.m",
+            "ERP Analysis": "../matlab/ERP/timelock_func.m",
             "Time-Frequency Analysis": "../matlab/timefrequency/timefreqanalysis.m",
             "Inter-Trial Coherence Analysis": "../matlab/connectivity/intertrial/intertrialcoherenceanalysis.m",
             "Channel-Wise Coherence Analysis": "../matlab/connectivity/channelwise/channelwise.m",

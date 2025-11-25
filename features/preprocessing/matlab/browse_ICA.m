@@ -36,7 +36,7 @@ try
                 raw_var_used = 'data';
                 fprintf('Loaded sensor-space data from %s (variable: %s)\n', raw_data_path, raw_var_used);
             else
-                fprintf('Warning: %s does not contain variable "data".\n', raw_data_path);
+                fprintf('Warning: %s does not contain variable ''data''.\n', raw_data_path);
             end
         catch rawLoadErr
             fprintf('Warning: Failed to load %s (%s).\n', raw_data_path, rawLoadErr.message);
@@ -165,16 +165,33 @@ try
         ICApplied = ICA_data;
         clean_data = reject_components(sensor_space_data, ICApplied, rejected_ICs_array);
         assignin('base', 'clean_data', clean_data);
-        fprintf('Cleaned data assigned to workspace as "clean_data".\n');
-        clean_filename = 'data_ICApplied_clean.mat';
+        fprintf('Cleaned data assigned to workspace as ''clean_data''.\n');
+        
+        % Decompose data
+        fprintf('Decomposing cleaned data...\n');
+        num_subjects = length(clean_data);
+        clean_data_decomposed = struct( ...
+            'target_data', cell(1, num_subjects), ...
+            'standard_data', cell(1, num_subjects), ...
+            'novelty_data', cell(1, num_subjects));
+        
+        for i = 1:num_subjects
+            fprintf('Decomposing subject %d/%d\n', i, num_subjects);
+            [clean_data_decomposed(i).target_data, ...
+                clean_data_decomposed(i).standard_data, ...
+                clean_data_decomposed(i).novelty_data] = decompose(clean_data{i});
+        end
+        
+        assignin('base', 'clean_data_decomposed', clean_data_decomposed);
+        
+        clean_filename = 'data_ICApplied_clean_decomposed.mat';
         clean_fullpath = fullfile(mat_folder, clean_filename);
-        save(clean_fullpath, 'clean_data');
-        fprintf('Cleaned data saved to %s\n', clean_fullpath);
-        fprintf('Rejected component indices stored inside each clean_data entry (field "rejected_components").\n');
+        save(clean_fullpath, 'clean_data_decomposed');
+        fprintf('Decomposed cleaned data saved to %s\n', clean_fullpath);
+        fprintf('Rejected component indices stored inside each clean_data entry (field ''rejected_components'').\n');
     catch rejectionME
         fprintf('Warning: Failed to apply reject_components within browse_ICA (%s).\n', rejectionME.message);
     end
-    
     fprintf('ICA component browsing completed.\n');
     
 catch ME
