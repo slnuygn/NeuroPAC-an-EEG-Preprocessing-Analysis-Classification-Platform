@@ -1,6 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import "../../preprocessing/ui"
+import "../../preprocessing/qml"
 
 Item {
     id: dynamicParameterLoader
@@ -209,7 +209,7 @@ Item {
             backgroundColor: parameterConfig.background_color || "white"
             sliderState: editModeEnabled ? "edit" : "default"
 
-            onRangeChanged: {
+            onRangeChanged: function(firstValue, secondValue) {
                 dynamicParameterLoader.parameterChanged(parameterName, [firstValue, secondValue]);
                 // Auto-save to MATLAB
                 matlabExecutor.saveRangeSliderPropertyToMatlab(parameterConfig.matlab_property, firstValue, secondValue, parameterConfig.unit || "");

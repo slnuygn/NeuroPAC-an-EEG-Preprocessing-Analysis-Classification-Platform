@@ -4,7 +4,7 @@ import QtQuick.Layouts 1.15
 import QtQuick.Dialogs
 import MatlabExecutor 1.0
 import FileBrowser 1.0
-import "../features/preprocessing/ui/"
+import "../features/preprocessing/qml/"
 
 ApplicationWindow {
     id: window
@@ -18,9 +18,10 @@ ApplicationWindow {
     property string saveMessage: ""
     property string fieldtripPath: ""
     
-    // FileBrowser component
+    // FileBrowser component (Hidden, used for dialogs and logic)
     FileBrowserUI {
         id: fileBrowserComponent
+        visible: false
     }
     
     // Connections for FileBrowser component
@@ -293,7 +294,7 @@ ApplicationWindow {
             Loader {
                 id: preprocessingPageLoader
                 anchors.fill: parent
-                source: "../features/preprocessing/ui/preprocessing_page.qml"
+                source: "../features/preprocessing/qml/preprocessing_page.qml"
                 
                 onLoaded: {
                     item.currentFolder = Qt.binding(function() { return fileBrowserComponent.currentFolder })
@@ -342,7 +343,7 @@ ApplicationWindow {
             Loader {
                 id: featureExtractionAnalysisPageLoader
                 anchors.fill: parent
-                source: "../features/analysis/ui/processing_page.qml"
+                source: "../features/analysis/qml/processing_page.qml"
 
                 onLoaded: {
                     console.log("Processing page loaded successfully")
@@ -363,9 +364,6 @@ ApplicationWindow {
                 onStatusChanged: {
                     if (status === Loader.Error) {
                         console.log("Error loading processing_page.qml:", source)
-                        for (var i = 0; i < errors.length; i++) {
-                            console.log("QML Error:", errors[i].toString())
-                        }
                     } else if (status === Loader.Ready) {
                         console.log("Processing page ready")
                     } else if (status === Loader.Loading) {
@@ -384,7 +382,7 @@ ApplicationWindow {
             Loader {
                 id: classificationPageLoader
                 anchors.fill: parent
-                source: "../features/classification/ui/classification_page.qml"
+                source: "../features/classification/qml/classification_page.qml"
 
                 onLoaded: {
                     console.log("Classification page loaded successfully")

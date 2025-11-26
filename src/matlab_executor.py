@@ -120,14 +120,14 @@ class MatlabExecutor(QObject):
             self._project_root,
             "features",
             "preprocessing",
-            "ui",
+            "qml",
             "preprocessing_page.qml",
         )
         self._analysis_processing_qml_path = os.path.join(
             self._project_root,
             "features",
             "analysis",
-            "ui",
+            "qml",
             "processing_page.qml",
         )
 

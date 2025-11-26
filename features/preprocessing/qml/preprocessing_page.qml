@@ -2,6 +2,7 @@
 import QtQuick.Controls.Basic 2.15
 import QtQuick.Dialogs
 import "."
+import "../../../ui"
 
 Item {
     id: preprocessingPageRoot
@@ -461,205 +462,13 @@ Item {
 
     // Background area to close dropdown when clicking outside (removed MouseArea to fix scrolling)
 
-    // File Explorer Rectangle - Direct implementation
-    Rectangle {
+    // File Explorer Rectangle - Using FileBrowserUI
+    FileBrowserUI {
         id: fileExplorerRect
-        anchors.left: parent.left
-        anchors.top: parent.top
-        width: parent.width * 0.2  // Slightly wider
-        height: parent.height
-        color: "#f8f9fa"
-        border.color: "#dee2e6"
-        border.width: 2
-        radius: 5
+        
 
-        Column {
-            anchors.fill: parent
-            anchors.margins: 10
-            spacing: 5
+        // Connect signals if needed, though FileBrowserUI handles most logic internally
 
-            // Folder icon and current folder display in same row
-            Row {
-                width: parent.width
-                height: 30
-                spacing: 10
-
-                // Current Folder Display
-                Text {
-                    text: preprocessingPageRoot.currentFolder ? "Folder: " + preprocessingPageRoot.currentFolder : "No folder selected"
-                    font.pixelSize: 12
-                    color: "#666"
-                    width: parent.width - 70 // Account for both buttons width and spacing
-                    wrapMode: Text.Wrap
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-
-                // Spacer to push buttons to the right
-                Item {
-                    width: parent.width - (parent.children[0].width + 70) // Account for both buttons
-                    height: 1
-                }
-
-                // Button group with tighter spacing
-                Row {
-                    spacing: 2 // Very tight spacing between buttons
-                    
-                    // Refresh Button
-                    Button {
-                        width: 30
-                        height: 30
-                        
-                        background: Rectangle {
-                            color: parent.pressed ? "#dee2e6" : (parent.hovered ? "#f1f3f4" : "transparent")
-                            radius: 4
-                        }
-                        
-                        contentItem: Text {
-                            text: "🔄"
-                            font.pixelSize: 16
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        onClicked: {
-                            preprocessingPageRoot.refreshFileExplorer()
-                        }
-                    }
-
-                    // Folder Icon Button (positioned at the right)
-                    Button {
-                        width: 30
-                        height: 30
-                        
-                        background: Rectangle {
-                            color: parent.pressed ? "#dee2e6" : (parent.hovered ? "#f1f3f4" : "transparent")
-                            radius: 4
-                        }
-                        
-                        contentItem: Text {
-                            text: "📁"
-                            font.pixelSize: 16
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        onClicked: {
-                            preprocessingPageRoot.openFolderDialog()
-                        }
-                    }
-                }
-            }
-
-            // Drive Files (full height)
-            Column {
-                width: parent.width
-                height: parent.height - 30  // Full height minus header row
-
-                Text {
-                    text: "File Explorer"
-                    font.bold: true
-                    color: "#495057"
-                    font.pixelSize: 12
-                }
-
-                Rectangle {
-                    width: parent.width
-                    height: parent.height - 20  // Minus text height
-                    color: "white"
-                    border.color: "#ccc"
-                    border.width: 1
-                    radius: 3
-
-                    ScrollView {
-                        anchors.fill: parent
-                        anchors.margins: 5
-                        clip: true
-
-                        ListView {
-                            id: folderListView
-                            anchors.fill: parent
-                            model: preprocessingPageRoot.folderContents
-                            
-                            delegate: Item {
-                                width: folderListView.width
-                                height: 25
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    color: fileMouseArea.containsMouse ? "#e3f2fd" : "transparent"
-                                    radius: 3
-                                    
-                                    MouseArea {
-                                        id: fileMouseArea
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                        
-                                        onClicked: function(mouse) {
-                                            if (mouse.button === Qt.LeftButton) {
-                                                // Left-click: Check if it's a .mat file and handle accordingly
-                                                var cleanFilename = modelData.replace(/^[^\w]+/, '')  // Remove leading emojis/symbols
-                                                
-                                                if (cleanFilename.toLowerCase().endsWith('.mat')) {
-                                                    // Check if it's an ICA file by looking for ICA indicators in filename
-                                                    var isICAFile = cleanFilename.toLowerCase().includes('ica') || 
-                                                                   cleanFilename.toLowerCase().includes('comp') ||
-                                                                   cleanFilename.toLowerCase().includes('component')
-                                                    
-                                                    if (isICAFile) {
-                                                        console.log("ICA file detected:", cleanFilename)
-                                                        var fullPath = preprocessingPageRoot.currentFolder + "/" + cleanFilename
-                                                        
-                                                        // Call browse_ICA function through MATLAB executor
-                                                        if (matlabExecutor) {
-                                                            matlabExecutor.launchMatlabICABrowser(fullPath)
-                                                        }
-                                                    } else {
-                                                        console.log("Not an ICA file:", cleanFilename)
-                                                    }
-                                                } else {
-                                                    console.log("Not a .mat file:", cleanFilename)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    
-                                    Row {
-                                        anchors.left: parent.left
-                                        anchors.leftMargin: 5
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 5
-                                        
-                                        Text {
-                                            text: modelData
-                                            font.pixelSize: 10
-                                            color: modelData.endsWith('.mat') ? 
-                                                (modelData.includes('ICA') || modelData.includes('ica') ? "#4caf50" : "#007bff") : "#333"
-                                            font.underline: modelData.endsWith('.mat') && fileMouseArea.containsMouse
-                                        }
-                                        
-                                        Text {
-                                            text: modelData.endsWith('.mat') ? 
-                                                (modelData.includes('ICA') || modelData.includes('ica') ? "🧠" : "📊") : ""
-                                            font.pixelSize: 8
-                                            visible: modelData.endsWith('.mat') && fileMouseArea.containsMouse
-                                        }
-                                    }
-                                }
-
-                                Rectangle {
-                                    anchors.bottom: parent.bottom
-                                    width: parent.width
-                                    height: 1
-                                    color: "#eee"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     // Right side - Configuration Area with Scrolling (maximized space usage)
@@ -690,19 +499,6 @@ Item {
                     console.log("Fixed ScrollView - Available width:", width)
                 }
             
-            // FieldTrip Path Selection (only visible when path is provided)
-            Column {
-                width: parent.width
-                spacing: 5
-                visible: preprocessingPageRoot.fieldtripPath !== ""
-                height: visible ? implicitHeight : 0
-
-                Text {
-                    text: "addpath('" + preprocessingPageRoot.fieldtripPath + "')"
-                    font.pixelSize: 12
-                    color: "#666"
-                }
-            }
 
         // Trialfun dropdown
         DropdownTemplate {
@@ -825,7 +621,7 @@ Item {
             addPlaceholder: "Add custom channel..."
             dropdownState: "default"
 
-            onMultiSelectionChanged: {
+            onMultiSelectionChanged: function(selected) {
                 // Update the selectedChannels property for backward compatibility
                 selectedChannels = selectedItems
             }
@@ -860,7 +656,7 @@ Item {
             sliderState: "default"
             sliderId: "prestimPoststimSlider"
 
-            onRangeChanged: {
+            onRangeChanged: function(firstValue, secondValue) {
                 // Range values updated, will be used when running preprocessing
             }
 
@@ -878,13 +674,13 @@ Item {
             from: -0.5
             to: 0.6
             firstValue: -0.2
-            secondValue: 0.6
+            secondValue: 0.2
             stepSize: 0.1
             unit: ""
             sliderState: "default"
             sliderId: "baselineSlider"
 
-            onRangeChanged: {
+            onRangeChanged: function(firstValue, secondValue) {
                 // Baseline values updated, will be used when running preprocessing
             }
 
@@ -908,7 +704,7 @@ Item {
             sliderState: "default"
             sliderId: "dftfreqSlider"
 
-            onRangeChanged: {
+            onRangeChanged: function(firstValue, secondValue) {
                 // DFT frequency values updated, will be used when running preprocessing
             }
 

@@ -18,7 +18,7 @@ from PyQt6.QtCore import QStandardPaths
 import features
 
 # Import our custom classes
-from features.preprocessing.python.file_browser import FileBrowser
+from file_browser import FileBrowser
 # from features.classification.python.config_manager import ClassificationConfig
 from src.matlab_executor import MatlabExecutor
 
@@ -48,8 +48,8 @@ engine = QQmlApplicationEngine()
 engine.quit.connect(app.quit)
 
 # Add import paths for QML
-engine.addImportPath(os.path.join(project_root, "features", "preprocessing", "ui"))
-engine.addImportPath(os.path.join(project_root, "features", "analysis", "ui"))
+engine.addImportPath(os.path.join(project_root, "features", "preprocessing", "qml"))
+engine.addImportPath(os.path.join(project_root, "features", "analysis", "qml"))
 engine.addImportPath(os.path.join(project_root, "ui"))
 
 # Make instances available to QML
