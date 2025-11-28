@@ -152,7 +152,14 @@ Item {
             Text {
                 id: propertyDisplay
                 visible: sliderState !== "add"
-                text: matlabProperty + " = [" + rangeSliderTemplate.formatValue(rangeSlider.first.value) + unit + " " + rangeSliderTemplate.formatValue(rangeSlider.second.value) + unit + "]"
+                text: {
+                    if (rangeSliderTemplate.matlabProperty === "trial_time_window") {
+                        return "cfg.trialdef.prestim = " + rangeSliderTemplate.formatValue(rangeSlider.first.value) + unit + "\n" +
+                               "cfg.trialdef.poststim = " + rangeSliderTemplate.formatValue(rangeSlider.second.value) + unit
+                    } else {
+                        return matlabProperty + " = [" + rangeSliderTemplate.formatValue(rangeSlider.first.value) + unit + " " + rangeSliderTemplate.formatValue(rangeSlider.second.value) + unit + "]"
+                    }
+                }
                 font.pixelSize: 12
                 color: "#666"
                 wrapMode: Text.Wrap

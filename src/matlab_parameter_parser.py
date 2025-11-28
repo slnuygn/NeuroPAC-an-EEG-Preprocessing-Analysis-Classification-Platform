@@ -8,10 +8,12 @@ class MatlabParameterParser:
 
     def __init__(self):
         self.parameter_patterns = {
-            'range': re.compile(r'cfg\.(\w+)\s*=\s*\[([^\]]+)\]'),  # cfg.param = [0 1]
-            'string': re.compile(r'cfg\.(\w+)\s*=\s*[\'"]([^\'"]*)[\'"]'),  # cfg.param = 'value'
-            'number': re.compile(r'cfg\.(\w+)\s*=\s*([0-9]+(?:\.[0-9]+)?)'),  # cfg.param = 1.5
-            'array': re.compile(r'cfg\.(\w+)\s*=\s*([0-9\s:]+)'),  # cfg.param = 1:2:40
+            'range': re.compile(r'cfg\.([\w\.]+)\s*=\s*\[([^\]]+)\]'),  # cfg.param = [0 1]
+            'string': re.compile(r'cfg\.([\w\.]+)\s*=\s*[\'"]([^\'"]*)[\'"]'),  # cfg.param = 'value'
+            'number': re.compile(r'cfg\.([\w\.]+)\s*=\s*(-?[0-9]+(?:\.[0-9]+)?)'),  # cfg.param = 1.5
+            'array': re.compile(r'cfg\.([\w\.]+)\s*=\s*([0-9:\.\-]+(?:\s+[0-9:\.\-]+)*)'),  # cfg.param = 1:2:40
+            'cell_array': re.compile(r'cfg\.([\w\.]+)\s*=\s*\{([^\}]+)\}'), # cfg.param = {'a' 'b'}
+            'standalone_cell_array': re.compile(r'(?<!\.)\b(\w+)\s*=\s*\{([^\}]+)\}'), # var = {'a' 'b'}
         }
 
     def parse_file(self, file_path: str) -> Dict[str, Any]:
@@ -30,6 +32,7 @@ class MatlabParameterParser:
             for match in matches:
                 param_name = match[0]
                 param_value = match[1]
+                print(f"Matched {param_name} as {param_type} with value: {repr(param_value)}")
 
                 if param_name not in parameters:  # Take first occurrence
                     parameters[param_name] = self._parse_parameter_value(param_type, param_value, param_name)
@@ -40,7 +43,7 @@ class MatlabParameterParser:
         """Parse the parameter value based on its type."""
         if param_type == 'range':
             # Parse [0 1] or [0, 1] format
-            values = re.findall(r'[0-9]+(?:\.[0-9]+)?', value_str)
+            values = re.findall(r'-?[0-9]+(?:\.[0-9]+)?', value_str)
             if len(values) >= 2:
                 return {
                     'type': 'range',
@@ -71,11 +74,22 @@ class MatlabParameterParser:
                         'values': values
                     }
             else:
-                values = [float(x) for x in re.findall(r'[0-9]+(?:\.[0-9]+)?', value_str)]
+                values = [float(x) for x in re.findall(r'-?[0-9]+(?:\.[0-9]+)?', value_str)]
                 return {
                     'type': 'array',
                     'values': values
                 }
+        elif param_type == 'cell_array' or param_type == 'standalone_cell_array':
+            # Parse {'S200' 'S201'}
+            # Extract strings inside quotes
+            options = re.findall(r'[\'"]([^\'"]*)[\'"]', value_str)
+            return {
+                'type': 'string', # Treat as string dropdown
+                'value': options[0] if options else '',
+                'options': options,
+                'is_multi_select': True, # Cell arrays usually imply multiple values
+                'is_standalone': param_type == 'standalone_cell_array'
+            }
 
         return {'type': 'unknown', 'raw_value': value_str}
 
@@ -89,11 +103,15 @@ class ModuleParameterMapper:
             'Time-Frequency Analysis': 'features/analysis/matlab/timefrequency/timefreqanalysis.m',
             'Inter-Trial Coherence Analysis': 'features/analysis/matlab/connectivity/intertrial/intertrialcoherenceanalysis.m',
             'Channel-Wise Coherence Analysis': 'features/analysis/matlab/connectivity/channelwise/channelwise.m',
-            'Spectral Analysis': 'features/analysis/matlab/spectral/spectralanalysis.m'
+            'Spectral Analysis': 'features/analysis/matlab/spectral/spectralanalysis.m',
+            'Preprocessing': [
+                'features/preprocessing/matlab/preprocessing.m',
+                'features/preprocessing/matlab/preprocess_data.m'
+            ]
         }
 
-    def get_matlab_file(self, module_name: str) -> str:
-        """Get the MATLAB file path for a module."""
+    def get_matlab_file(self, module_name: str) -> Any:
+        """Get the MATLAB file path(s) for a module."""
         return self.module_mapping.get(module_name, '')
 
     def get_all_modules(self) -> List[str]:
@@ -155,7 +173,7 @@ def create_ui_component(
     """Create UI component configuration based on parameter type."""
     component = {
         'parameter_name': parameter_name,
-        'matlab_property': f'cfg.{parameter_name}'
+        'matlab_property': parameter_name if parameter_info.get('is_standalone') else f'cfg.{parameter_name}'
     }
 
     option_entry = option_entry or {}
@@ -173,12 +191,12 @@ def create_ui_component(
             'width_factor': 0.1,
             'background_color': 'white'
         })
-    elif parameter_info['type'] == 'string':
+    elif parameter_info['type'] == 'string' or parameter_info['type'] == 'number':
         configured_options = option_entry.get('options') if option_entry else None
-        base_options = parameter_info.get('options') or [parameter_info.get('value', '')]
+        base_options = parameter_info.get('options') or [str(parameter_info.get('value', ''))]
         options = [str(item) for item in configured_options or base_options if str(item)]
 
-        current_value = parameter_info.get('value', '')
+        current_value = str(parameter_info.get('value', ''))
         if current_value and current_value not in options:
             options = [current_value] + options
 
@@ -196,11 +214,16 @@ def create_ui_component(
             'model': options,
             'current_index': current_index,
             'has_add_feature': bool(option_entry.get('has_add_feature', False)),
-            'is_multi_select': bool(option_entry.get('is_multi_select', False))
+            'is_multi_select': bool(option_entry.get('is_multi_select', parameter_info.get('is_multi_select', False)))
         })
 
         if option_entry.get('max_selections') is not None:
             component['max_selections'] = option_entry['max_selections']
+            
+        # If multi-select, ensure selected_items are populated from the parsed values
+        if component['is_multi_select']:
+            component['selected_items'] = [str(item) for item in base_options]
+            
     elif parameter_info['type'] == 'array':
         # For arrays, create a multi-select dropdown
         values = parameter_info.get('values', [])

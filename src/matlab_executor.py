@@ -7,6 +7,12 @@ import json
 from typing import List, Optional
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QThread
 import scipy.io
+from src.matlab_parameter_parser import (
+    MatlabParameterParser,
+    ModuleParameterMapper,
+    DropdownOptionStore,
+    create_ui_component,
+)
 
 # Function to get the resource path (works for both development and PyInstaller)
 def resource_path(relative_path):
@@ -340,6 +346,58 @@ class MatlabExecutor(QObject):
                 return candidate
 
         print("Unable to resolve timelock_func.m path.")
+        return None
+
+    def _get_spectral_script_path(self) -> Optional[str]:
+        """Return the absolute path to spectralanalysis.m if it exists."""
+        candidates = [
+            os.path.join(self._project_root, "features", "analysis", "matlab", "spectral", "spectralanalysis.m"),
+        ]
+
+        for candidate in candidates:
+            if candidate and os.path.exists(candidate):
+                return candidate
+
+        print("Unable to resolve spectralanalysis.m path.")
+        return None
+
+    def _get_timefreq_script_path(self) -> Optional[str]:
+        """Return the absolute path to timefreqanalysis.m if it exists."""
+        candidates = [
+            os.path.join(self._project_root, "features", "analysis", "matlab", "timefrequency", "timefreqanalysis.m"),
+        ]
+
+        for candidate in candidates:
+            if candidate and os.path.exists(candidate):
+                return candidate
+
+        print("Unable to resolve timefreqanalysis.m path.")
+        return None
+
+    def _get_spectral_script_path(self) -> Optional[str]:
+        """Return the absolute path to spectralanalysis.m if it exists."""
+        candidates = [
+            os.path.join(self._project_root, "features", "analysis", "matlab", "spectral", "spectralanalysis.m"),
+        ]
+
+        for candidate in candidates:
+            if candidate and os.path.exists(candidate):
+                return candidate
+
+        print("Unable to resolve spectralanalysis.m path.")
+        return None
+
+    def _get_timefreq_script_path(self) -> Optional[str]:
+        """Return the absolute path to timefreqanalysis.m if it exists."""
+        candidates = [
+            os.path.join(self._project_root, "features", "analysis", "matlab", "timefrequency", "timefreqanalysis.m"),
+        ]
+
+        for candidate in candidates:
+            if candidate and os.path.exists(candidate):
+                return candidate
+
+        print("Unable to resolve timefreqanalysis.m path.")
         return None
 
     def _escape_matlab_single_quotes(self, value: str) -> str:
@@ -941,38 +999,108 @@ class MatlabExecutor(QObject):
                 self.configSaved.emit(info_msg)
                 return False
 
-            script_path = self._get_preprocess_data_script_path()
-            if not script_path:
-                error_msg = "preprocess_data.m not found; cannot persist dropdown property."
+            # Determine target script based on property
+            target_scripts = []
+            
+            if normalized_property in ["cfg.output", "cfg.method", "cfg.taper", "cfg.pad", "cfg.foi"]:
+                 spectral_path = self._get_spectral_script_path()
+                 if spectral_path:
+                     target_scripts.append(("spectralanalysis.m", spectral_path))
+            elif normalized_property in ["cfg.toi", "cfg.width", "cfg.baselinetype", "cfg.parameter"]:
+                 timefreq_path = self._get_timefreq_script_path()
+                 if timefreq_path:
+                     target_scripts.append(("timefreqanalysis.m", timefreq_path))
+            elif normalized_property == "cfg.latency":
+                decomp_path = self._get_timelock_script_path()
+                if decomp_path:
+                    target_scripts.append(("timelock_func.m", decomp_path))
+            else:
+                preprocess_path = self._get_preprocess_data_script_path()
+                if preprocess_path:
+                    target_scripts.append(("preprocess_data.m", preprocess_path))
+
+            if not target_scripts:
+                error_msg = f"No script targets available for {normalized_property}."
                 print(error_msg)
                 self.configSaved.emit(error_msg)
                 return False
 
-            with open(script_path, 'r', encoding='utf-8') as file:
-                content = file.read()
+            messages = []
+            any_changes = False
 
-            formatted_value = self._format_matlab_assignment_value(values_list, use_cell_format)
-            replaced, new_content = self._replace_or_insert_matlab_assignment(content, normalized_property, formatted_value)
+            for display_name, script_path in target_scripts:
+                try:
+                    with open(script_path, 'r', encoding='utf-8') as file:
+                        content = file.read()
 
-            if new_content == content:
-                info_msg = f"No changes required for {normalized_property}."
-                print(info_msg)
-                self.configSaved.emit(info_msg)
-                return False
+                    formatted_value = self._format_matlab_assignment_value(values_list, use_cell_format)
+                    replaced, new_content = self._replace_or_insert_matlab_assignment(content, normalized_property, formatted_value)
 
-            with open(script_path, 'w', encoding='utf-8') as file:
-                file.write(new_content)
+                    if new_content == content:
+                        info_msg = f"No changes required for {normalized_property} in {display_name}"
+                        print(info_msg)
+                        messages.append(info_msg)
+                        continue
 
-            status = "Updated" if replaced else "Inserted"
-            success_msg = f"{status} {normalized_property} = {formatted_value} in preprocess_data.m"
-            print(success_msg)
-            self.configSaved.emit(success_msg)
-            return True
+                    with open(script_path, 'w', encoding='utf-8') as file:
+                        file.write(new_content)
+
+                    any_changes = True
+                    status = "Updated" if replaced else "Inserted"
+                    success_msg = f"{status} {normalized_property} = {formatted_value} in {display_name}"
+                    print(success_msg)
+                    messages.append(success_msg)
+                except Exception as inner_error:
+                    error_msg = f"Error updating {display_name} for {normalized_property}: {str(inner_error)}"
+                    print(error_msg)
+                    messages.append(error_msg)
+
+            if not messages:
+                messages.append(f"No script updates performed for {normalized_property}.")
+
+            summary = "; ".join(messages)
+            self.configSaved.emit(summary)
+            return any_changes
 
         except Exception as e:
             error_msg = f"Error saving {matlab_property} to preprocess_data.m: {str(e)}"
             print(error_msg)
             self.configSaved.emit(error_msg)
+            return False
+
+    def _save_trial_time_window(self, prestim, poststim):
+        """Special handler for saving trial time window (prestim/poststim)."""
+        try:
+            script_path = self._get_preprocess_data_script_path()
+            if not script_path:
+                return False
+                
+            with open(script_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+                
+            # Update prestim
+            # cfg.trialdef.prestim = -2.0;
+            pattern_pre = r'(cfg\.trialdef\.prestim\s*=\s*)([0-9\.\-]+)(;.*)'
+            if re.search(pattern_pre, content):
+                content = re.sub(pattern_pre, f"\\g<1>{prestim}\\g<3>", content)
+            else:
+                print("Warning: cfg.trialdef.prestim not found")
+                
+            # Update poststim
+            # cfg.trialdef.poststim = 2.0;
+            pattern_post = r'(cfg\.trialdef\.poststim\s*=\s*)([0-9\.\-]+)(;.*)'
+            if re.search(pattern_post, content):
+                content = re.sub(pattern_post, f"\\g<1>{poststim}\\g<3>", content)
+            else:
+                print("Warning: cfg.trialdef.poststim not found")
+                
+            with open(script_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+                
+            print(f"Updated trial time window: {prestim} to {poststim}")
+            return True
+        except Exception as e:
+            print(f"Error saving trial time window: {e}")
             return False
 
     @pyqtSlot(str, float, float, str, result=bool)
@@ -986,11 +1114,23 @@ class MatlabExecutor(QObject):
             if not normalized_property.startswith("cfg."):
                 normalized_property = f"cfg.{normalized_property}"
 
+            # Special handling for trial_time_window
+            if normalized_property == "cfg.trial_time_window":
+                return self._save_trial_time_window(first_value, second_value)
+
             formatted_value = self._format_matlab_numeric_range(first_value, second_value)
             unit_suffix = f" {unit}" if unit else ""
 
             target_scripts = []
-            if normalized_property == "cfg.latency":
+            if normalized_property in ["cfg.output", "cfg.method", "cfg.taper", "cfg.pad", "cfg.foi"]:
+                spectral_path = self._get_spectral_script_path()
+                if spectral_path:
+                    target_scripts.append(("spectralanalysis.m", spectral_path))
+            elif normalized_property in ["cfg.toi", "cfg.width", "cfg.baselinetype", "cfg.parameter"]:
+                timefreq_path = self._get_timefreq_script_path()
+                if timefreq_path:
+                    target_scripts.append(("timefreqanalysis.m", timefreq_path))
+            elif normalized_property == "cfg.latency":
                 decomp_path = self._get_timelock_script_path()
                 if decomp_path:
                     target_scripts.append(("timelock_func.m", decomp_path))
@@ -1975,7 +2115,7 @@ browse_ICA('{mat_file_path.replace(chr(92), '/')}');
                 import ast
                 try:
                     current_array = ast.literal_eval(current_array_str)
-                except Exception:
+                except:
                     # Fallback: extract items between quotes
                     items = re.findall(r'"([^"]*)"', current_array_str)
                     current_array = items
@@ -2151,133 +2291,418 @@ browse_ICA('{mat_file_path.replace(chr(92), '/')}');
             print(f"Error adding custom channel option to allItems: {str(e)}")
             return False
 
-    @pyqtSlot(str, str, bool, int, 'QVariant', 'QVariant', result=str)
-    def saveCustomDropdown(self, label, matlab_property, is_multi_select, max_selections, all_items, selected_items):
-        """Persist a newly created custom dropdown to preprocessing_page.qml and return its assigned id."""
+    @pyqtSlot(float, float, float, float)
+    def updateBaselineSliderValues(self, from_val, to_val, first_val, second_val):
+        """Update the baseline slider values in the QML file"""
+        try:
+            qml_file_path = self._preprocessing_qml_path
+            
+            # Read the current QML file
+            with open(qml_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # Update from value
+            content = re.sub(r'(id: baselineSlider.*?from:) [\d\.\-]+', f'\\1 {from_val}', content, flags=re.DOTALL)
+            
+            # Update to value
+            content = re.sub(r'(id: baselineSlider.*?to:) [\d\.\-]+', f'\\1 {to_val}', content, flags=re.DOTALL)
+            
+            # Update firstValue
+            content = re.sub(r'(id: baselineSlider.*?firstValue:) [\d\.\-]+', f'\\1 {first_val}', content, flags=re.DOTALL)
+            
+            # Update secondValue
+            content = re.sub(r'(id: baselineSlider.*?secondValue:) [\d\.\-]+', f'\\1 {second_val}', content, flags=re.DOTALL)
+            
+            # Write back to file
+            with open(qml_file_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+            
+            print(f"Updated baseline slider values: from={from_val}, to={to_val}, firstValue={first_val}, secondValue={second_val}")
+            return True
+            
+        except Exception as e:
+            print(f"Error updating baseline slider values: {str(e)}")
+            return False
+
+    @pyqtSlot(float, float, float, float)
+    def updatePrestimPoststimSliderValues(self, from_val, to_val, first_val, second_val):
+        """Update the prestim/poststim slider values in the QML file"""
+        try:
+            qml_file_path = self._preprocessing_qml_path
+            
+            # Read the current QML file
+            with open(qml_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # Update from value
+            content = re.sub(r'(id: prestimPoststimSlider.*?from:) [\d\.\-]+', f'\\1 {from_val}', content, flags=re.DOTALL)
+            
+            # Update to value
+            content = re.sub(r'(id: prestimPoststimSlider.*?to:) [\d\.\-]+', f'\\1 {to_val}', content, flags=re.DOTALL)
+            
+            # Update firstValue
+            content = re.sub(r'(id: prestimPoststimSlider.*?firstValue:) [\d\.\-]+', f'\\1 {first_val}', content, flags=re.DOTALL)
+            
+            # Update secondValue
+            content = re.sub(r'(id: prestimPoststimSlider.*?secondValue:) [\d\.\-]+', f'\\1 {second_val}', content, flags=re.DOTALL)
+            
+            # Write back to file
+            with open(qml_file_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+            
+            print(f"Updated prestim/poststim slider values: from={from_val}, to={to_val}, firstValue={first_val}, secondValue={second_val}")
+            return True
+            
+        except Exception as e:
+            print(f"Error updating prestim/poststim slider values: {str(e)}")
+            return False
+
+    @pyqtSlot(float, float, float, float)
+    def updateErpRangeSliderValues(self, from_val, to_val, first_val, second_val):
+        """Update the ERP range slider values in the analysis processing QML file."""
+        try:
+            qml_file_path = self._analysis_processing_qml_path
+            if not os.path.exists(qml_file_path):
+                print("processing_page.qml not found; cannot persist ERP slider edits.")
+                return False
+
+            with open(qml_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+
+            def format_val(value):
+                try:
+                    numeric = float(value)
+                    if abs(numeric - round(numeric)) < 1e-9:
+                        return str(int(round(numeric)))
+                    formatted = f"{numeric:.6f}".rstrip('0').rstrip('.')
+                    return formatted if formatted else "0"
+                except (ValueError, TypeError):
+                    return str(value)
+
+            from_str = format_val(from_val)
+            to_str = format_val(to_val)
+            first_str = format_val(first_val)
+            second_str = format_val(second_val)
+
+            content = re.sub(
+                r'(id:\s*erpRangeSlider[\s\S]*?from:\s*)(-?[\d\.]+)',
+                r'\g<1>' + from_str,
+                content,
+                count=1,
+                flags=re.DOTALL,
+            )
+            content = re.sub(
+                r'(id:\s*erpRangeSlider[\s\S]*?to:\s*)(-?[\d\.]+)',
+                r'\g<1>' + to_str,
+                content,
+                count=1,
+                flags=re.DOTALL,
+            )
+            content = re.sub(
+                r'(id:\s*erpRangeSlider[\s\S]*?firstValue:\s*)(-?[\d\.]+)',
+                r'\g<1>' + first_str,
+                content,
+                count=1,
+                flags=re.DOTALL,
+            )
+            content = re.sub(
+                r'(id:\s*erpRangeSlider[\s\S]*?secondValue:\s*)(-?[\d\.]+)',
+                r'\g<1>' + second_str,
+                content,
+                count=1,
+                flags=re.DOTALL,
+            )
+
+            with open(qml_file_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+
+            print(
+                "Updated ERP range slider values: from=", from_str,
+                ", to=", to_str,
+                ", firstValue=", first_str,
+                ", secondValue=", second_str,
+                sep=""
+            )
+            return True
+
+        except Exception as e:
+            print(f"Error updating ERP range slider values: {str(e)}")
+            return False
+
+    @pyqtSlot(float, float, float, float)
+    def updateDftfreqSliderValues(self, from_val, to_val, first_val, second_val):
+        """Update the DFT frequency slider values in the QML file"""
+        try:
+            qml_file_path = self._preprocessing_qml_path
+            
+            # Read the current QML file
+            with open(qml_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # Update from value
+            content = re.sub(r'(id: dftfreqSlider.*?from:) [\d\.\-]+', f'\\1 {from_val}', content, flags=re.DOTALL)
+            
+            # Update to value
+            content = re.sub(r'(id: dftfreqSlider.*?to:) [\d\.\-]+', f'\\1 {to_val}', content, flags=re.DOTALL)
+            
+            # Update firstValue
+            content = re.sub(r'(id: dftfreqSlider.*?firstValue:) [\d\.\-]+', f'\\1 {first_val}', content, flags=re.DOTALL)
+            
+            # Update secondValue
+            content = re.sub(r'(id: dftfreqSlider.*?secondValue:) [\d\.\-]+', f'\\1 {second_val}', content, flags=re.DOTALL)
+            
+            # Write back to file
+            with open(qml_file_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+            
+            print(f"Updated DFT frequency slider values: from={from_val}, to={to_val}, firstValue={first_val}, secondValue={second_val}")
+            return True
+            
+        except Exception as e:
+            print(f"Error updating DFT frequency slider values: {str(e)}")
+            return False
+
+    def _get_custom_range_slider_block_positions(self, content: str):
+        pattern = re.compile(r'(\n\s*RangeSliderTemplate\s*\{\s*id\s*:\s*(customRangeSlider\d+)[\s\S]*?\n\s*\})')
+        positions = {}
+        for match in pattern.finditer(content):
+            block_id = match.group(2)
+            positions[block_id] = (match.start(1), match.end(1))
+        return positions
+
+    def _build_custom_range_slider_snippet(
+        self,
+        range_slider_id: str,
+        label: str,
+        matlab_property: str,
+        from_val: float,
+        to_val: float,
+        first_value: float,
+        second_value: float,
+        step_size: float,
+        unit: str,
+    ) -> str:
+        label = label.strip() or range_slider_id
+        matlab_property = matlab_property.strip()
+        if matlab_property and not matlab_property.startswith("cfg."):
+            matlab_property = f"cfg.{matlab_property}"
+
+        escaped_label = self._escape_qml_string(label)
+        escaped_property = self._escape_qml_string(matlab_property)
+        escaped_unit = self._escape_qml_string(unit)
+
+        lines = [
+            "",
+            "            RangeSliderTemplate {",
+            f"                id: {range_slider_id}",
+            f"                property string persistentId: \"{range_slider_id}\"",
+            f"                property string customLabel: \"{escaped_label}\"",
+            "                property bool persistenceConnected: false",
+            f"                label: \"{escaped_label}\"",
+            f"                matlabProperty: \"{escaped_property}\"",
+            f"                from: {from_val}",
+            f"                to: {to_val}",
+            f"                firstValue: {first_value}",
+            f"                secondValue: {second_value}",
+            f"                stepSize: {step_size}",
+            f"                unit: \"{escaped_unit}\"",
+            '                sliderState: "default"',
+            '                sliderId: ""',
+            '                matlabPropertyDraft: ""',
+            '                anchors.left: parent.left',
+            "            }\n",
+        ]
+
+        return "\n".join(lines)
+
+    def _insert_custom_range_slider_snippet(self, content: str, snippet: str):
+        start_marker = "id: customDropdownContainer"
+        start_index = content.find(start_marker)
+        if start_index == -1:
+            print("Custom dropdown container not found for range slider insertion.")
+            return content, False
+
+        # Find the opening brace of the container
+        open_brace_index = content.rfind('{', 0, start_index)
+        if open_brace_index == -1:
+            print("Container opening brace not found for range slider insertion.")
+            return content, False
+
+        # Find where to insert - look for the closing brace of the container
+        depth = 0
+        insert_index = -1
+        for idx in range(open_brace_index, len(content)):
+            char = content[idx]
+            if char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    insert_index = idx
+                    break
+
+        if insert_index == -1:
+            print("Container closing brace not found for range slider insertion.")
+            return content, False
+
+        # Insert the snippet before the closing brace
+        new_content = content[:insert_index] + snippet + content[insert_index:]
+        return new_content, True
+
+    def _replace_custom_range_slider_block(self, content: str, range_slider_id: str, new_snippet: str):
+        positions = self._get_custom_range_slider_block_positions(content)
+        if range_slider_id not in positions:
+            return content, False
+
+        start, end = positions[range_slider_id]
+        new_content = content[:start] + new_snippet + content[end:]
+        return new_content, True
+
+    def _next_custom_range_slider_index(self, existing_ids):
+        max_index = -1
+        for id_str in existing_ids:
+            match = re.match(r'customRangeSlider(\d+)', id_str)
+            if match:
+                index = int(match.group(1))
+                max_index = max(max_index, index)
+        return max_index + 1 if max_index >= 0 else 1
+
+    @pyqtSlot(str, str, float, float, float, float, float, str, result=str)
+    def saveCustomRangeSlider(self, label, matlab_property, from_val, to_val, first_value, second_value, step_size, unit):
+        """Persist a newly created custom range slider to preprocessing_page.qml and return its assigned id."""
         try:
             if not os.path.exists(self._preprocessing_qml_path):
-                print("Preprocessing QML file not found when saving custom dropdown.")
+                print("Preprocessing QML file not found when saving custom range slider.")
                 return ""
 
             with open(self._preprocessing_qml_path, 'r', encoding='utf-8') as file:
                 content = file.read()
 
-            positions = self._get_custom_dropdown_block_positions(content)
+            positions = self._get_custom_range_slider_block_positions(content)
 
             normalized_property = (matlab_property or "").strip()
             if normalized_property and not normalized_property.startswith("cfg."):
                 normalized_property = f"cfg.{normalized_property}"
             escaped_property = f'"{self._escape_qml_string(normalized_property)}"'
 
-            # If a dropdown with the same matlab property exists, update it instead of creating duplicate
+            # If a range slider with the same matlab property exists, update it instead of creating duplicate
             for existing_id, (start, end) in positions.items():
                 block_text = content[start:end]
                 if f'matlabProperty: {escaped_property}' in block_text:
-                    snippet = self._build_custom_dropdown_snippet(
+                    snippet = self._build_custom_range_slider_snippet(
                         existing_id,
                         label,
                         normalized_property,
-                        is_multi_select,
-                        max_selections,
-                        all_items,
-                        selected_items,
+                        from_val,
+                        to_val,
+                        first_value,
+                        second_value,
+                        step_size,
+                        unit,
                     )
-                    new_content, replaced = self._replace_custom_dropdown_block(content, existing_id, snippet)
+                    new_content, replaced = self._replace_custom_range_slider_block(content, existing_id, snippet)
                     if replaced:
                         with open(self._preprocessing_qml_path, 'w', encoding='utf-8') as file:
                             file.write(new_content)
-                        print(f"Updated existing custom dropdown '{existing_id}' with new settings.")
+                        print(f"Updated existing custom range slider '{existing_id}' with new settings.")
                     return existing_id
 
-            next_index = self._next_custom_dropdown_index(positions.keys()) or 1
-            dropdown_id = f"customDropdown{next_index}"
+            next_index = self._next_custom_range_slider_index(positions.keys()) or 1
+            range_slider_id = f"customRangeSlider{next_index}"
 
-            snippet = self._build_custom_dropdown_snippet(
-                dropdown_id,
+            snippet = self._build_custom_range_slider_snippet(
+                range_slider_id,
                 label,
                 normalized_property,
-                is_multi_select,
-                max_selections,
-                all_items,
-                selected_items,
+                from_val,
+                to_val,
+                first_value,
+                second_value,
+                step_size,
+                unit,
             )
 
-            new_content, inserted = self._insert_custom_dropdown_snippet(content, snippet)
+            new_content, inserted = self._insert_custom_range_slider_snippet(content, snippet)
             if not inserted:
                 return ""
 
             with open(self._preprocessing_qml_path, 'w', encoding='utf-8') as file:
                 file.write(new_content)
 
-            print(f"Saved new custom dropdown '{dropdown_id}' to QML file.")
-            return dropdown_id
+            print(f"Saved new custom range slider '{range_slider_id}' to QML file.")
+            return range_slider_id
 
         except Exception as e:
-            print(f"Error saving custom dropdown: {str(e)}")
+            print(f"Error saving custom range slider: {str(e)}")
             return ""
 
-    @pyqtSlot(str, str, str, bool, int, 'QVariant', 'QVariant', result=bool)
-    def updateCustomDropdown(self, dropdown_id, label, matlab_property, is_multi_select, max_selections, all_items, selected_items):
-        """Update an existing custom dropdown definition in preprocessing_page.qml."""
+    @pyqtSlot(str, str, str, float, float, float, float, float, str, result=bool)
+    def updateCustomRangeSlider(self, range_slider_id, label, matlab_property, from_val, to_val, first_value, second_value, step_size, unit):
+        """Update an existing custom range slider definition in preprocessing_page.qml."""
         try:
             if not os.path.exists(self._preprocessing_qml_path):
-                print("Preprocessing QML file not found when updating custom dropdown.")
+                print("Preprocessing QML file not found when updating custom range slider.")
                 return False
 
             with open(self._preprocessing_qml_path, 'r', encoding='utf-8') as file:
                 content = file.read()
 
-            snippet = self._build_custom_dropdown_snippet(
-                dropdown_id,
+            snippet = self._build_custom_range_slider_snippet(
+                range_slider_id,
                 label,
                 matlab_property,
-                is_multi_select,
-                max_selections,
-                all_items,
-                selected_items,
+                from_val,
+                to_val,
+                first_value,
+                second_value,
+                step_size,
+                unit,
             )
 
-            new_content, replaced = self._replace_custom_dropdown_block(content, dropdown_id, snippet)
+            new_content, replaced = self._replace_custom_range_slider_block(content, range_slider_id, snippet)
             if not replaced:
-                print(f"Custom dropdown '{dropdown_id}' not found for update; attempting to append new block.")
-                new_content, inserted = self._insert_custom_dropdown_snippet(content, snippet)
+                print(f"Custom range slider '{range_slider_id}' not found for update; attempting to append new block.")
+                new_content, inserted = self._insert_custom_range_slider_snippet(content, snippet)
                 if not inserted:
                     return False
 
             with open(self._preprocessing_qml_path, 'w', encoding='utf-8') as file:
                 file.write(new_content)
 
-            print(f"Updated custom dropdown '{dropdown_id}' in QML file.")
+            print(f"Updated custom range slider '{range_slider_id}' in QML file.")
             return True
 
         except Exception as e:
-            print(f"Error updating custom dropdown '{dropdown_id}': {str(e)}")
+            print(f"Error updating custom range slider: {str(e)}")
             return False
 
     @pyqtSlot(str, result=bool)
-    def removeCustomDropdown(self, dropdown_id):
-        """Remove a custom dropdown definition from preprocessing_page.qml."""
+    def removeCustomRangeSlider(self, range_slider_id):
+        """Remove a custom range slider definition from preprocessing_page.qml."""
         try:
             if not os.path.exists(self._preprocessing_qml_path):
-                print("Preprocessing QML file not found when removing custom dropdown.")
+                print("Preprocessing QML file not found when removing custom range slider.")
                 return False
 
             with open(self._preprocessing_qml_path, 'r', encoding='utf-8') as file:
                 content = file.read()
 
-            new_content, removed = self._remove_custom_dropdown_block(content, dropdown_id)
-            if not removed:
-                print(f"Custom dropdown '{dropdown_id}' was not found for removal.")
+            positions = self._get_custom_range_slider_block_positions(content)
+            if range_slider_id not in positions:
+                print(f"Custom range slider '{range_slider_id}' not found for removal.")
                 return False
 
+            start, end = positions[range_slider_id]
+            new_content = content[:start] + content[end:]
+            
             with open(self._preprocessing_qml_path, 'w', encoding='utf-8') as file:
                 file.write(new_content)
 
-            print(f"Removed custom dropdown '{dropdown_id}' from QML file.")
+            print(f"Removed custom range slider '{range_slider_id}' from QML file.")
             return True
 
         except Exception as e:
-            print(f"Error removing custom dropdown '{dropdown_id}': {str(e)}")
+            print(f"Error removing custom range slider: {str(e)}")
             return False
 
     @pyqtSlot(str)
@@ -2469,8 +2894,6 @@ browse_ICA('{mat_file_path.replace(chr(92), '/')}');
                     
                     print(f"Removed '{itemToDelete}' from channel allItems")
                     return True
-            
-            return False
             
             return False
             
@@ -2891,3 +3314,549 @@ browse_ICA('{mat_file_path.replace(chr(92), '/')}');
         except Exception as e:
             print(f"Error removing custom range slider: {str(e)}")
             return False
+
+    @pyqtSlot(str)
+    def deleteCustomTrialfunOptionFromAllItems(self, itemToDelete):
+        """Remove a custom trialfun option from the trialfun dropdown's allItems array"""
+        try:
+            qml_file_path = self._preprocessing_qml_path
+            
+            # Read the current QML file
+            with open(qml_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # Find the trialfun allItems array (look for the pattern with ft_trialfun_general)
+            pattern = r'allItems: (\["ft_trialfun_general".*?\])'
+            match = re.search(pattern, content, re.DOTALL)
+            
+            if match:
+                current_array_str = match.group(1)
+                
+                # Parse the current array
+                import ast
+                try:
+                    current_array = ast.literal_eval(current_array_str)
+                except:
+                    # Fallback: extract items between quotes
+                    items = re.findall(r'"([^"]*)"', current_array_str)
+                    current_array = items
+                
+                # Remove the item if it exists
+                if itemToDelete in current_array:
+                    current_array.remove(itemToDelete)
+                    
+                    # Create the new array string
+                    new_array_str = '["' + '", "'.join(current_array) + '"]'
+                    
+                    # Replace in the content
+                    new_content = re.sub(pattern, f'allItems: {new_array_str}', content)
+                    
+                    # Write back to file
+                    with open(qml_file_path, 'w', encoding='utf-8') as file:
+                        file.write(new_content)
+                    
+                    print(f"Removed '{itemToDelete}' from trialfun allItems")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"Error removing custom trialfun option from allItems: {str(e)}")
+            return False
+
+    @pyqtSlot(str)
+    def deleteCustomEventtypeOptionFromAllItems(self, itemToDelete):
+        """Remove a custom eventtype option from the eventtype dropdown's allItems array"""
+        try:
+            qml_file_path = self._preprocessing_qml_path
+            
+            # Read the current QML file
+            with open(qml_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # Find the eventtype allItems array (look for the pattern with Stimulus)
+            pattern = r'allItems: (\["Stimulus".*?\])'
+            match = re.search(pattern, content, re.DOTALL)
+            
+            if match:
+                current_array_str = match.group(1)
+                
+                # Parse the current array
+                import ast
+                try:
+                    current_array = ast.literal_eval(current_array_str)
+                except:
+                    # Fallback: extract items between quotes
+                    items = re.findall(r'"([^"]*)"', current_array_str)
+                    current_array = items
+                
+                # Remove the item if it exists
+                if itemToDelete in current_array:
+                    current_array.remove(itemToDelete)
+                    
+                    # Create the new array string
+                    new_array_str = '["' + '", "'.join(current_array) + '"]'
+                    
+                    # Replace in the content
+                    new_content = re.sub(pattern, f'allItems: {new_array_str}', content)
+                    
+                    # Write back to file
+                    with open(qml_file_path, 'w', encoding='utf-8') as file:
+                        file.write(new_content)
+                    
+                    print(f"Removed '{itemToDelete}' from eventtype allItems")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"Error removing custom eventtype option from allItems: {str(e)}")
+            return False
+
+    @pyqtSlot(str)
+    def deleteCustomEventvalueOptionFromAllItems(self, itemToDelete):
+        """Remove a custom eventvalue option from the eventvalue dropdown's allItems array"""
+        try:
+            qml_file_path = self._preprocessing_qml_path
+            
+            # Read the current QML file
+            with open(qml_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # Find the eventvalue allItems array (look for the pattern with S200)
+            pattern = r'allItems: (\["S200".*?\])'
+            match = re.search(pattern, content, re.DOTALL)
+            
+            if match:
+                current_array_str = match.group(1)
+                
+                # Parse the current array
+                import ast
+                try:
+                    current_array = ast.literal_eval(current_array_str)
+                except:
+                    # Fallback: extract items between quotes
+                    items = re.findall(r'"([^"]*)"', current_array_str)
+                    current_array = items
+                
+                # Remove the item if it exists
+                if itemToDelete in current_array:
+                    current_array.remove(itemToDelete)
+                    
+                    # Create the new array string
+                    new_array_str = '["' + '", "'.join(current_array) + '"]'
+                    
+                    # Replace in the content
+                    new_content = re.sub(pattern, f'allItems: {new_array_str}', content)
+                    
+                    # Write back to file
+                    with open(qml_file_path, 'w', encoding='utf-8') as file:
+                        file.write(new_content)
+                    
+                    print(f"Removed '{itemToDelete}' from eventvalue allItems")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"Error removing custom eventvalue option from allItems: {str(e)}")
+            return False
+
+    @pyqtSlot(str)
+    def deleteCustomChannelOptionFromAllItems(self, itemToDelete):
+        """Remove a custom channel option from the channel dropdown's allItems array"""
+        try:
+            qml_file_path = self._preprocessing_qml_path
+            
+            # Read the current QML file
+            with open(qml_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # Find the channel allItems array (look for the pattern with Fp1)
+            pattern = r'allItems: (\["Fp1".*?\])'
+            match = re.search(pattern, content, re.DOTALL)
+            
+            if match:
+                current_array_str = match.group(1)
+                
+                # Parse the current array
+                import ast
+                try:
+                    current_array = ast.literal_eval(current_array_str)
+                except:
+                    # Fallback: extract items between quotes
+                    items = re.findall(r'"([^"]*)"', current_array_str)
+                    current_array = items
+                
+                # Remove the item if it exists
+                if itemToDelete in current_array:
+                    current_array.remove(itemToDelete)
+                    
+                    # Create the new array string
+                    new_array_str = '["' + '", "'.join(current_array) + '"]'
+                    
+                    # Replace in the content
+                    new_content = re.sub(pattern, f'allItems: {new_array_str}', content)
+                    
+                    # Write back to file
+                    with open(qml_file_path, 'w', encoding='utf-8') as file:
+                        file.write(new_content)
+                    
+                    print(f"Removed '{itemToDelete}' from channel allItems")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"Error removing custom channel option from allItems: {str(e)}")
+            return False
+
+    @pyqtSlot(float, float, float, float)
+    def updateBaselineSliderValues(self, from_val, to_val, first_val, second_val):
+        """Update the baseline slider values in the QML file"""
+        try:
+            qml_file_path = self._preprocessing_qml_path
+            
+            # Read the current QML file
+            with open(qml_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # Update from value
+            content = re.sub(r'(id: baselineSlider.*?from:) [\d\.\-]+', f'\\1 {from_val}', content, flags=re.DOTALL)
+            
+            # Update to value
+            content = re.sub(r'(id: baselineSlider.*?to:) [\d\.\-]+', f'\\1 {to_val}', content, flags=re.DOTALL)
+            
+            # Update firstValue
+            content = re.sub(r'(id: baselineSlider.*?firstValue:) [\d\.\-]+', f'\\1 {first_val}', content, flags=re.DOTALL)
+            
+            # Update secondValue
+            content = re.sub(r'(id: baselineSlider.*?secondValue:) [\d\.\-]+', f'\\1 {second_val}', content, flags=re.DOTALL)
+            
+            # Write back to file
+            with open(qml_file_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+            
+            print(f"Updated baseline slider values: from={from_val}, to={to_val}, firstValue={first_val}, secondValue={second_val}")
+            return True
+            
+        except Exception as e:
+            print(f"Error updating baseline slider values: {str(e)}")
+            return False
+
+    @pyqtSlot(float, float, float, float)
+    def updatePrestimPoststimSliderValues(self, from_val, to_val, first_val, second_val):
+        """Update the prestim/poststim slider values in the QML file"""
+        try:
+            qml_file_path = self._preprocessing_qml_path
+            
+            # Read the current QML file
+            with open(qml_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # Update from value
+            content = re.sub(r'(id: prestimPoststimSlider.*?from:) [\d\.\-]+', f'\\1 {from_val}', content, flags=re.DOTALL)
+            
+            # Update to value
+            content = re.sub(r'(id: prestimPoststimSlider.*?to:) [\d\.\-]+', f'\\1 {to_val}', content, flags=re.DOTALL)
+            
+            # Update firstValue
+            content = re.sub(r'(id: prestimPoststimSlider.*?firstValue:) [\d\.\-]+', f'\\1 {first_val}', content, flags=re.DOTALL)
+            
+            # Update secondValue
+            content = re.sub(r'(id: prestimPoststimSlider.*?secondValue:) [\d\.\-]+', f'\\1 {second_val}', content, flags=re.DOTALL)
+            
+            # Write back to file
+            with open(qml_file_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+            
+            print(f"Updated prestim/poststim slider values: from={from_val}, to={to_val}, firstValue={first_val}, secondValue={second_val}")
+            return True
+            
+        except Exception as e:
+            print(f"Error updating prestim/poststim slider values: {str(e)}")
+            return False
+
+    @pyqtSlot(float, float, float, float)
+    def updateErpRangeSliderValues(self, from_val, to_val, first_val, second_val):
+        """Update the ERP range slider values in the analysis processing QML file."""
+        try:
+            qml_file_path = self._analysis_processing_qml_path
+            if not os.path.exists(qml_file_path):
+                print("processing_page.qml not found; cannot persist ERP slider edits.")
+                return False
+
+            with open(qml_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+
+            def format_val(value):
+                try:
+                    numeric = float(value)
+                    if abs(numeric - round(numeric)) < 1e-9:
+                        return str(int(round(numeric)))
+                    formatted = f"{numeric:.6f}".rstrip('0').rstrip('.')
+                    return formatted if formatted else "0"
+                except (ValueError, TypeError):
+                    return str(value)
+
+            from_str = format_val(from_val)
+            to_str = format_val(to_val)
+            first_str = format_val(first_val)
+            second_str = format_val(second_val)
+
+            content = re.sub(
+                r'(id:\s*erpRangeSlider[\s\S]*?from:\s*)(-?[\d\.]+)',
+                r'\g<1>' + from_str,
+                content,
+                count=1,
+                flags=re.DOTALL,
+            )
+            content = re.sub(
+                r'(id:\s*erpRangeSlider[\s\S]*?to:\s*)(-?[\d\.]+)',
+                r'\g<1>' + to_str,
+                content,
+                count=1,
+                flags=re.DOTALL,
+            )
+            content = re.sub(
+                r'(id:\s*erpRangeSlider[\s\S]*?firstValue:\s*)(-?[\d\.]+)',
+                r'\g<1>' + first_str,
+                content,
+                count=1,
+                flags=re.DOTALL,
+            )
+            content = re.sub(
+                r'(id:\s*erpRangeSlider[\s\S]*?secondValue:\s*)(-?[\d\.]+)',
+                r'\g<1>' + second_str,
+                content,
+                count=1,
+                flags=re.DOTALL,
+            )
+
+            with open(qml_file_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+
+            print(
+                "Updated ERP range slider values: from=", from_str,
+                ", to=", to_str,
+                ", firstValue=", first_str,
+                ", secondValue=", second_str,
+                sep=""
+            )
+            return True
+
+        except Exception as e:
+            print(f"Error updating ERP range slider values: {str(e)}")
+            return False
+
+    @pyqtSlot(float, float, float, float)
+    def updateDftfreqSliderValues(self, from_val, to_val, first_val, second_val):
+        """Update the DFT frequency slider values in the QML file"""
+        try:
+            qml_file_path = self._preprocessing_qml_path
+            
+            # Read the current QML file
+            with open(qml_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # Update from value
+            content = re.sub(r'(id: dftfreqSlider.*?from:) [\d\.\-]+', f'\\1 {from_val}', content, flags=re.DOTALL)
+            
+            # Update to value
+            content = re.sub(r'(id: dftfreqSlider.*?to:) [\d\.\-]+', f'\\1 {to_val}', content, flags=re.DOTALL)
+            
+            # Update firstValue
+            content = re.sub(r'(id: dftfreqSlider.*?firstValue:) [\d\.\-]+', f'\\1 {first_val}', content, flags=re.DOTALL)
+            
+            # Update secondValue
+            content = re.sub(r'(id: dftfreqSlider.*?secondValue:) [\d\.\-]+', f'\\1 {second_val}', content, flags=re.DOTALL)
+            
+            # Write back to file
+            with open(qml_file_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+            
+            print(f"Updated DFT frequency slider values: from={from_val}, to={to_val}, firstValue={first_val}, secondValue={second_val}")
+            return True
+            
+        except Exception as e:
+            print(f"Error updating DFT frequency slider values: {str(e)}")
+            return False
+
+    def _get_custom_range_slider_block_positions(self, content: str):
+        pattern = re.compile(r'(\n\s*RangeSliderTemplate\s*\{\s*id\s*:\s*(customRangeSlider\d+)[\s\S]*?\n\s*\})')
+        positions = {}
+        for match in pattern.finditer(content):
+            block_id = match.group(2)
+            positions[block_id] = (match.start(1), match.end(1))
+        return positions
+
+    def _build_custom_range_slider_snippet(
+        self,
+        range_slider_id: str,
+        label: str,
+        matlab_property: str,
+        from_val: float,
+        to_val: float,
+        first_value: float,
+        second_value: float,
+        step_size: float,
+        unit: str,
+    ) -> str:
+        label = label.strip() or range_slider_id
+        matlab_property = matlab_property.strip()
+        if matlab_property and not matlab_property.startswith("cfg."):
+            matlab_property = f"cfg.{matlab_property}"
+
+        escaped_label = self._escape_qml_string(label)
+        escaped_property = self._escape_qml_string(matlab_property)
+        escaped_unit = self._escape_qml_string(unit)
+
+        lines = [
+            "",
+            "            RangeSliderTemplate {",
+            f"                id: {range_slider_id}",
+            f"                property string persistentId: \"{range_slider_id}\"",
+            f"                property string customLabel: \"{escaped_label}\"",
+            "                property bool persistenceConnected: false",
+            f"                label: \"{escaped_label}\"",
+            f"                matlabProperty: \"{escaped_property}\"",
+            f"                from: {from_val}",
+            f"                to: {to_val}",
+            f"                firstValue: {first_value}",
+            f"                secondValue: {second_value}",
+            f"                stepSize: {step_size}",
+            f"                unit: \"{escaped_unit}\"",
+            '                sliderState: "default"',
+            '                sliderId: ""',
+            '                matlabPropertyDraft: ""',
+            '                anchors.left: parent.left',
+            "            }\n",
+        ]
+
+        return "\n".join(lines)
+
+    def _insert_custom_range_slider_snippet(self, content: str, snippet: str):
+        start_marker = "id: customDropdownContainer"
+        start_index = content.find(start_marker)
+        if start_index == -1:
+            print("Custom dropdown container not found for range slider insertion.")
+            return content, False
+
+        # Find the opening brace of the container
+        open_brace_index = content.rfind('{', 0, start_index)
+        if open_brace_index == -1:
+            print("Container opening brace not found for range slider insertion.")
+            return content, False
+
+        # Find where to insert - look for the closing brace of the container
+        depth = 0
+        insert_index = -1
+        for idx in range(open_brace_index, len(content)):
+            char = content[idx]
+            if char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    insert_index = idx
+                    break
+
+        if insert_index == -1:
+            print("Container closing brace not found for range slider insertion.")
+            return content, False
+
+        # Insert the snippet before the closing brace
+        new_content = content[:insert_index] + snippet + content[insert_index:]
+        return new_content, True
+
+    def _replace_custom_range_slider_block(self, content: str, range_slider_id: str, new_snippet: str):
+        positions = self._get_custom_range_slider_block_positions(content)
+        if range_slider_id not in positions:
+            return content, False
+
+        start, end = positions[range_slider_id]
+        new_content = content[:start] + new_snippet + content[end:]
+        return new_content, True
+
+    def _next_custom_range_slider_index(self, existing_ids):
+        max_index = -1
+        for id_str in existing_ids:
+            match = re.match(r'customRangeSlider(\d+)', id_str)
+            if match:
+                index = int(match.group(1))
+                max_index = max(max_index, index)
+        return max_index + 1 if max_index >= 0 else 1
+
+
+    @pyqtSlot(str, result=str)
+    def getModuleParameters(self, module_name):
+        """Get dynamic parameters for a module as JSON string."""
+        try:
+            parser = MatlabParameterParser()
+            mapper = ModuleParameterMapper()
+            option_store = DropdownOptionStore()
+
+            matlab_files = mapper.get_matlab_file(module_name)
+            if not matlab_files:
+                print(f"No MATLAB file found for module: {module_name}")
+                return "{}"
+
+            # Convert relative path to absolute path
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            
+            parameters = {}
+            
+            # Handle both single file string and list of files
+            if isinstance(matlab_files, str):
+                matlab_files = [matlab_files]
+                
+            for matlab_file in matlab_files:
+                matlab_file_path = os.path.join(project_root, matlab_file)
+                file_params = parser.parse_file(matlab_file_path)
+                parameters.update(file_params)
+
+            ui_components = {}
+            for param_name, param_info in parameters.items():
+                option_entry = option_store.get_option_entry(param_name, module_name)
+                ui_components[param_name] = create_ui_component(param_name, param_info, option_entry)
+
+            # Custom logic for Preprocessing module
+            if module_name == "Preprocessing":
+                # Remove specific parameters
+                for key in ["demean", "dftfilter"]:
+                    if key in ui_components:
+                        del ui_components[key]
+
+                # Combine prestim and poststim into a slider
+                prestim_key = "trialdef.prestim"
+                poststim_key = "trialdef.poststim"
+                
+                if prestim_key in ui_components and poststim_key in ui_components:
+                    try:
+                        prestim_val = float(parameters[prestim_key].get('value', -2.0))
+                        poststim_val = float(parameters[poststim_key].get('value', 2.0))
+                        
+                        combined_key = "trial_time_window"
+                        ui_components[combined_key] = {
+                            "component_type": "RangeSliderTemplate",
+                            "label": "cfg.trialdef.prestim\ncfg.trialdef.poststim",
+                            "matlab_property": "trial_time_window",
+                            "first_value": prestim_val,
+                            "second_value": poststim_val,
+                            "from": -5.0,
+                            "to": 5.0,
+                            "step_size": 0.1,
+                            "unit": "s",
+                            "width_factor": 0.1,
+                            "background_color": "white"
+                        }
+                        
+                        del ui_components[prestim_key]
+                        del ui_components[poststim_key]
+                    except ValueError:
+                        pass # Keep original if parsing fails
+
+            return json.dumps(ui_components)
+        except Exception as e:
+            print(f"Error getting module parameters: {e}")
+            return "{}"

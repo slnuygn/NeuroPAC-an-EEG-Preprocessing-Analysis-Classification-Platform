@@ -3,6 +3,7 @@ import QtQuick.Controls.Basic 2.15
 import QtQuick.Dialogs
 import "."
 import "../../../ui"
+import "../../analysis/qml"
 
 Item {
     id: preprocessingPageRoot
@@ -18,11 +19,56 @@ Item {
     property bool showICABrowser: false  // Track ICA browser visibility
     property int customDropdownCount: 0
     property int customRangeSliderCount: 0
+
+    // Dynamic parameters
+    property var dynamicParameters: ({})
+    property var dynamicValues: ({})
+
+    Component.onCompleted: {
+        var jsonStr = matlabExecutor.getModuleParameters("Preprocessing")
+        try {
+            var params = JSON.parse(jsonStr)
+            
+            // Set grey background for sliders in Preprocessing page
+            for (var key in params) {
+                if (params[key].component_type === 'RangeSliderTemplate') {
+                    params[key].background_color = "#e0e0e0"
+                }
+            }
+            dynamicParameters = params
+
+            // Initialize dynamicValues
+            var values = {}
+            for (var key in dynamicParameters) {
+                var config = dynamicParameters[key]
+                if (config.component_type === 'RangeSliderTemplate') {
+                    values[key] = [config.first_value, config.second_value]
+                } else if (config.component_type === 'DropdownTemplate') {
+                    if (config.is_multi_select) {
+                        values[key] = config.selected_items || []
+                    } else {
+                        values[key] = config.model[config.current_index] || ""
+                    }
+                }
+            }
+            dynamicValues = values
+        } catch (e) {
+            console.error("Failed to parse dynamic parameters:", e)
+        }
+    }
     
     // Function to initialize eventvalues from main.qml
     function setInitialEventvalues(eventvalues) {
         if (eventvalues && eventvalues.length > 0) {
-            eventvalueDropdown.selectedItems = eventvalues
+            var params = JSON.parse(JSON.stringify(dynamicParameters))
+            if (params["trialdef.eventvalue"]) {
+                params["trialdef.eventvalue"].selected_items = eventvalues
+                dynamicParameters = params
+                
+                var values = dynamicValues
+                values["trialdef.eventvalue"] = eventvalues
+                dynamicValues = values
+            }
         }
     }
     
@@ -37,16 +83,32 @@ Item {
     // Function to initialize demean settings from main.qml
     function setInitialDemean(baselineWindow) {
         if (baselineWindow && baselineWindow.length >= 2) {
-            baselineSlider.firstValue = baselineWindow[0]
-            baselineSlider.secondValue = baselineWindow[1]
+            var params = JSON.parse(JSON.stringify(dynamicParameters))
+            if (params["baselinewindow"]) {
+                params["baselinewindow"].first_value = baselineWindow[0]
+                params["baselinewindow"].second_value = baselineWindow[1]
+                dynamicParameters = params
+                
+                var values = dynamicValues
+                values["baselinewindow"] = [baselineWindow[0], baselineWindow[1]]
+                dynamicValues = values
+            }
         }
     }
     
     // Function to initialize DFT filter settings from main.qml
     function setInitialDftfilter(dftfreq) {
         if (dftfreq && dftfreq.length >= 2) {
-            dftfreqSlider.firstValue = dftfreq[0]
-            dftfreqSlider.secondValue = dftfreq[1]
+            var params = JSON.parse(JSON.stringify(dynamicParameters))
+            if (params["dftfreq"]) {
+                params["dftfreq"].first_value = dftfreq[0]
+                params["dftfreq"].second_value = dftfreq[1]
+                dynamicParameters = params
+                
+                var values = dynamicValues
+                values["dftfreq"] = [dftfreq[0], dftfreq[1]]
+                dynamicValues = values
+            }
         }
     }
 
@@ -376,7 +438,8 @@ Item {
     }
 
     function isAllSelected() {
-        return selectedChannels.length === channelDropdown.allItems.length
+        // return selectedChannels.length === channelDropdown.allItems.length
+        return false // channelDropdown is removed
     }
 
     function toggleChannel(channel) {
@@ -397,8 +460,6 @@ Item {
     function getSelectedChannelsText() {
         if (selectedChannels.length === 0) {
             return "None"
-        } else if (selectedChannels.length === channelDropdown.allItems.length) {
-            return "All"
         } else {
             return selectedChannels.join(", ")
         }
@@ -408,54 +469,14 @@ Item {
         return selectedChannels.length
     }
 
-    // JavaScript functions for eventvalue selection
-    function isEventvalueSelected(eventvalue) {
-        return eventvalueDropdown.selectedItems.indexOf(eventvalue) !== -1
-    }
-
-    function toggleEventvalue(eventvalue) {
-        var index = eventvalueDropdown.selectedItems.indexOf(eventvalue)
-        var newSelection = eventvalueDropdown.selectedItems.slice() // Create a copy
-        
-        if (index !== -1) {
-            // Remove eventvalue
-            newSelection.splice(index, 1)
-        } else {
-            // Add eventvalue
-            newSelection.push(eventvalue)
-        }
-        
-        eventvalueDropdown.selectedItems = newSelection
-    }
-
-    function getSelectedEventvaluesText() {
-        if (eventvalueDropdown.selectedItems.length === 0) {
-            return ""
-        } else {
-            return "'" + eventvalueDropdown.selectedItems.join("' '") + "'"
-        }
-    }
-
-    function getSelectedEventvaluesCount() {
-        return eventvalueDropdown.selectedItems.length
-    }
-
     // Function to handle edit mode toggle from TopMenu
     function setEditMode(editModeEnabled) {
         preprocessingPageRoot.editModeEnabled = editModeEnabled
         var newState = editModeEnabled ? "edit" : "default"
         
         // Update all dropdown states
-        trialfunDropdown.dropdownState = newState
-        eventtypeDropdown.dropdownState = newState
-        eventvalueDropdown.dropdownState = newState
-        channelDropdown.dropdownState = newState
+        // channelDropdown.dropdownState = newState // Removed
         applyEditModeToCustomDropdowns(newState)
-        
-        // Update all slider states
-        prestimPoststimSlider.sliderState = newState
-        baselineSlider.sliderState = newState
-        dftfreqSlider.sliderState = newState
         
         console.log("Edit mode set to:", newState)
     }
@@ -491,7 +512,8 @@ Item {
             Column {
                 id: mainColumn
                 spacing: 10  // Reduced spacing for tighter layout
-                width: Math.max(preprocessingPageRoot.width * 0.25, 200)
+                // Match width of analysis page components: (PageWidth * 0.8 for module area) * (1/3 for component scale)
+                width: Math.max(preprocessingPageRoot.width * 0.8 / 3, 250)
                 anchors.horizontalCenter: parent.horizontalCenter
                 
                 Component.onCompleted: {
@@ -500,219 +522,29 @@ Item {
                 }
             
 
-        // Trialfun dropdown
-        DropdownTemplate {
-            id: trialfunDropdown
-            label: "Trialfun"
-            matlabProperty: "cfg.trialfun"
-            isMultiSelect: true
-            maxSelections: 1
-            allItems: ["ft_trialfun_general", "alternative", "asdasdasd"]
-            selectedItems: ["ft_trialfun_general"]
-            hasAddFeature: true
-            addPlaceholder: "Add custom trialfun..."
-            dropdownState: "default"
+                // Dynamic Parameters
+                Repeater {
+                    model: Object.keys(dynamicParameters)
+                    delegate: DynamicParameterLoader {
+                        width: mainColumn.width
+                        parameterName: modelData
+                        parameterConfig: dynamicParameters[modelData]
+                        editModeEnabled: preprocessingPageRoot.editModeEnabled
+                        contentWidthScale: 1.0
 
-            onMultiSelectionChanged: function(selected) {
-                if (selected.length > 0) {
-                    matlabExecutor.saveTrialfunSelection(selected[0], 0)
+                        onParameterChanged: function(paramName, value) {
+                            console.log("Parameter changed:", paramName, "=", value);
+                            var newValues = dynamicValues
+                            newValues[paramName] = value
+                            dynamicValues = newValues
+                            
+                            // Special handling for accepted_channels to update selectedChannels
+                            if (paramName === "accepted_channels") {
+                                selectedChannels = value
+                            }
+                        }
+                    }
                 }
-            }
-
-            onAddItem: function(newItem) {
-                // Save the custom option to the QML file
-                matlabExecutor.addCustomTrialfunOptionToAllItems(newItem)
-            }
-
-            onPropertySaveRequested: function(propertyName, selectedValues, useCellFormat) {
-                matlabExecutor.setDropdownState("trialfunDropdown", "default")
-            }
-
-            onDeleteItem: function(itemToDelete) {
-                // Remove the custom option from the QML file
-                matlabExecutor.deleteCustomTrialfunOptionFromAllItems(itemToDelete)
-            }
-
-            onDeleteRequested: {
-                // Handle deletion of this dropdown
-                trialfunDropdown.visible = false
-            }
-        }
-
-        // Eventtype dropdown
-        DropdownTemplate {
-            id: eventtypeDropdown
-            label: "Eventtype"
-            matlabProperty: "cfg.trialdef.eventtype"
-            isMultiSelect: true
-            maxSelections: 1
-            allItems: ["Stimulus", "alternatives"]
-            selectedItems: ["Stimulus"]
-            hasAddFeature: true
-            addPlaceholder: "Add custom eventtype..."
-            dropdownState: "default"
-
-            onMultiSelectionChanged: function(selected) {
-                if (selected.length > 0) {
-                    matlabExecutor.saveEventtypeSelection(selected[0], 0)
-                }
-            }
-
-            onAddItem: function(newItem) {
-                // Save the custom option to the QML file
-                matlabExecutor.addCustomEventtypeOptionToAllItems(newItem)
-            }
-
-            onDeleteItem: function(itemToDelete) {
-                // Remove the custom option from the QML file
-                matlabExecutor.deleteCustomEventtypeOptionFromAllItems(itemToDelete)
-            }
-
-            onDeleteRequested: {
-                // Handle deletion of this dropdown
-                eventtypeDropdown.visible = false
-            }
-        }
-
-        // Eventvalue multi-select dropdown
-        DropdownTemplate {
-            id: eventvalueDropdown
-            label: "Eventvalue"
-            matlabProperty: "cfg.trialdef.eventvalue"
-            isMultiSelect: true
-            allItems: ["S200", "S201", "S202"]
-            selectedItems: ["S200", "S201", "S202"]
-            hasAddFeature: true
-            addPlaceholder: "Add custom eventvalue..."
-            dropdownState: "default"
-
-            onMultiSelectionChanged: function(selected) {
-                // Handle multi-selection changes for eventvalues
-                console.log("Eventvalues selected:", selected)
-            }
-
-            onAddItem: function(newItem) {
-                // Save the custom option to the QML file
-                matlabExecutor.addCustomEventvalueOptionToAllItems(newItem)
-            }
-
-            onDeleteItem: function(itemToDelete) {
-                // Remove the custom option from the QML file
-                matlabExecutor.deleteCustomEventvalueOptionFromAllItems(itemToDelete)
-            }
-
-            onDeleteRequested: {
-                // Handle deletion of this dropdown
-                eventvalueDropdown.visible = false
-            }
-        }
-
-        // Channel Selection
-        // Channel Selection using DropdownTemplate
-        DropdownTemplate {
-            id: channelDropdown
-            label: "Choose Channels: " + getSelectedChannelsText()
-            matlabProperty: "cfg.channel"
-            isMultiSelect: true
-            model: ["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "C3", "Cz", "C4", "P3", "Pz", "P4", "T3", "T4", "T5", "T6", "O1", "O2", "Oz"]
-            allItems: ["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "C3", "Cz", "C4", "P3", "Pz", "P4", "T3", "T4", "T5", "T6", "O1", "O2", "Oz"]
-            selectedItems: ["F4", "Fz", "C3", "Pz", "P3", "O1", "Oz", "O2", "P4", "Cz", "C4"]
-            hasAddFeature: true
-            addPlaceholder: "Add custom channel..."
-            dropdownState: "default"
-
-            onMultiSelectionChanged: function(selected) {
-                // Update the selectedChannels property for backward compatibility
-                selectedChannels = selectedItems
-            }
-
-            onAddItem: function(newItem) {
-                // Save the custom option to the QML file
-                matlabExecutor.addCustomChannelOptionToAllItems(newItem)
-            }
-
-            onDeleteItem: function(itemToDelete) {
-                // Remove the custom option from the QML file
-                matlabExecutor.deleteCustomChannelOptionFromAllItems(itemToDelete)
-            }
-
-            onDeleteRequested: {
-                // Handle deletion of this dropdown
-                channelDropdown.visible = false
-            }
-        }
-
-        // Prestim/Poststim Range Slider using RangeSliderTemplate
-        RangeSliderTemplate {
-            id: prestimPoststimSlider
-            label: "Trial Time Window (seconds)"
-            matlabProperty: "cfg.trialdef"
-            from: 0.0
-            to: 1.0
-            firstValue: 0.5
-            secondValue: 1.0
-            stepSize: 0.1
-            unit: ""
-            sliderState: "default"
-            sliderId: "prestimPoststimSlider"
-
-            onRangeChanged: function(firstValue, secondValue) {
-                // Range values updated, will be used when running preprocessing
-            }
-
-            onDeleteRequested: {
-                // Handle deletion of this slider
-                prestimPoststimSlider.visible = false
-            }
-        }
-
-        // Baseline window range slider using RangeSliderTemplate
-        RangeSliderTemplate {
-            id: baselineSlider
-            label: "Baseline Window (seconds)"
-            matlabProperty: "cfg.baselinewindow"
-            from: -0.5
-            to: 0.6
-            firstValue: -0.2
-            secondValue: 0.2
-            stepSize: 0.1
-            unit: ""
-            sliderState: "default"
-            sliderId: "baselineSlider"
-
-            onRangeChanged: function(firstValue, secondValue) {
-                // Baseline values updated, will be used when running preprocessing
-            }
-
-            onDeleteRequested: {
-                // Handle deletion of this slider
-                baselineSlider.visible = false
-            }
-        }
-
-        // DFT Freq range slider using RangeSliderTemplate
-        RangeSliderTemplate {
-            id: dftfreqSlider
-            label: "DFT Frequency Range (Hz)"
-            matlabProperty: "cfg.dftfreq"
-            from: 45.0
-            to: 70.0
-            firstValue: 50.0
-            secondValue: 60.0
-            stepSize: 1
-            unit: ""
-            sliderState: "default"
-            sliderId: "dftfreqSlider"
-
-            onRangeChanged: function(firstValue, secondValue) {
-                // DFT frequency values updated, will be used when running preprocessing
-            }
-
-            onDeleteRequested: {
-                // Handle deletion of this slider
-                dftfreqSlider.visible = false
-            }
-        }
 
         Column {
             id: customDropdownContainer
@@ -808,25 +640,39 @@ Item {
         onClicked: {
             preprocessingPageRoot.isProcessing = true
             
-            var prestimValue = prestimPoststimSlider.firstValue
-            var poststimValue = prestimPoststimSlider.secondValue
-            var trialfunValue = trialfunDropdown.selectedItems.length > 0 ? trialfunDropdown.selectedItems[0] : ""
-            var eventtypeValue = eventtypeDropdown.selectedItems.length > 0 ? eventtypeDropdown.selectedItems[0] : ""
+            var prestimValue = 0.0
+            var poststimValue = 0.0
+            
+            if (dynamicValues["trial_time_window"]) {
+                prestimValue = parseFloat(dynamicValues["trial_time_window"][0])
+                poststimValue = parseFloat(dynamicValues["trial_time_window"][1])
+            } else {
+                prestimValue = parseFloat(dynamicValues["trialdef.prestim"] || 0.0)
+                poststimValue = parseFloat(dynamicValues["trialdef.poststim"] || 0.0)
+            }
+
+            var trialfunValue = dynamicValues["trialfun"] || ""
+            var eventtypeValue = dynamicValues["trialdef.eventtype"] || ""
+            var eventvalues = dynamicValues["trialdef.eventvalue"] || []
+            var baselineWindow = dynamicValues["baselinewindow"] || [0, 0]
+            var dftfreq = dynamicValues["dftfreq"] || [0, 0]
+            
             var selectedChannelsList = preprocessingPageRoot.selectedChannels
+            
             console.log("Running preprocessing and ICA:")
             console.log("cfg.trialdef.prestim =", prestimValue.toFixed(1))
             console.log("cfg.trialdef.poststim =", poststimValue.toFixed(1))
             console.log("cfg.trialfun =", trialfunValue)
             console.log("cfg.trialdef.eventtype =", eventtypeValue)
             console.log("selected channels =", selectedChannelsList)
-            console.log("cfg.trialdef.eventvalue =", eventvalueDropdown.selectedItems)
+            console.log("cfg.trialdef.eventvalue =", eventvalues)
             console.log("cfg.demean =", "yes")
-            console.log("cfg.baselinewindow =", "[" + baselineSlider.firstValue + " " + baselineSlider.secondValue + "]")
+            console.log("cfg.baselinewindow =", "[" + baselineWindow[0] + " " + baselineWindow[1] + "]")
             console.log("cfg.dftfilter =", "yes")
-            console.log("cfg.dftfreq =", "[" + dftfreqSlider.firstValue + " " + dftfreqSlider.secondValue + "]")
+            console.log("cfg.dftfreq =", "[" + dftfreq[0] + " " + dftfreq[1] + "]")
             console.log("data path =", preprocessingPageRoot.currentFolder)
             
-            matlabExecutor.runAndSaveConfiguration(prestimValue, poststimValue, trialfunValue, eventtypeValue, selectedChannelsList, eventvalueDropdown.selectedItems, true, baselineSlider.firstValue, baselineSlider.secondValue, true, dftfreqSlider.firstValue, dftfreqSlider.secondValue, preprocessingPageRoot.currentFolder)
+            matlabExecutor.runAndSaveConfiguration(prestimValue, poststimValue, trialfunValue, eventtypeValue, selectedChannelsList, eventvalues, true, baselineWindow[0], baselineWindow[1], true, dftfreq[0], dftfreq[1], preprocessingPageRoot.currentFolder)
         }
     }
 }  // End Item (preprocessingPageRoot)

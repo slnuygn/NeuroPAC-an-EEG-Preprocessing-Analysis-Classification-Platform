@@ -3,7 +3,7 @@ cfg         = [];
 cfg.output     = 'pow';
 cfg.method     = 'wavelet';
 
-cfg.toi        = -2.0 : 0.01 : 2.0;
+cfg.toi        = [-0.1 1];
 cfg.foi        = 1 : 0.5 : 15;
 
 cfg.pad = 8;

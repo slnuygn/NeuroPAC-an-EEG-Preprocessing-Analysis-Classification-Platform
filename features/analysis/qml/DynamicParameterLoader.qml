@@ -10,6 +10,7 @@ Item {
     property string parameterName: ""
     property var parameterConfig: ({})
     property bool editModeEnabled: false
+    property real contentWidthScale: 1.0/3.0
 
     // MATLAB executor is available globally as matlabExecutor context property
 
@@ -18,7 +19,7 @@ Item {
 
     Loader {
         id: parameterComponentLoader
-        width: parent.width / 3
+        width: parent.width * contentWidthScale
 
         onLoaded: {
             if (parameterConfig.component_type === "DropdownTemplate" && parameterComponentLoader.item) {

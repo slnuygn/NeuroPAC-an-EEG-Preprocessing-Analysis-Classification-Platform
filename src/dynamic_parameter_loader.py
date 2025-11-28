@@ -20,16 +20,24 @@ def get_module_parameters(module_name: str) -> dict:
     mapper = ModuleParameterMapper()
     option_store = DropdownOptionStore()
 
-    matlab_file = mapper.get_matlab_file(module_name)
-    if not matlab_file:
+    matlab_files = mapper.get_matlab_file(module_name)
+    if not matlab_files:
         return {}
 
     # Convert relative path to absolute path
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)  # Go up one level from src/
-    matlab_file_path = os.path.join(project_root, matlab_file)
-
-    parameters = parser.parse_file(matlab_file_path)
+    
+    parameters = {}
+    
+    # Handle both single file string and list of files
+    if isinstance(matlab_files, str):
+        matlab_files = [matlab_files]
+        
+    for matlab_file in matlab_files:
+        matlab_file_path = os.path.join(project_root, matlab_file)
+        file_params = parser.parse_file(matlab_file_path)
+        parameters.update(file_params)
 
     # Convert parameters to UI components
     ui_components = {}
