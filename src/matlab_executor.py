@@ -964,8 +964,8 @@ class MatlabExecutor(QObject):
             print(error_msg)
             self.configSaved.emit(error_msg)
     
-    @pyqtSlot(str, 'QVariant', bool, result=bool)
-    def saveDropdownPropertyToMatlab(self, matlab_property, selected_values, use_cell_format):
+    @pyqtSlot(str, 'QVariant', bool, str, result=bool)
+    def saveDropdownPropertyToMatlab(self, matlab_property, selected_values, use_cell_format, module_name=""):
         """Persist a dropdown selection as an assignment line in preprocess_data.m."""
         try:
             normalized_property = (matlab_property or "").strip()
@@ -973,7 +973,12 @@ class MatlabExecutor(QObject):
                 return False
 
             if not normalized_property.startswith("cfg."):
-                normalized_property = f"cfg.{normalized_property}"
+                # Check if it's a standalone variable (like accepted_channels)
+                # If module is Preprocessing and property is accepted_channels, it's standalone
+                if module_name == "Preprocessing" and normalized_property == "accepted_channels":
+                    pass # Keep as is
+                else:
+                    normalized_property = f"cfg.{normalized_property}"
 
             if hasattr(selected_values, 'toVariant'):
                 selected_values = selected_values.toVariant()
@@ -999,25 +1004,48 @@ class MatlabExecutor(QObject):
                 self.configSaved.emit(info_msg)
                 return False
 
-            # Determine target script based on property
+            # Determine target script based on module
             target_scripts = []
             
-            if normalized_property in ["cfg.output", "cfg.method", "cfg.taper", "cfg.pad", "cfg.foi"]:
+            if module_name == "Preprocessing":
+                if normalized_property == "accepted_channels":
+                     # Special case for accepted_channels in preprocessing.m
+                     script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "features", "preprocessing", "matlab", "preprocessing.m")
+                     target_scripts.append(("preprocessing.m", script_path))
+                else:
+                    preprocess_path = self._get_preprocess_data_script_path()
+                    if preprocess_path:
+                        target_scripts.append(("preprocess_data.m", preprocess_path))
+            elif module_name == "Spectral Analysis":
                  spectral_path = self._get_spectral_script_path()
                  if spectral_path:
                      target_scripts.append(("spectralanalysis.m", spectral_path))
-            elif normalized_property in ["cfg.toi", "cfg.width", "cfg.baselinetype", "cfg.parameter"]:
+            elif module_name == "Time-Frequency Analysis":
                  timefreq_path = self._get_timefreq_script_path()
                  if timefreq_path:
                      target_scripts.append(("timefreqanalysis.m", timefreq_path))
-            elif normalized_property == "cfg.latency":
+            elif module_name == "ERP Analysis":
                 decomp_path = self._get_timelock_script_path()
                 if decomp_path:
                     target_scripts.append(("timelock_func.m", decomp_path))
             else:
-                preprocess_path = self._get_preprocess_data_script_path()
-                if preprocess_path:
-                    target_scripts.append(("preprocess_data.m", preprocess_path))
+                # Fallback logic
+                if not module_name:
+                    if normalized_property in ["cfg.output", "cfg.method", "cfg.taper", "cfg.pad", "cfg.foi"]:
+                         spectral_path = self._get_spectral_script_path()
+                         if spectral_path:
+                             target_scripts.append(("spectralanalysis.m", spectral_path))
+                    elif normalized_property in ["cfg.toi", "cfg.width", "cfg.baselinetype", "cfg.parameter"]:
+                         timefreq_path = self._get_timefreq_script_path()
+                         if timefreq_path:
+                             target_scripts.append(("timefreqanalysis.m", timefreq_path))
+                    elif normalized_property == "cfg.latency":
+                        decomp_path = self._get_timelock_script_path()
+                        if decomp_path:
+                            target_scripts.append(("timelock_func.m", decomp_path))
+                    else:
+                        # DANGEROUS FALLBACK REMOVED
+                        print(f"Warning: No target script found for {normalized_property} (Module: {module_name})")
 
             if not target_scripts:
                 error_msg = f"No script targets available for {normalized_property}."
@@ -1103,8 +1131,8 @@ class MatlabExecutor(QObject):
             print(f"Error saving trial time window: {e}")
             return False
 
-    @pyqtSlot(str, float, float, str, result=bool)
-    def saveRangeSliderPropertyToMatlab(self, matlab_property, first_value, second_value, unit):
+    @pyqtSlot(str, float, float, str, str, result=bool)
+    def saveRangeSliderPropertyToMatlab(self, matlab_property, first_value, second_value, unit, module_name=""):
         """Persist a range slider selection as a MATLAB numeric array assignment."""
         try:
             normalized_property = (matlab_property or "").strip()
@@ -1116,32 +1144,54 @@ class MatlabExecutor(QObject):
 
             # Special handling for trial_time_window
             if normalized_property == "cfg.trial_time_window":
-                return self._save_trial_time_window(first_value, second_value)
+                if module_name == "Preprocessing":
+                    return self._save_trial_time_window(first_value, second_value)
+                else:
+                    return False
 
             formatted_value = self._format_matlab_numeric_range(first_value, second_value)
             unit_suffix = f" {unit}" if unit else ""
 
             target_scripts = []
-            if normalized_property in ["cfg.output", "cfg.method", "cfg.taper", "cfg.pad", "cfg.foi"]:
-                spectral_path = self._get_spectral_script_path()
-                if spectral_path:
-                    target_scripts.append(("spectralanalysis.m", spectral_path))
-            elif normalized_property in ["cfg.toi", "cfg.width", "cfg.baselinetype", "cfg.parameter"]:
-                timefreq_path = self._get_timefreq_script_path()
-                if timefreq_path:
-                    target_scripts.append(("timefreqanalysis.m", timefreq_path))
-            elif normalized_property == "cfg.latency":
-                decomp_path = self._get_timelock_script_path()
-                if decomp_path:
-                    target_scripts.append(("timelock_func.m", decomp_path))
-                else:
-                    print("timelock_func.m not found; cannot persist cfg.latency.")
-            else:
+            
+            # Strict module-based targeting
+            if module_name == "Preprocessing":
                 preprocess_path = self._get_preprocess_data_script_path()
                 if preprocess_path:
                     target_scripts.append(("preprocess_data.m", preprocess_path))
+            elif module_name == "Spectral Analysis":
+                spectral_path = self._get_spectral_script_path()
+                if spectral_path:
+                    target_scripts.append(("spectralanalysis.m", spectral_path))
+            elif module_name == "Time-Frequency Analysis":
+                timefreq_path = self._get_timefreq_script_path()
+                if timefreq_path:
+                    target_scripts.append(("timefreqanalysis.m", timefreq_path))
+            elif module_name == "ERP Analysis":
+                decomp_path = self._get_timelock_script_path()
+                if decomp_path:
+                    target_scripts.append(("timelock_func.m", decomp_path))
+            else:
+                # Fallback for backward compatibility or unknown modules
+                # Only use property-based inference if module_name is not provided
+                if not module_name:
+                    if normalized_property in ["cfg.output", "cfg.method", "cfg.taper", "cfg.pad", "cfg.foi"]:
+                        spectral_path = self._get_spectral_script_path()
+                        if spectral_path:
+                            target_scripts.append(("spectralanalysis.m", spectral_path))
+                    elif normalized_property in ["cfg.toi", "cfg.width", "cfg.baselinetype", "cfg.parameter"]:
+                        timefreq_path = self._get_timefreq_script_path()
+                        if timefreq_path:
+                            target_scripts.append(("timefreqanalysis.m", timefreq_path))
+                    elif normalized_property == "cfg.latency":
+                        decomp_path = self._get_timelock_script_path()
+                        if decomp_path:
+                            target_scripts.append(("timelock_func.m", decomp_path))
+                    else:
+                        # DANGEROUS FALLBACK REMOVED: Do not default to preprocess_data.m
+                        print(f"Warning: No target script found for {normalized_property} (Module: {module_name})")
                 else:
-                    print("preprocess_data.m not found; cannot persist range slider property.")
+                    print(f"Warning: Unknown module {module_name} for property {normalized_property}")
 
             if not target_scripts:
                 error_msg = f"No script targets available for {normalized_property}."
@@ -1371,6 +1421,9 @@ class MatlabExecutor(QObject):
             # First save the configuration using the existing method
             self.saveConfiguration(prestim_value, poststim_value, trialfun_value, eventtype_value, selected_channels, eventvalue_list, demean_enabled, baseline_start, baseline_end, dftfilter_enabled, dftfreq_start, dftfreq_end)
             
+            # Update the accepted_channels in preprocessing.m
+            self.updateSelectedChannels(selected_channels)
+
             # Update the data directory in preprocessing.m
             self.updateDataDirectory(data_path)
             

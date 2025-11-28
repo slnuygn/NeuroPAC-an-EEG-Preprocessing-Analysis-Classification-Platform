@@ -11,6 +11,8 @@ Item {
     property var parameterConfig: ({})
     property bool editModeEnabled: false
     property real contentWidthScale: 1.0/3.0
+    property bool autoSaveEnabled: true
+    property string moduleName: ""
 
     // MATLAB executor is available globally as matlabExecutor context property
 
@@ -128,7 +130,9 @@ Item {
                         if (initialized) {
                             dynamicParameterLoader.parameterChanged(parameterName, [firstValue, secondValue]);
                             // Auto-save to MATLAB
-                            matlabExecutor.saveRangeSliderPropertyToMatlab(parameterConfig.matlab_property, firstValue, secondValue, parameterConfig.unit || "");
+                            if (dynamicParameterLoader.autoSaveEnabled) {
+                                matlabExecutor.saveRangeSliderPropertyToMatlab(parameterConfig.matlab_property, firstValue, secondValue, parameterConfig.unit || "", dynamicParameterLoader.moduleName);
+                            }
                         }
                     }
 
@@ -136,7 +140,9 @@ Item {
                         if (initialized) {
                             dynamicParameterLoader.parameterChanged(parameterName, [firstValue, secondValue]);
                             // Auto-save to MATLAB
-                            matlabExecutor.saveRangeSliderPropertyToMatlab(parameterConfig.matlab_property, firstValue, secondValue, parameterConfig.unit || "");
+                            if (dynamicParameterLoader.autoSaveEnabled) {
+                                matlabExecutor.saveRangeSliderPropertyToMatlab(parameterConfig.matlab_property, firstValue, secondValue, parameterConfig.unit || "", dynamicParameterLoader.moduleName);
+                            }
                         }
                     }            property bool initialized: false
             Component.onCompleted: {
@@ -175,20 +181,26 @@ Item {
                 if (isMultiSelect) {
                     dynamicParameterLoader.parameterChanged(parameterName, selectedItems);
                     // Auto-save to MATLAB
-                    var needsCellFormat = parameterConfig.is_multi_select && (parameterConfig.max_selections !== 1);
-                    matlabExecutor.saveDropdownPropertyToMatlab(parameterConfig.matlab_property, selectedItems, needsCellFormat);
+                    if (dynamicParameterLoader.autoSaveEnabled) {
+                        var needsCellFormat = parameterConfig.is_multi_select && (parameterConfig.max_selections !== 1);
+                        matlabExecutor.saveDropdownPropertyToMatlab(parameterConfig.matlab_property, selectedItems, needsCellFormat, dynamicParameterLoader.moduleName);
+                    }
                 } else {
                     dynamicParameterLoader.parameterChanged(parameterName, model[currentIndex]);
                     // Auto-save to MATLAB
-                    matlabExecutor.saveDropdownPropertyToMatlab(parameterConfig.matlab_property, [model[currentIndex]], false);
+                    if (dynamicParameterLoader.autoSaveEnabled) {
+                        matlabExecutor.saveDropdownPropertyToMatlab(parameterConfig.matlab_property, [model[currentIndex]], false, dynamicParameterLoader.moduleName);
+                    }
                 }
             }
 
             onMultiSelectionChanged: {
                 dynamicParameterLoader.parameterChanged(parameterName, selectedItems);
                 // Auto-save to MATLAB
-                var needsCellFormat = parameterConfig.is_multi_select && (parameterConfig.max_selections !== 1);
-                matlabExecutor.saveDropdownPropertyToMatlab(parameterConfig.matlab_property, selectedItems, needsCellFormat);
+                if (dynamicParameterLoader.autoSaveEnabled) {
+                    var needsCellFormat = parameterConfig.is_multi_select && (parameterConfig.max_selections !== 1);
+                    matlabExecutor.saveDropdownPropertyToMatlab(parameterConfig.matlab_property, selectedItems, needsCellFormat, dynamicParameterLoader.moduleName);
+                }
             }
         }
     }
@@ -213,7 +225,9 @@ Item {
             onRangeChanged: function(firstValue, secondValue) {
                 dynamicParameterLoader.parameterChanged(parameterName, [firstValue, secondValue]);
                 // Auto-save to MATLAB
-                matlabExecutor.saveRangeSliderPropertyToMatlab(parameterConfig.matlab_property, firstValue, secondValue, parameterConfig.unit || "");
+                if (dynamicParameterLoader.autoSaveEnabled) {
+                    matlabExecutor.saveRangeSliderPropertyToMatlab(parameterConfig.matlab_property, firstValue, secondValue, parameterConfig.unit || "", dynamicParameterLoader.moduleName);
+                }
             }
         }
     }

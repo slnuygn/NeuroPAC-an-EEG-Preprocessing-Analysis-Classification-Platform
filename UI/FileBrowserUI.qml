@@ -269,7 +269,7 @@ Item {
                                         anchors.verticalCenter: parent.verticalCenter
                                         
                                         text: modelData
-                                        font.pixelSize: 10
+                                        font.pixelSize: 12
                                         color: modelData.endsWith('.mat') ? 
                                             (modelData.includes('ICA') || modelData.includes('ica') ? "#4caf50" : "#007bff") : "#333"
                                         font.underline: modelData.endsWith('.mat') && fileMouseArea.containsMouse

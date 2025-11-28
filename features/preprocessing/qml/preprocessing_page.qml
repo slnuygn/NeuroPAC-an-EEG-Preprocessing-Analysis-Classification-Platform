@@ -1,4 +1,5 @@
 ﻿import QtQuick 2.15
+import QtQuick.Controls 2.15
 import QtQuick.Controls.Basic 2.15
 import QtQuick.Dialogs
 import "."
@@ -76,7 +77,17 @@ Item {
     function setInitialChannels(channels) {
         if (channels && channels.length > 0) {
             selectedChannels = channels
-            channelDropdown.selectedItems = channels
+            
+            // Update dynamic parameters if "accepted_channels" exists
+            var params = JSON.parse(JSON.stringify(dynamicParameters))
+            if (params["accepted_channels"]) {
+                params["accepted_channels"].selected_items = channels
+                dynamicParameters = params
+                
+                var values = dynamicValues
+                values["accepted_channels"] = channels
+                dynamicValues = values
+            }
         }
     }
     
@@ -531,6 +542,8 @@ Item {
                         parameterConfig: dynamicParameters[modelData]
                         editModeEnabled: preprocessingPageRoot.editModeEnabled
                         contentWidthScale: 1.0
+                        autoSaveEnabled: false
+                        moduleName: "Preprocessing"
 
                         onParameterChanged: function(paramName, value) {
                             console.log("Parameter changed:", paramName, "=", value);
@@ -606,73 +619,220 @@ Item {
         }  // End ScrollView
     }  // End Rectangle
 
-    // Floating Action Button - Preprocess and Run ICA
-    Button {
-        id: runButton
-        text: preprocessingPageRoot.isProcessing ? "Processing..." : "Preprocess and Run ICA"
-        width: 200
-        height: 50
-        enabled: !preprocessingPageRoot.isProcessing
+    // Helper function to save parameters
+    function saveParameters() {
+        console.log("Saving all preprocessing parameters...")
+        var saveErrors = 0
         
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.rightMargin: 20
-        anchors.bottomMargin: 20
-        
-        z: 1000  // Ensure it floats above other content
-
-        background: Rectangle {
-            color: parent.enabled ? 
-                (parent.pressed ? "#1565c0" : (parent.hovered ? "#1976d2" : "#2196f3")) :
-                "#888888"
-            radius: 5
+        for (var key in dynamicValues) {
+            var value = dynamicValues[key]
+            var config = dynamicParameters[key]
+            var success = false
             
-        }
-
-        contentItem: Text {
-            text: parent.text
-            color: parent.enabled ? "white" : "#cccccc"
-            font.pixelSize: 13
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-        }
-
-        onClicked: {
-            preprocessingPageRoot.isProcessing = true
+            if (!config) continue
             
-            var prestimValue = 0.0
-            var poststimValue = 0.0
+            if (config.component_type === 'RangeSliderTemplate') {
+                // Handle range slider (including trial_time_window)
+                success = matlabExecutor.saveRangeSliderPropertyToMatlab(
+                    config.matlab_property, 
+                    value[0], 
+                    value[1], 
+                    config.unit || "", 
+                    "Preprocessing"
+                )
+            } else if (config.component_type === 'DropdownTemplate') {
+                // Handle dropdowns (including accepted_channels)
+                var needsCellFormat = config.is_multi_select && (config.max_selections !== 1)
+                success = matlabExecutor.saveDropdownPropertyToMatlab(
+                    config.matlab_property, 
+                    value, 
+                    needsCellFormat, 
+                    "Preprocessing"
+                )
+            }
             
-            if (dynamicValues["trial_time_window"]) {
-                prestimValue = parseFloat(dynamicValues["trial_time_window"][0])
-                poststimValue = parseFloat(dynamicValues["trial_time_window"][1])
+            if (success) {
+                console.log("Successfully saved parameter: " + key)
             } else {
-                prestimValue = parseFloat(dynamicValues["trialdef.prestim"] || 0.0)
-                poststimValue = parseFloat(dynamicValues["trialdef.poststim"] || 0.0)
+                console.error("Failed to save parameter: " + key)
+                saveErrors++
+            }
+        }
+        
+        if (saveErrors > 0) {
+            console.warn("Warning: " + saveErrors + " parameters failed to save.")
+            preprocessingPageRoot.saveMessage = "Warning: " + saveErrors + " parameters failed to save."
+        } else {
+            console.log("All parameters saved successfully.")
+            preprocessingPageRoot.saveMessage = "All parameters saved successfully."
+        }
+        
+        // Clear message after 3 seconds
+        saveTimer.restart()
+    }
+
+    // Helper function to run the pipeline
+    function runPipeline() {
+        preprocessingPageRoot.isProcessing = true
+        
+        // Save parameters first
+        saveParameters()
+
+        // Get values for runAndSaveConfiguration (legacy support for execution)
+        var prestimValue = 0.0
+        var poststimValue = 0.0
+        
+        if (dynamicValues["trial_time_window"]) {
+            prestimValue = parseFloat(dynamicValues["trial_time_window"][0])
+            poststimValue = parseFloat(dynamicValues["trial_time_window"][1])
+        } else {
+            prestimValue = parseFloat(dynamicValues["trialdef.prestim"] || 0.0)
+            poststimValue = parseFloat(dynamicValues["trialdef.poststim"] || 0.0)
+        }
+
+        var trialfunValue = dynamicValues["trialfun"] || ""
+        var eventtypeValue = dynamicValues["trialdef.eventtype"] || ""
+        var eventvalues = dynamicValues["trialdef.eventvalue"] || []
+        var baselineWindow = dynamicValues["baselinewindow"] || [0, 0]
+        var dftfreq = dynamicValues["dftfreq"] || [0, 0]
+        
+        var selectedChannelsList = preprocessingPageRoot.selectedChannels
+        
+        console.log("Running preprocessing and ICA:")
+        console.log("data path =", preprocessingPageRoot.currentFolder)
+        
+        // We still call runAndSaveConfiguration to handle the execution and data_dir update
+        matlabExecutor.runAndSaveConfiguration(prestimValue, poststimValue, trialfunValue, eventtypeValue, selectedChannelsList, eventvalues, true, baselineWindow[0], baselineWindow[1], true, dftfreq[0], dftfreq[1], preprocessingPageRoot.currentFolder)
+    }
+    
+    Timer {
+        id: saveTimer
+        interval: 3000
+        onTriggered: preprocessingPageRoot.saveMessage = ""
+    }
+
+    // Custom Split Button - Top Right
+    Rectangle {
+        id: splitButton
+        width: 160
+        height: 50
+        color: enabled ? "#2196f3" : "#888888"
+        radius: 5
+        
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: 20
+        anchors.rightMargin: 20
+        
+        z: 1000
+        enabled: !preprocessingPageRoot.isProcessing
+
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            
+            Rectangle {
+                anchors.fill: parent
+                color: parent.pressed ? "#1565c0" : (parent.containsMouse ? "#1976d2" : "transparent")
+                radius: 5
             }
 
-            var trialfunValue = dynamicValues["trialfun"] || ""
-            var eventtypeValue = dynamicValues["trialdef.eventtype"] || ""
-            var eventvalues = dynamicValues["trialdef.eventvalue"] || []
-            var baselineWindow = dynamicValues["baselinewindow"] || [0, 0]
-            var dftfreq = dynamicValues["dftfreq"] || [0, 0]
+            Row {
+                anchors.centerIn: parent
+                spacing: 10
+                
+                Text {
+                    text: preprocessingPageRoot.isProcessing ? "Processing..." : "Apply"
+                    color: "white"
+                    font.pixelSize: 14
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                
+                Text {
+                    text: "▼"
+                    color: "white"
+                    font.pixelSize: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
             
-            var selectedChannelsList = preprocessingPageRoot.selectedChannels
+            onClicked: {
+                optionsMenuRect.visible = !optionsMenuRect.visible
+            }
+        }
+    }
+
+    // Overlay to close menu when clicking outside
+    MouseArea {
+        anchors.fill: parent
+        z: 1500
+        enabled: optionsMenuRect.visible
+        onClicked: optionsMenuRect.visible = false
+    }
+
+    Rectangle {
+        id: optionsMenuRect
+        visible: false
+        z: 2000
+        
+        // Position relative to splitButton
+        x: splitButton.x
+        y: splitButton.y + splitButton.height + 2
+        width: splitButton.width
+        height: menuColumn.height
+        
+        color: "#ebebeb"
+        border.color: "#cccccc"
+        border.width: 1
+        radius: 2
+        
+        Column {
+            id: menuColumn
+            width: parent.width
             
-            console.log("Running preprocessing and ICA:")
-            console.log("cfg.trialdef.prestim =", prestimValue.toFixed(1))
-            console.log("cfg.trialdef.poststim =", poststimValue.toFixed(1))
-            console.log("cfg.trialfun =", trialfunValue)
-            console.log("cfg.trialdef.eventtype =", eventtypeValue)
-            console.log("selected channels =", selectedChannelsList)
-            console.log("cfg.trialdef.eventvalue =", eventvalues)
-            console.log("cfg.demean =", "yes")
-            console.log("cfg.baselinewindow =", "[" + baselineWindow[0] + " " + baselineWindow[1] + "]")
-            console.log("cfg.dftfilter =", "yes")
-            console.log("cfg.dftfreq =", "[" + dftfreq[0] + " " + dftfreq[1] + "]")
-            console.log("data path =", preprocessingPageRoot.currentFolder)
-            
-            matlabExecutor.runAndSaveConfiguration(prestimValue, poststimValue, trialfunValue, eventtypeValue, selectedChannelsList, eventvalues, true, baselineWindow[0], baselineWindow[1], true, dftfreq[0], dftfreq[1], preprocessingPageRoot.currentFolder)
+            Repeater {
+                model: [
+                    { text: "Save changes", action: function() { console.log("Save changes selected"); preprocessingPageRoot.saveParameters(); } },
+                    { text: "Preprocess", action: function() { console.log("Preprocess selected"); preprocessingPageRoot.runPipeline(); } },
+                    { text: "Run ICA", action: function() { console.log("Run ICA selected"); preprocessingPageRoot.runPipeline(); } }
+                ]
+                
+                delegate: Rectangle {
+                    width: optionsMenuRect.width
+                    height: 40
+                    color: itemMouseArea.containsMouse ? "#e0e0e0" : "transparent"
+                    
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        spacing: 5
+                        
+                        CheckBox {
+                            anchors.verticalCenter: parent.verticalCenter
+                            checked: false
+                            hoverEnabled: false
+                        }
+
+                        Text {
+                            text: modelData.text
+                            anchors.verticalCenter: parent.verticalCenter
+                            font.pixelSize: 14
+                            color: "#333333"
+                        }
+                    }
+                    
+                    MouseArea {
+                        id: itemMouseArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            optionsMenuRect.visible = false
+                            modelData.action()
+                        }
+                    }
+                }
+            }
         }
     }
 }  // End Item (preprocessingPageRoot)

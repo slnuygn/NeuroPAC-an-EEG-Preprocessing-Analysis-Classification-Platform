@@ -323,6 +323,7 @@ Item {
                     parameterName: modelData
                     parameterConfig: dynamicParameters[modelData]
                     editModeEnabled: moduleTemplate.editModeEnabled
+                    moduleName: moduleTemplate.moduleName
 
                     onParameterChanged: function(paramName, value) {
                         console.log("Parameter changed:", paramName, "=", value);

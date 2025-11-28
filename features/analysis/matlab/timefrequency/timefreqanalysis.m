@@ -4,7 +4,7 @@ cfg.output     = 'pow';
 cfg.method     = 'wavelet';
 
 cfg.toi        = [-0.1 1];
-cfg.foi        = 1 : 0.5 : 15;
+cfg.foi        = [1 15.1];
 
 cfg.pad = 8;
 cfg.width = 3;
