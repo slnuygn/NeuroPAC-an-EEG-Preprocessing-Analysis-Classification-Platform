@@ -267,6 +267,7 @@ Item {
 
                 onCurrentTextChanged: {
                     if (currentText) {
+                        dropdownTemplate.currentIndex = currentIndex
                         selectionChanged(currentText, currentIndex)
                     }
                 }
@@ -333,9 +334,29 @@ Item {
                                     anchors.leftMargin: 5
                                     anchors.rightMargin: 5
 
+                                    Rectangle {
+                                        id: singleOptionCheckbox
+                                        width: 15
+                                        height: 15
+                                        anchors.left: parent.left
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        border.color: "#666"
+                                        border.width: 1
+                                        color: comboBox.currentIndex === index ? "#2196f3" : "white"
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "✓"
+                                            color: "white"
+                                            font.pixelSize: 10
+                                            visible: comboBox.currentIndex === index
+                                        }
+                                    }
+
                                     Text {
                                         id: singleOptionText
-                                        anchors.left: parent.left
+                                        anchors.left: singleOptionCheckbox.right
+                                        anchors.leftMargin: 8
                                         anchors.right: dropdownTemplate.dropdownState === "edit" ? trashIcon.left : parent.right
                                         anchors.rightMargin: dropdownTemplate.dropdownState === "edit" ? 8 : 0
                                         anchors.verticalCenter: parent.verticalCenter
@@ -373,6 +394,7 @@ Item {
                                         } else {
                                             // Clicked on option text area - select the option
                                             comboBox.currentIndex = index
+                                            dropdownTemplate.currentIndex = index
                                             singleSelectPopup.visible = false
                                             selectionChanged(modelData, index)
                                         }
@@ -446,7 +468,11 @@ Item {
                                         var newModel = model.slice()
                                         newModel.push(newItem)
                                         model = newModel
+                                        
+                                        // Update selection
                                         comboBox.currentIndex = newModel.length - 1
+                                        dropdownTemplate.currentIndex = newModel.length - 1
+                                        selectionChanged(newItem, newModel.length - 1)
 
                                         // Emit signal
                                         addItem(newItem)

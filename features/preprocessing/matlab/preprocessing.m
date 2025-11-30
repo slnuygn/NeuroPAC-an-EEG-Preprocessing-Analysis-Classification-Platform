@@ -13,7 +13,7 @@ addpath(preprocessing_dir);
 cd(data_dir);
 files = dir('*.set');
 
-accepted_channels = {'F4', 'Fz', 'C3', 'Pz', 'P3', 'O1', 'Oz', 'O2', 'P4', 'Cz', 'C4', 'F3'};
+accepted_channels = {'F4' 'Fz' 'C3' 'Pz' 'P3' 'O1' 'Oz' 'O2' 'P4' 'Cz' 'C4' 'F3'};
 
 % Loop through each .set file
 for i = 1:length(files)

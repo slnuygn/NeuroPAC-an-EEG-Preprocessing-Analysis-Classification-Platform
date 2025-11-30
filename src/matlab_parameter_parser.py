@@ -25,17 +25,40 @@ class MatlabParameterParser:
             content = f.read()
 
         parameters = {}
+        all_matches = []
 
-        # Parse different parameter types
+        # Define priority for types to resolve conflicts (same start position)
+        # Lower index = higher priority
+        type_priority = {t: i for i, t in enumerate(self.parameter_patterns.keys())}
+
+        # Collect all matches with their positions
         for param_type, pattern in self.parameter_patterns.items():
-            matches = pattern.findall(content)
-            for match in matches:
-                param_name = match[0]
-                param_value = match[1]
-                print(f"Matched {param_name} as {param_type} with value: {repr(param_value)}")
+            for match in pattern.finditer(content):
+                try:
+                    param_name = match.group(1)
+                    param_value = match.group(2)
+                    all_matches.append({
+                        'start': match.start(),
+                        'name': param_name,
+                        'value': param_value,
+                        'type': param_type,
+                        'priority': type_priority[param_type]
+                    })
+                except IndexError:
+                    continue
 
-                if param_name not in parameters:  # Take first occurrence
-                    parameters[param_name] = self._parse_parameter_value(param_type, param_value, param_name)
+        # Sort by position in file, then by priority
+        all_matches.sort(key=lambda x: (x['start'], x['priority']))
+
+        # Process in order
+        for match in all_matches:
+            param_name = match['name']
+            param_type = match['type']
+            param_value = match['value']
+            
+            if param_name not in parameters:
+                print(f"Matched {param_name} as {param_type} with value: {repr(param_value)}")
+                parameters[param_name] = self._parse_parameter_value(param_type, param_value, param_name)
 
         return parameters
 
@@ -165,6 +188,89 @@ class DropdownOptionStore:
 
         return entry
 
+    def update_range_limits(self, parameter_name: str, min_val: float, max_val: float, module_name: str) -> bool:
+        """Update the min/max range limits for a parameter if necessary."""
+        key = (parameter_name or "").strip().lower()
+        if not key:
+            return False
+
+        if key not in self._options:
+            self._options[key] = {"modules": [module_name]}
+        
+        entry = self._options[key]
+        changed = False
+        
+        # Update min if not present or if new value is lower (expand range)
+        current_min = entry.get('min')
+        if current_min is None or min_val < current_min:
+            entry['min'] = float(min_val)
+            changed = True
+            
+        # Update max if not present or if new value is higher (expand range)
+        current_max = entry.get('max')
+        if current_max is None or max_val > current_max:
+            entry['max'] = float(max_val)
+            changed = True
+            
+        # Ensure module is listed
+        if "modules" not in entry:
+            entry["modules"] = [module_name]
+            changed = True
+        elif module_name not in entry["modules"]:
+            entry["modules"].append(module_name)
+            changed = True
+            
+        return changed
+
+    def add_option(self, parameter_name: str, new_option: str, module_name: str) -> bool:
+        """Add a new option to the dropdown list."""
+        key = (parameter_name or "").strip().lower()
+        if not key or not new_option:
+            return False
+
+        if key not in self._options:
+            self._options[key] = {
+                "modules": [module_name],
+                "options": [],
+                "has_add_feature": True,
+                "is_multi_select": False # Default to false, can be changed manually
+            }
+        
+        entry = self._options[key]
+        if "options" not in entry:
+            entry["options"] = []
+            
+        if new_option not in entry["options"]:
+            entry["options"].append(new_option)
+            
+            # Ensure module is listed
+            if "modules" not in entry:
+                entry["modules"] = [module_name]
+            elif module_name not in entry["modules"]:
+                entry["modules"].append(module_name)
+                
+            return True
+            
+        return False
+
+    def save(self):
+        """Save the current options to the JSON file."""
+        if not self.options_path:
+            return
+
+        payload = {
+            "version": 1,
+            "updated": "2025-11-30",
+            "description": "Stores curated choice lists for MATLAB cfg.* parameters that render as dropdowns in the analysis processing page.",
+            "parameters": self._options
+        }
+        
+        try:
+            with open(self.options_path, 'w', encoding='utf-8') as f:
+                json.dump(payload, f, indent=2)
+        except Exception as e:
+            print(f"Error saving dropdown options: {e}")
+
 def create_ui_component(
     parameter_name: str,
     parameter_info: Dict[str, Any],
@@ -179,11 +285,21 @@ def create_ui_component(
     option_entry = option_entry or {}
 
     if parameter_info['type'] == 'range':
+        # Check if explicit min/max are defined in options
+        min_val = option_entry.get('min')
+        max_val = option_entry.get('max')
+        
+        # If not defined, use the parsed values with padding as requested
+        if min_val is None:
+            min_val = parameter_info.get('from', 0) - 1.0
+        if max_val is None:
+            max_val = parameter_info.get('to', 1) + 1.0
+            
         component.update({
             'component_type': 'RangeSliderTemplate',
             'label': f'{parameter_name.replace("_", " ").title()}',
-            'from': parameter_info.get('from', 0),
-            'to': parameter_info.get('to', 1),
+            'from': float(min_val),
+            'to': float(max_val),
             'first_value': parameter_info.get('from', 0),
             'second_value': parameter_info.get('to', 1),
             'step_size': 0.1,
@@ -212,8 +328,9 @@ def create_ui_component(
             'component_type': 'DropdownTemplate',
             'label': f'{parameter_name.replace("_", " ").title()}',
             'model': options,
+            'all_items': options,  # Ensure all_items is populated for multi-select
             'current_index': current_index,
-            'has_add_feature': bool(option_entry.get('has_add_feature', False)),
+            'has_add_feature': bool(option_entry.get('has_add_feature', True)),
             'is_multi_select': bool(option_entry.get('is_multi_select', parameter_info.get('is_multi_select', False)))
         })
 

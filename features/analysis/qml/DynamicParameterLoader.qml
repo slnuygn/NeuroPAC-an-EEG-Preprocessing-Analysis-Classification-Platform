@@ -117,34 +117,27 @@ Item {
             sliderId: parameterConfig.parameter_name || "dynamic_slider"
             label: parameterConfig.label || parameterName
             matlabProperty: parameterConfig.matlab_property || ""
-            from: parameterConfig.from || 0
-            to: parameterConfig.to || 1
-            firstValue: parameterConfig.first_value || parameterConfig.from || 0
-            secondValue: parameterConfig.second_value || parameterConfig.to || 1
+            from: parameterConfig.from !== undefined ? parameterConfig.from : 0
+            to: parameterConfig.to !== undefined ? parameterConfig.to : 1
+            firstValue: parameterConfig.first_value !== undefined ? parameterConfig.first_value : (parameterConfig.from !== undefined ? parameterConfig.from : 0)
+            secondValue: parameterConfig.second_value !== undefined ? parameterConfig.second_value : (parameterConfig.to !== undefined ? parameterConfig.to : 1)
             stepSize: parameterConfig.step_size || 0.1
             unit: parameterConfig.unit || ""
             backgroundColor: parameterConfig.background_color || "white"
             sliderState: editModeEnabled ? "edit" : "default"
 
-                    onFirstValueChanged: {
-                        if (initialized) {
-                            dynamicParameterLoader.parameterChanged(parameterName, [firstValue, secondValue]);
-                            // Auto-save to MATLAB
-                            if (dynamicParameterLoader.autoSaveEnabled) {
-                                matlabExecutor.saveRangeSliderPropertyToMatlab(parameterConfig.matlab_property, firstValue, secondValue, parameterConfig.unit || "", dynamicParameterLoader.moduleName);
-                            }
-                        }
+            onRangeChanged: {
+                if (initialized) {
+                    console.log("Range changed for " + parameterName + ": " + firstValue + " - " + secondValue);
+                    dynamicParameterLoader.parameterChanged(parameterName, [firstValue, secondValue]);
+                    // Auto-save to MATLAB
+                    if (dynamicParameterLoader.autoSaveEnabled) {
+                        matlabExecutor.saveRangeSliderPropertyToMatlab(parameterConfig.matlab_property, firstValue, secondValue, parameterConfig.unit || "", dynamicParameterLoader.moduleName);
                     }
+                }
+            }
 
-                    onSecondValueChanged: {
-                        if (initialized) {
-                            dynamicParameterLoader.parameterChanged(parameterName, [firstValue, secondValue]);
-                            // Auto-save to MATLAB
-                            if (dynamicParameterLoader.autoSaveEnabled) {
-                                matlabExecutor.saveRangeSliderPropertyToMatlab(parameterConfig.matlab_property, firstValue, secondValue, parameterConfig.unit || "", dynamicParameterLoader.moduleName);
-                            }
-                        }
-                    }            property bool initialized: false
+            property bool initialized: false
             Component.onCompleted: {
                 initialized = true;
             }
@@ -177,7 +170,7 @@ Item {
             selectedItems: parameterConfig.selected_items || []
             dropdownState: editModeEnabled ? "edit" : "default"
 
-            onSelectionChanged: {
+            onSelectionChanged: function(value, index) {
                 if (isMultiSelect) {
                     dynamicParameterLoader.parameterChanged(parameterName, selectedItems);
                     // Auto-save to MATLAB
@@ -186,10 +179,11 @@ Item {
                         matlabExecutor.saveDropdownPropertyToMatlab(parameterConfig.matlab_property, selectedItems, needsCellFormat, dynamicParameterLoader.moduleName);
                     }
                 } else {
-                    dynamicParameterLoader.parameterChanged(parameterName, model[currentIndex]);
+                    var selectedValue = value;
+                    dynamicParameterLoader.parameterChanged(parameterName, selectedValue);
                     // Auto-save to MATLAB
                     if (dynamicParameterLoader.autoSaveEnabled) {
-                        matlabExecutor.saveDropdownPropertyToMatlab(parameterConfig.matlab_property, [model[currentIndex]], false, dynamicParameterLoader.moduleName);
+                        matlabExecutor.saveDropdownPropertyToMatlab(parameterConfig.matlab_property, [selectedValue], false, dynamicParameterLoader.moduleName);
                     }
                 }
             }
@@ -200,6 +194,13 @@ Item {
                 if (dynamicParameterLoader.autoSaveEnabled) {
                     var needsCellFormat = parameterConfig.is_multi_select && (parameterConfig.max_selections !== 1);
                     matlabExecutor.saveDropdownPropertyToMatlab(parameterConfig.matlab_property, selectedItems, needsCellFormat, dynamicParameterLoader.moduleName);
+                }
+            }
+
+            onAddItem: {
+                // Persist the new custom option to the JSON configuration
+                if (dynamicParameterLoader.autoSaveEnabled) {
+                    matlabExecutor.addCustomOption(parameterConfig.matlab_property, newItem, dynamicParameterLoader.moduleName);
                 }
             }
         }

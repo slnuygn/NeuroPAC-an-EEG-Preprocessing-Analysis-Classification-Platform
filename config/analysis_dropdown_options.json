@@ -1,10 +1,16 @@
 {
   "version": 1,
-  "updated": "2025-11-21",
+  "updated": "2025-11-30",
   "description": "Stores curated choice lists for MATLAB cfg.* parameters that render as dropdowns in the analysis processing page.",
   "parameters": {
     "output": {
-      "options": ["pow", "fourier", "avgpow", "phase", "keepsingletrials"],
+      "options": [
+        "pow",
+        "fourier",
+        "avgpow",
+        "phase",
+        "keepsingletrials"
+      ],
       "modules": [
         "Time-Frequency Analysis",
         "Spectral Analysis",
@@ -15,7 +21,13 @@
       "max_selections": 1
     },
     "method": {
-      "options": ["wavelet", "mtmfft", "mtmconvol", "mtmwelch", "hilbert"],
+      "options": [
+        "wavelet",
+        "mtmfft",
+        "mtmconvol",
+        "mtmwelch",
+        "hilbert"
+      ],
       "modules": [
         "Time-Frequency Analysis",
         "Spectral Analysis",
@@ -26,22 +38,41 @@
       "max_selections": 1
     },
     "taper": {
-      "options": ["hanning", "dpss", "rectwin", "bartlett"],
-      "modules": ["Spectral Analysis"],
+      "options": [
+        "hanning",
+        "dpss",
+        "rectwin",
+        "bartlett"
+      ],
+      "modules": [
+        "Spectral Analysis"
+      ],
       "has_add_feature": true,
       "is_multi_select": false,
       "max_selections": 1
     },
     "colorbar": {
-      "options": ["yes", "no"],
-      "modules": ["Time-Frequency Analysis"],
+      "options": [
+        "yes",
+        "no"
+      ],
+      "modules": [
+        "Time-Frequency Analysis"
+      ],
       "has_add_feature": false,
       "is_multi_select": false,
       "max_selections": 1
     },
     "zlim": {
-      "options": ["maxabs", "abs", "maxmin", "zeromax"],
-      "modules": ["Time-Frequency Analysis"],
+      "options": [
+        "maxabs",
+        "abs",
+        "maxmin",
+        "zeromax"
+      ],
+      "modules": [
+        "Time-Frequency Analysis"
+      ],
       "has_add_feature": true,
       "is_multi_select": false,
       "max_selections": 1
@@ -53,31 +84,140 @@
         "biosemi128.lay",
         "standard_1020.elc"
       ],
-      "modules": ["Time-Frequency Analysis"],
+      "modules": [
+        "Time-Frequency Analysis"
+      ],
       "has_add_feature": true,
       "is_multi_select": false,
       "max_selections": 1
     },
     "channel": {
-      "options": ["all", "EEG001", "EEG010", "EEG126"],
-      "modules": ["Time-Frequency Analysis"],
+      "options": [
+        "all",
+        "EEG001",
+        "EEG010",
+        "EEG126"
+      ],
+      "modules": [
+        "Time-Frequency Analysis"
+      ],
       "has_add_feature": true,
       "is_multi_select": false,
       "max_selections": 1
     },
     "baselinetype": {
-      "options": ["absolute", "relative", "relchange", "db"],
-      "modules": ["Time-Frequency Analysis"],
+      "options": [
+        "absolute",
+        "relative",
+        "relchange",
+        "db"
+      ],
+      "modules": [
+        "Time-Frequency Analysis"
+      ],
       "has_add_feature": true,
       "is_multi_select": false,
       "max_selections": 1
     },
     "parameter": {
-      "options": ["powspctrm", "avg", "trial", "mom"],
-      "modules": ["Time-Frequency Analysis"],
+      "options": [
+        "powspctrm",
+        "avg",
+        "trial",
+        "mom"
+      ],
+      "modules": [
+        "Time-Frequency Analysis"
+      ],
       "has_add_feature": true,
       "is_multi_select": false,
       "max_selections": 1
+    },
+    "accepted_channels": {
+      "options": [
+        "Fp1",
+        "Fp2",
+        "F7",
+        "F3",
+        "Fz",
+        "F4",
+        "F8",
+        "T7",
+        "C3",
+        "Cz",
+        "C4",
+        "T8",
+        "P7",
+        "P3",
+        "Pz",
+        "P4",
+        "P8",
+        "O1",
+        "Oz",
+        "O2"
+      ],
+      "modules": [
+        "Preprocessing"
+      ],
+      "has_add_feature": true,
+      "is_multi_select": true,
+      "max_selections": -1
+    },
+    "trialdef.eventvalue": {
+      "options": [
+        "S200",
+        "S201",
+        "S202"
+      ],
+      "modules": [
+        "Preprocessing"
+      ],
+      "has_add_feature": true,
+      "is_multi_select": true,
+      "max_selections": -1
+    },
+    "baselinewindow": {
+      "modules": [
+        "Preprocessing"
+      ],
+      "min": -3.0,
+      "max": 2.0
+    },
+    "dftfreq": {
+      "modules": [
+        "Preprocessing"
+      ],
+      "min": 49.0,
+      "max": 61.5
+    },
+    "trial_time_window": {
+      "modules": [
+        "Preprocessing"
+      ],
+      "min": -3.0,
+      "max": 3.0
+    },
+    "trialfun": {
+      "modules": [
+        "Preprocessing"
+      ],
+      "options": [
+        "ffgfgfg,",
+        "ft_trialfun_general"
+      ],
+      "has_add_feature": true,
+      "is_multi_select": false
+    },
+    "trialdef.eventtype": {
+      "modules": [
+        "Preprocessing"
+      ],
+      "options": [
+        "Stimulus",
+        "fghfghfh"
+      ],
+      "has_add_feature": true,
+      "is_multi_select": false
     }
   }
 }

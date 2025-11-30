@@ -136,6 +136,7 @@ class MatlabExecutor(QObject):
             "qml",
             "processing_page.qml",
         )
+        self._option_store = DropdownOptionStore()
 
     def _update_dropdown_state_in_qml(self, dropdown_id: str, new_state: str) -> bool:
         """Update the dropdownState property for a specific dropdown in the QML file."""
@@ -1050,32 +1051,47 @@ class MatlabExecutor(QObject):
             if not target_scripts:
                 error_msg = f"No script targets available for {normalized_property}."
                 print(error_msg)
-                self.configSaved.emit(error_msg)
+                # Suppress UI error message for missing targets to avoid annoyance
+                # self.configSaved.emit(error_msg)
                 return False
 
             messages = []
             any_changes = False
+            success_count = 0
 
             for display_name, script_path in target_scripts:
                 try:
+                    # Adjust property name based on file
+                    current_property = normalized_property
+                    if display_name == "preprocessing.m" and normalized_property == "cfg.accepted_channels":
+                        current_property = "accepted_channels"
+                    elif display_name == "preprocess_data.m" and normalized_property == "accepted_channels":
+                        current_property = "cfg.accepted_channels"
+                    elif display_name == "preprocess_data.m" and normalized_property == "cfg.accepted_channels":
+                        current_property = "cfg.accepted_channels"
+                    elif display_name == "preprocessing.m" and normalized_property == "accepted_channels":
+                        current_property = "accepted_channels"
+
                     with open(script_path, 'r', encoding='utf-8') as file:
                         content = file.read()
 
                     formatted_value = self._format_matlab_assignment_value(values_list, use_cell_format)
-                    replaced, new_content = self._replace_or_insert_matlab_assignment(content, normalized_property, formatted_value)
+                    replaced, new_content = self._replace_or_insert_matlab_assignment(content, current_property, formatted_value)
 
                     if new_content == content:
-                        info_msg = f"No changes required for {normalized_property} in {display_name}"
+                        info_msg = f"No changes required for {current_property} in {display_name}"
                         print(info_msg)
-                        messages.append(info_msg)
+                        # messages.append(info_msg)
+                        success_count += 1
                         continue
 
                     with open(script_path, 'w', encoding='utf-8') as file:
                         file.write(new_content)
 
                     any_changes = True
+                    success_count += 1
                     status = "Updated" if replaced else "Inserted"
-                    success_msg = f"{status} {normalized_property} = {formatted_value} in {display_name}"
+                    success_msg = f"{status} {current_property} = {formatted_value} in {display_name}"
                     print(success_msg)
                     messages.append(success_msg)
                 except Exception as inner_error:
@@ -1084,17 +1100,75 @@ class MatlabExecutor(QObject):
                     messages.append(error_msg)
 
             if not messages:
+                if success_count > 0:
+                    return True
                 messages.append(f"No script updates performed for {normalized_property}.")
 
             summary = "; ".join(messages)
             self.configSaved.emit(summary)
-            return any_changes
+            return success_count > 0
 
         except Exception as e:
             error_msg = f"Error saving {matlab_property} to preprocess_data.m: {str(e)}"
             print(error_msg)
             self.configSaved.emit(error_msg)
             return False
+
+    @pyqtSlot(str, str, str, result=bool)
+    def addCustomOption(self, matlab_property, new_option, module_name):
+        """Add a custom option to the persistent JSON store."""
+        try:
+            # Strip cfg. prefix if present
+            param_name = matlab_property.strip()
+            if param_name.startswith("cfg."):
+                param_name = param_name[4:]
+            
+            # Try to preserve the current value in the file if it's not in the options list
+            current_val = self._get_current_value_from_file(module_name, param_name)
+            if current_val:
+                # Add current value first so it appears in the list
+                self._option_store.add_option(param_name, current_val, module_name)
+
+            if self._option_store.add_option(param_name, new_option, module_name):
+                self._option_store.save()
+                print(f"Added custom option '{new_option}' to {param_name}")
+                return True
+            return False
+        except Exception as e:
+            print(f"Error adding custom option: {e}")
+            return False
+
+    def _get_current_value_from_file(self, module_name, param_name):
+        """Helper to read the current value of a parameter from the MATLAB file."""
+        try:
+            mapper = ModuleParameterMapper()
+            file_paths = mapper.get_matlab_file(module_name)
+            
+            if isinstance(file_paths, str):
+                file_paths = [file_paths]
+            elif not file_paths:
+                return None
+                
+            parser = MatlabParameterParser()
+            
+            for rel_path in file_paths:
+                # Handle both forward and backslashes in paths
+                rel_path = rel_path.replace('/', os.sep).replace('\\', os.sep)
+                abs_path = os.path.join(self._project_root, rel_path)
+                
+                if not os.path.exists(abs_path):
+                    continue
+                    
+                params = parser.parse_file(abs_path)
+                if param_name in params:
+                    info = params[param_name]
+                    # Only return string values for now
+                    if info.get('type') == 'string':
+                        return str(info.get('value', ''))
+            return None
+        except Exception as e:
+            print(f"Error reading current value for {param_name}: {e}")
+            return None
 
     def _save_trial_time_window(self, prestim, poststim):
         """Special handler for saving trial time window (prestim/poststim)."""
@@ -1196,11 +1270,13 @@ class MatlabExecutor(QObject):
             if not target_scripts:
                 error_msg = f"No script targets available for {normalized_property}."
                 print(error_msg)
-                self.configSaved.emit(error_msg)
+                # Suppress UI error message for missing targets to avoid annoyance
+                # self.configSaved.emit(error_msg)
                 return False
 
             messages = []
             any_changes = False
+            success_count = 0
 
             for display_name, script_path in target_scripts:
                 try:
@@ -1213,13 +1289,15 @@ class MatlabExecutor(QObject):
                     if new_content == content:
                         info_msg = f"No changes required for {normalized_property} in {display_name}"
                         print(info_msg)
-                        messages.append(info_msg)
+                        # messages.append(info_msg)
+                        success_count += 1
                         continue
 
                     with open(script_path, 'w', encoding='utf-8') as file:
                         file.write(new_content)
 
                     any_changes = True
+                    success_count += 1
                     status = "Updated" if replaced else "Inserted"
                     success_msg = f"{status} {normalized_property} = {formatted_value}{unit_suffix} in {display_name}"
                     print(success_msg)
@@ -1230,11 +1308,13 @@ class MatlabExecutor(QObject):
                     messages.append(error_msg)
 
             if not messages:
+                if success_count > 0:
+                    return True
                 messages.append(f"No script updates performed for {normalized_property}.")
 
             summary = "; ".join(messages)
             self.configSaved.emit(summary)
-            return any_changes
+            return success_count > 0
 
         except Exception as e:
             error_msg = f"Error saving range slider {matlab_property}: {str(e)}"
@@ -1271,11 +1351,13 @@ class MatlabExecutor(QObject):
             if not target_scripts:
                 error_msg = f"No script targets available for {normalized_property}."
                 print(error_msg)
-                self.configSaved.emit(error_msg)
+                # Suppress UI error message for missing targets to avoid annoyance
+                # self.configSaved.emit(error_msg)
                 return False
 
             messages = []
             any_changes = False
+            success_count = 0
 
             for display_name, script_path in target_scripts:
                 try:
@@ -1288,13 +1370,15 @@ class MatlabExecutor(QObject):
                     if new_content == content:
                         info_msg = f"No changes required for {normalized_property} in {display_name}"
                         print(info_msg)
-                        messages.append(info_msg)
+                        # messages.append(info_msg)
+                        success_count += 1
                         continue
 
                     with open(script_path, 'w', encoding='utf-8') as file:
                         file.write(new_content)
 
                     any_changes = True
+                    success_count += 1
                     status = "Updated" if replaced else "Inserted"
                     success_msg = f"{status} {normalized_property} = {formatted_value}{unit_suffix} in {display_name}"
                     print(success_msg)
@@ -1305,11 +1389,13 @@ class MatlabExecutor(QObject):
                     messages.append(error_msg)
 
             if not messages:
+                if success_count > 0:
+                    return True
                 messages.append(f"No script updates performed for {normalized_property}.")
 
             summary = "; ".join(messages)
             self.configSaved.emit(summary)
-            return any_changes
+            return success_count > 0
 
         except Exception as e:
             error_msg = f"Error saving tri-slider {matlab_property}: {str(e)}"
@@ -1341,7 +1427,8 @@ class MatlabExecutor(QObject):
             if not target_scripts:
                 error_msg = f"No script targets available to remove {normalized_property}."
                 print(error_msg)
-                self.configSaved.emit(error_msg)
+                # Suppress UI error message for missing targets to avoid annoyance
+                # self.configSaved.emit(error_msg)
                 return False
 
             messages = []
@@ -1384,31 +1471,30 @@ class MatlabExecutor(QObject):
 
     @pyqtSlot(list)
     def updateSelectedChannels(self, selected_channels):
-        """Update the accepted_channels in preprocessing.m with the selected channels"""
+        """Update the accepted_channels in preprocessing.m and preprocess_data.m with the selected channels"""
         try:
-            script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "features", "preprocessing", "matlab", "preprocessing.m")
-            
-            # Read the current file
-            with open(script_path, 'r') as file:
-                content = file.read()
-            
             # Format the channels as a MATLAB cell array
             if selected_channels:
                 channels_str = "', '".join(selected_channels)
                 matlab_channels = f"{{'{channels_str}'}}"
             else:
                 matlab_channels = "{}"
+
+            # 1. Update preprocessing.m (accepted_channels = ...)
+            script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "features", "preprocessing", "matlab", "preprocessing.m")
+            if os.path.exists(script_path):
+                with open(script_path, 'r') as file:
+                    content = file.read()
+                
+                # Replace the accepted_channels line
+                channels_pattern = r'accepted_channels\s*=\s*\{[^}]*\};'
+                channels_replacement = f'accepted_channels = {matlab_channels};'
+                content = re.sub(channels_pattern, channels_replacement, content)
+                
+                with open(script_path, 'w') as file:
+                    file.write(content)
             
-            # Replace the accepted_channels line
-            channels_pattern = r'accepted_channels\s*=\s*\{[^}]*\};'
-            channels_replacement = f'accepted_channels = {matlab_channels};'
-            content = re.sub(channels_pattern, channels_replacement, content)
-            
-            # Write the updated content back to the file
-            with open(script_path, 'w') as file:
-                file.write(content)
-            
-            print(f"Updated channels: {selected_channels}")
+            print(f"Updated channels in preprocessing.m: {selected_channels}")
             
         except Exception as e:
             error_msg = f"Error updating channels: {str(e)}"
@@ -1807,10 +1893,17 @@ class MatlabExecutor(QObject):
     def getCurrentChannels(self):
         """Read the current selected channels from preprocessing.m"""
         try:
+            # Use preprocessing.m as the source of truth for channels
             script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "features", "preprocessing", "matlab", "preprocessing.m")
+            
+            if not os.path.exists(script_path):
+                print("preprocessing.m not found")
+                return ['F4', 'Fz', 'C3', 'Pz', 'P3', 'O1', 'Oz', 'O2', 'P4', 'Cz', 'C4']
+            
             with open(script_path, 'r') as file:
                 content = file.read()
             
+            # Look for accepted_channels (preprocessing.m)
             pattern = r'accepted_channels\s*=\s*\{([^}]*)\};'
             match = re.search(pattern, content)
             
@@ -1824,8 +1917,7 @@ class MatlabExecutor(QObject):
                 
                 return channels
             else:
-                print("No accepted_channels pattern found, using defaults")
-                # Default channels if not found (matching what's typically in the file)
+                print("No accepted_channels pattern found in preprocessing.m, using defaults")
                 return ['F4', 'Fz', 'C3', 'Pz', 'P3', 'O1', 'Oz', 'O2', 'P4', 'Cz', 'C4']
         except Exception as e:
             print(f"Error reading current channels: {str(e)}")
@@ -3868,6 +3960,23 @@ browse_ICA('{mat_file_path.replace(chr(92), '/')}');
                 file_params = parser.parse_file(matlab_file_path)
                 parameters.update(file_params)
 
+            # Update range limits in option store based on current values
+            changes_made = False
+            for param_name, param_info in parameters.items():
+                if param_info.get('type') == 'range':
+                    current_from = param_info.get('from', 0)
+                    current_to = param_info.get('to', 1)
+                    
+                    # Logic: Expand range to be at least [value-1, value+1]
+                    desired_min = current_from - 1.0
+                    desired_max = current_to + 1.0
+                    
+                    if option_store.update_range_limits(param_name, desired_min, desired_max, module_name):
+                        changes_made = True
+            
+            if changes_made:
+                option_store.save()
+
             ui_components = {}
             for param_name, param_info in parameters.items():
                 option_entry = option_store.get_option_entry(param_name, module_name)
@@ -3890,14 +3999,25 @@ browse_ICA('{mat_file_path.replace(chr(92), '/')}');
                         poststim_val = float(parameters[poststim_key].get('value', 2.0))
                         
                         combined_key = "trial_time_window"
+                        
+                        # Check/Update limits for this combined parameter too
+                        desired_min = prestim_val - 1.0
+                        desired_max = poststim_val + 1.0
+                        if option_store.update_range_limits(combined_key, desired_min, desired_max, module_name):
+                            option_store.save()
+                            
+                        option_entry = option_store.get_option_entry(combined_key, module_name)
+                        min_val = option_entry.get('min', -5.0) if option_entry else -5.0
+                        max_val = option_entry.get('max', 5.0) if option_entry else 5.0
+
                         ui_components[combined_key] = {
                             "component_type": "RangeSliderTemplate",
                             "label": "cfg.trialdef.prestim\ncfg.trialdef.poststim",
                             "matlab_property": "trial_time_window",
                             "first_value": prestim_val,
                             "second_value": poststim_val,
-                            "from": -5.0,
-                            "to": 5.0,
+                            "from": min_val,
+                            "to": max_val,
                             "step_size": 0.1,
                             "unit": "s",
                             "width_factor": 0.1,

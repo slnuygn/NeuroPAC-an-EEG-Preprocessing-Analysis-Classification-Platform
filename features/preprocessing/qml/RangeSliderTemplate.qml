@@ -338,7 +338,7 @@ Item {
             Row {
                 spacing: 10
                 Text {
-                    text: "From:"
+                    text: "Min:"
                     font.pixelSize: 11
                     color: "#666"
                     anchors.verticalCenter: parent.verticalCenter
@@ -369,7 +369,7 @@ Item {
             Row {
                 spacing: 10
                 Text {
-                    text: "To:"
+                    text: "Max:"
                     font.pixelSize: 11
                     color: "#666"
                     anchors.verticalCenter: parent.verticalCenter

@@ -53,6 +53,12 @@ Item {
                 }
             }
             dynamicValues = values
+
+            // Sync selectedChannels with parsed accepted_channels
+            if (dynamicParameters["accepted_channels"] && dynamicParameters["accepted_channels"].selected_items) {
+                selectedChannels = dynamicParameters["accepted_channels"].selected_items
+                console.log("Initialized selectedChannels from file:", selectedChannels)
+            }
         } catch (e) {
             console.error("Failed to parse dynamic parameters:", e)
         }
@@ -331,6 +337,10 @@ Item {
             persistCustomRangeSlider(rangeSlider)
         })
 
+        rangeSlider.rangeChanged.connect(function(firstValue, secondValue) {
+            persistCustomRangeSlider(rangeSlider)
+        })
+
         rangeSlider.deleteRequested.connect(function() {
             if (rangeSlider.persistentId && rangeSlider.persistentId.length > 0) {
                 matlabExecutor.removeCustomRangeSlider(rangeSlider.persistentId)
@@ -542,7 +552,7 @@ Item {
                         parameterConfig: dynamicParameters[modelData]
                         editModeEnabled: preprocessingPageRoot.editModeEnabled
                         contentWidthScale: 1.0
-                        autoSaveEnabled: false
+                        autoSaveEnabled: true
                         moduleName: "Preprocessing"
 
                         onParameterChanged: function(paramName, value) {
