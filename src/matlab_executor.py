@@ -43,7 +43,7 @@ class MatlabWorkerThread(QThread):
             if self.show_console:
                 command_string = (
                     f"try, cd('{script_dir_unix}'); preprocessing; "
-                    "catch e, disp(getReport(e)); end; exit"
+                    "catch e, disp(getReport(e)); pause; end; exit"
                 )
                 cmd = [
                     self.matlab_path,
@@ -496,6 +496,12 @@ class MatlabExecutor(QObject):
 
         insertion_pattern = r'(?m)^\s*prepped_data\s*=\s*ft_preprocessing'
         match = re.search(insertion_pattern, content)
+        
+        if not match:
+             # Try finding the loop start in preprocessing.m
+             insertion_pattern = r'(?m)^\s*for\s+i\s*=\s*1:length\(files\)'
+             match = re.search(insertion_pattern, content)
+
         new_line = f"{property_name} = {formatted_value};\n"
         if match:
             idx = match.start()

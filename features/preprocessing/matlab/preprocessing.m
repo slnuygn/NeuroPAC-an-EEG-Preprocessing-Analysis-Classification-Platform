@@ -24,7 +24,7 @@ for i = 1:length(files)
     dataset = fullfile(data_dir, filename);
     
     % Process the data - this automatically stores in MATLAB workspace
-    data(i) = preprocess_data(dataset, accepted_channels);
+    data(i) = preprocess_data(dataset);
     
 end
 

@@ -177,9 +177,14 @@ try
         
         for i = 1:num_subjects
             fprintf('Decomposing subject %d/%d\n', i, num_subjects);
+            if iscell(clean_data)
+                current_clean = clean_data{i};
+            else
+                current_clean = clean_data(i);
+            end
             [clean_data_decomposed(i).target_data, ...
                 clean_data_decomposed(i).standard_data, ...
-                clean_data_decomposed(i).novelty_data] = decompose(clean_data{i});
+                clean_data_decomposed(i).novelty_data] = decompose(current_clean);
         end
         
         assignin('base', 'clean_data_decomposed', clean_data_decomposed);
