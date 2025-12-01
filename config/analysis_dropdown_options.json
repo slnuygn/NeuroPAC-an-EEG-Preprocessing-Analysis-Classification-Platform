@@ -40,6 +40,8 @@
     "taper": {
       "options": [
         "hanning",
+        "hamming",
+        "blackman",
         "dpss",
         "rectwin",
         "bartlett"
@@ -94,16 +96,34 @@
     "channel": {
       "options": [
         "all",
-        "EEG001",
-        "EEG010",
-        "EEG126"
+        "Fp1",
+        "Fp2",
+        "F7",
+        "F3",
+        "Fz",
+        "F4",
+        "F8",
+        "T7",
+        "C3",
+        "Cz",
+        "C4",
+        "T8",
+        "P7",
+        "P3",
+        "Pz",
+        "P4",
+        "P8",
+        "O1",
+        "Oz",
+        "O2"
       ],
       "modules": [
-        "Time-Frequency Analysis"
+        "Time-Frequency Analysis",
+        "Preprocessing"
       ],
       "has_add_feature": true,
-      "is_multi_select": false,
-      "max_selections": 1
+      "is_multi_select": true,
+      "max_selections": -1
     },
     "baselinetype": {
       "options": [
@@ -176,6 +196,29 @@
       "is_multi_select": true,
       "max_selections": -1
     },
+    "trialfun": {
+      "modules": [
+        "Preprocessing"
+      ],
+      "options": [
+        "ft_trialfun_general"
+      ],
+      "has_add_feature": true,
+      "is_multi_select": false
+    },
+    "trialdef.eventtype": {
+      "modules": [
+        "Preprocessing"
+      ],
+      "options": [
+        "Stimulus",
+        "Response",
+        "Trigger",
+        "unknown"
+      ],
+      "has_add_feature": true,
+      "is_multi_select": false
+    },
     "baselinewindow": {
       "modules": [
         "Preprocessing"
@@ -188,36 +231,7 @@
         "Preprocessing"
       ],
       "min": 49.0,
-      "max": 61.5
-    },
-    "trial_time_window": {
-      "modules": [
-        "Preprocessing"
-      ],
-      "min": -3.0,
-      "max": 3.0
-    },
-    "trialfun": {
-      "modules": [
-        "Preprocessing"
-      ],
-      "options": [
-        "ffgfgfg,",
-        "ft_trialfun_general"
-      ],
-      "has_add_feature": true,
-      "is_multi_select": false
-    },
-    "trialdef.eventtype": {
-      "modules": [
-        "Preprocessing"
-      ],
-      "options": [
-        "Stimulus",
-        "fghfghfh"
-      ],
-      "has_add_feature": true,
-      "is_multi_select": false
+      "max": 61.0
     }
   }
 }

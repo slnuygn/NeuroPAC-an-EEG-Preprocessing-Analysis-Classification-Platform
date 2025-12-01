@@ -1,7 +1,7 @@
 import sys
 import os
 sys.path.append(os.getcwd())
-from src.matlab_parameter_parser import MatlabParameterParser, create_ui_component, DropdownOptionStore
+from parser.matlab_parameter_parser import MatlabParameterParser, create_ui_component, DropdownOptionStore
 
 def debug_parser():
     parser = MatlabParameterParser()

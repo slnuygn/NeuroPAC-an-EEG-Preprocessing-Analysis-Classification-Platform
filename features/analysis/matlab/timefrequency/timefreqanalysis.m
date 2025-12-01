@@ -3,7 +3,7 @@ cfg         = [];
 cfg.output     = 'pow';
 cfg.method     = 'wavelet';
 
-cfg.toi        = [-0.1 1];
+cfg.toi        = [-2 2];
 cfg.foi        = [1 15.1];
 
 cfg.pad = 8;
@@ -21,7 +21,6 @@ cfg.trials   = (data.trialinfo == S202);
 novelty = ft_selectdata(cfg, data);
 freq_novelty = ft_freqanalysis(cfg, novelty);
 
-% decomposeu preprocessinge koy, erpden çıkar
 % baseline correction stage, time freqten sonra yap
 cfg= [];
 cfg.baselinetype = 'absolute';

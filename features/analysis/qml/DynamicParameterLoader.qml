@@ -41,6 +41,10 @@ Item {
                     return dropdownComponent;
                 case "StepRangeSliderTemplate":
                     return stepRangeSliderComponent;
+                case "InputBoxTemplate":
+                    return inputBoxComponent;
+                case "CheckBoxTemplate":
+                    return checkboxComponent;
                 default:
                     return null;
             }
@@ -233,6 +237,47 @@ Item {
         }
     }
 
+    Component {
+        id: inputBoxComponent
+
+        InputBoxTemplate {
+            id: inputBox
+            label: parameterConfig.label || parameterName
+            matlabProperty: parameterConfig.matlab_property || ""
+            text: parameterConfig.text || ""
+            isNumeric: parameterConfig.is_numeric || false
+            inputBoxState: editModeEnabled ? "edit" : "default"
+
+            onValueChanged: function(newValue) {
+                dynamicParameterLoader.parameterChanged(parameterName, newValue);
+                // Auto-save to MATLAB
+                if (dynamicParameterLoader.autoSaveEnabled) {
+                    matlabExecutor.saveInputPropertyToMatlab(parameterConfig.matlab_property, newValue, isNumeric, dynamicParameterLoader.moduleName);
+                }
+            }
+        }
+    }
+
+    Component {
+        id: checkboxComponent
+
+        CheckBoxTemplate {
+            id: checkbox
+            label: parameterConfig.label || parameterName
+            matlabProperty: parameterConfig.matlab_property || ""
+            checked: parameterConfig.checked || false
+            checkboxState: editModeEnabled ? "edit" : "default"
+
+            onToggled: function(isChecked) {
+                dynamicParameterLoader.parameterChanged(parameterName, isChecked);
+                // Auto-save to MATLAB
+                if (dynamicParameterLoader.autoSaveEnabled) {
+                    matlabExecutor.saveCheckboxPropertyToMatlab(parameterConfig.matlab_property, isChecked, dynamicParameterLoader.moduleName);
+                }
+            }
+        }
+    }
+
     // Function to get current parameter value
     function getCurrentValue() {
         if (parameterComponentLoader.item) {
@@ -244,6 +289,10 @@ Item {
                 } else {
                     return parameterComponentLoader.item.model[parameterComponentLoader.item.currentIndex];
                 }
+            } else if (parameterConfig.component_type === "InputBoxTemplate") {
+                return parameterComponentLoader.item.text;
+            } else if (parameterConfig.component_type === "CheckBoxTemplate") {
+                return parameterComponentLoader.item.checked;
             }
         }
         return null;
@@ -265,6 +314,10 @@ Item {
                     parameterComponentLoader.item.currentIndex = index;
                 }
             }
+        } else if (parameterConfig.component_type === "InputBoxTemplate") {
+            parameterComponentLoader.item.text = String(value);
+        } else if (parameterConfig.component_type === "CheckBoxTemplate") {
+            parameterComponentLoader.item.checked = Boolean(value);
         }
     }
 }

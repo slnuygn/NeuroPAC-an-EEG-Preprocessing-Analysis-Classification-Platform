@@ -75,6 +75,13 @@ class MatlabParameterParser:
                     'unit': 'ms' if 'latency' in param_name.lower() else ''
                 }
         elif param_type == 'string':
+            # Check for boolean-like strings
+            lower_val = value_str.lower()
+            if lower_val in ['yes', 'no', 'true', 'false']:
+                return {
+                    'type': 'boolean',
+                    'value': lower_val in ['yes', 'true']
+                }
             return {
                 'type': 'string',
                 'value': value_str,
@@ -146,7 +153,7 @@ class DropdownOptionStore:
     """Loads curated dropdown option sets from JSON for analysis parameters."""
 
     def __init__(self, options_path: Optional[str] = None):
-        self._project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self._project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.options_path = options_path or os.path.join(
             self._project_root, "config", "analysis_dropdown_options.json"
         )
@@ -307,10 +314,33 @@ def create_ui_component(
             'width_factor': 0.1,
             'background_color': 'white'
         })
-    elif parameter_info['type'] == 'string' or parameter_info['type'] == 'number':
+    elif parameter_info['type'] == 'boolean':
+        component.update({
+            'component_type': 'CheckBoxTemplate',
+            'label': f'{parameter_name.replace("_", " ").title()}',
+            'checked': parameter_info.get('value', False)
+        })
+    elif parameter_info['type'] == 'number':
+        component.update({
+            'component_type': 'InputBoxTemplate',
+            'label': f'{parameter_name.replace("_", " ").title()}',
+            'text': str(parameter_info.get('value', 0)),
+            'is_numeric': True
+        })
+    elif parameter_info['type'] == 'string':
         configured_options = option_entry.get('options') if option_entry else None
         base_options = parameter_info.get('options') or [str(parameter_info.get('value', ''))]
-        options = [str(item) for item in configured_options or base_options if str(item)]
+        
+        # Merge configured options and base options to ensure unparsed options are included
+        if configured_options:
+            options = list(configured_options)
+            # Add any base options that aren't in the configured list
+            for item in base_options:
+                s_item = str(item)
+                if s_item and s_item not in options:
+                    options.append(s_item)
+        else:
+            options = [str(item) for item in base_options if str(item)]
 
         current_value = str(parameter_info.get('value', ''))
         if current_value and current_value not in options:

@@ -76,7 +76,8 @@ Item {
         if (selectedItems.length === 0) {
             return ""
         } else {
-            return selectedItems.join(", ")
+            // Return space-separated quoted strings: 'A' 'B'
+            return "'" + selectedItems.join("' '") + "'"
         }
     }
 
@@ -138,7 +139,13 @@ Item {
             Text {
                 id: propertyDisplay
                 visible: dropdownState !== "add"
-                text: matlabProperty + " = '" + (isMultiSelect ? "{" + getMultiSelectFormattedText() + "}" : (comboBox.currentText || "none")) + "'"
+                text: {
+                    if (isMultiSelect) {
+                        return matlabProperty + " = {" + getMultiSelectFormattedText() + "};"
+                    } else {
+                        return matlabProperty + " = '" + (comboBox.currentText || "") + "';"
+                    }
+                }
                 font.pixelSize: 12
                 color: "#666"
                 wrapMode: Text.Wrap
@@ -204,7 +211,13 @@ Item {
                 Text {
                     id: valuePreview
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "= '" + (isMultiSelect ? "{" + getMultiSelectFormattedText() + "}" : (comboBox.currentText || "none")) + "'"
+                    text: {
+                        if (isMultiSelect) {
+                            return "= {" + getMultiSelectFormattedText() + "};"
+                        } else {
+                            return "= '" + (comboBox.currentText || "") + "';"
+                        }
+                    }
                     font.pixelSize: 12
                     color: "#666"
                     wrapMode: Text.NoWrap

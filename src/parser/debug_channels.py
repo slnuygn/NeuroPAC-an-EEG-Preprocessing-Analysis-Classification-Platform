@@ -5,7 +5,7 @@ import json
 # Add src to path
 sys.path.append(os.path.join(os.getcwd(), 'src'))
 
-from matlab_parameter_parser import MatlabParameterParser, create_ui_component
+from parser.matlab_parameter_parser import MatlabParameterParser, create_ui_component
 
 def debug_parser():
     parser = MatlabParameterParser()

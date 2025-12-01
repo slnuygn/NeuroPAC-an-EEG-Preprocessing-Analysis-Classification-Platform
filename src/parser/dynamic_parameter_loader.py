@@ -7,7 +7,7 @@ This script parses MATLAB files and generates UI component configurations.
 import sys
 import os
 import json
-from matlab_parameter_parser import (
+from parser.matlab_parameter_parser import (
     MatlabParameterParser,
     ModuleParameterMapper,
     DropdownOptionStore,
@@ -26,7 +26,7 @@ def get_module_parameters(module_name: str) -> dict:
 
     # Convert relative path to absolute path
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(script_dir)  # Go up one level from src/
+    project_root = os.path.dirname(os.path.dirname(script_dir))  # Go up to Capstone root
     
     parameters = {}
     

@@ -20,7 +20,7 @@ import features
 # Import our custom classes
 from file_browser import FileBrowser
 # from features.classification.python.config_manager import ClassificationConfig
-from src.matlab_executor import MatlabExecutor
+from matlab_executor import MatlabExecutor
 
 # Function to get the resource path (works for both development and PyInstaller)
 def resource_path(relative_path):

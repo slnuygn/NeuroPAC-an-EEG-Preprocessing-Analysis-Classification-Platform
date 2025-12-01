@@ -7,7 +7,7 @@ import json
 from typing import List, Optional
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QThread
 import scipy.io
-from src.matlab_parameter_parser import (
+from parser.matlab_parameter_parser import (
     MatlabParameterParser,
     ModuleParameterMapper,
     DropdownOptionStore,
@@ -1204,6 +1204,108 @@ class MatlabExecutor(QObject):
         except Exception as e:
             print(f"Error saving trial time window: {e}")
             return False
+
+    @pyqtSlot(str, "QVariant", bool, str, result=bool)
+    def saveInputPropertyToMatlab(self, matlab_property, value, is_numeric, module_name=""):
+        """Persist an input box value as a MATLAB assignment."""
+        try:
+            normalized_property = (matlab_property or "").strip()
+            if not normalized_property:
+                return False
+
+            if not normalized_property.startswith("cfg."):
+                normalized_property = f"cfg.{normalized_property}"
+
+            if is_numeric:
+                formatted_value = str(value)
+            else:
+                formatted_value = f"'{value}'"
+
+            return self._save_property_generic(normalized_property, formatted_value, module_name)
+        except Exception as e:
+            error_msg = f"Error saving input property {matlab_property}: {str(e)}"
+            print(error_msg)
+            self.configSaved.emit(error_msg)
+            return False
+
+    @pyqtSlot(str, bool, str, result=bool)
+    def saveCheckboxPropertyToMatlab(self, matlab_property, is_checked, module_name=""):
+        """Persist a checkbox state as a MATLAB assignment ('yes'/'no')."""
+        try:
+            normalized_property = (matlab_property or "").strip()
+            if not normalized_property:
+                return False
+
+            if not normalized_property.startswith("cfg."):
+                normalized_property = f"cfg.{normalized_property}"
+
+            formatted_value = "'yes'" if is_checked else "'no'"
+
+            return self._save_property_generic(normalized_property, formatted_value, module_name)
+        except Exception as e:
+            error_msg = f"Error saving checkbox property {matlab_property}: {str(e)}"
+            print(error_msg)
+            self.configSaved.emit(error_msg)
+            return False
+
+    def _save_property_generic(self, normalized_property, formatted_value, module_name):
+        """Generic helper to save a property to the correct script based on module."""
+        target_scripts = []
+        
+        if module_name == "Preprocessing":
+            preprocess_path = self._get_preprocess_data_script_path()
+            if preprocess_path:
+                target_scripts.append(("preprocess_data.m", preprocess_path))
+        elif module_name == "Spectral Analysis":
+            spectral_path = self._get_spectral_script_path()
+            if spectral_path:
+                target_scripts.append(("spectralanalysis.m", spectral_path))
+        elif module_name == "Time-Frequency Analysis":
+            timefreq_path = self._get_timefreq_script_path()
+            if timefreq_path:
+                target_scripts.append(("timefreqanalysis.m", timefreq_path))
+        elif module_name == "ERP Analysis":
+            decomp_path = self._get_timelock_script_path()
+            if decomp_path:
+                target_scripts.append(("timelock_func.m", decomp_path))
+        else:
+            print(f"Warning: Unknown module {module_name} for property {normalized_property}")
+            return False
+
+        if not target_scripts:
+            print(f"No script targets available for {normalized_property}.")
+            return False
+
+        success_count = 0
+        messages = []
+
+        for display_name, script_path in target_scripts:
+            try:
+                with open(script_path, 'r', encoding='utf-8') as file:
+                    content = file.read()
+
+                replaced, new_content = self._replace_or_insert_matlab_assignment(
+                    content, normalized_property, formatted_value)
+
+                if new_content == content:
+                    success_count += 1
+                    continue
+
+                with open(script_path, 'w', encoding='utf-8') as file:
+                    file.write(new_content)
+
+                success_count += 1
+                status = "Updated" if replaced else "Inserted"
+                success_msg = f"{status} {normalized_property} = {formatted_value} in {display_name}"
+                print(success_msg)
+                messages.append(success_msg)
+            except Exception as inner_error:
+                print(f"Error updating {display_name}: {inner_error}")
+
+        if messages:
+            self.configSaved.emit("; ".join(messages))
+            
+        return success_count > 0
 
     @pyqtSlot(str, float, float, str, str, result=bool)
     def saveRangeSliderPropertyToMatlab(self, matlab_property, first_value, second_value, unit, module_name=""):
@@ -3982,52 +4084,7 @@ browse_ICA('{mat_file_path.replace(chr(92), '/')}');
                 option_entry = option_store.get_option_entry(param_name, module_name)
                 ui_components[param_name] = create_ui_component(param_name, param_info, option_entry)
 
-            # Custom logic for Preprocessing module
-            if module_name == "Preprocessing":
-                # Remove specific parameters
-                for key in ["demean", "dftfilter"]:
-                    if key in ui_components:
-                        del ui_components[key]
 
-                # Combine prestim and poststim into a slider
-                prestim_key = "trialdef.prestim"
-                poststim_key = "trialdef.poststim"
-                
-                if prestim_key in ui_components and poststim_key in ui_components:
-                    try:
-                        prestim_val = float(parameters[prestim_key].get('value', -2.0))
-                        poststim_val = float(parameters[poststim_key].get('value', 2.0))
-                        
-                        combined_key = "trial_time_window"
-                        
-                        # Check/Update limits for this combined parameter too
-                        desired_min = prestim_val - 1.0
-                        desired_max = poststim_val + 1.0
-                        if option_store.update_range_limits(combined_key, desired_min, desired_max, module_name):
-                            option_store.save()
-                            
-                        option_entry = option_store.get_option_entry(combined_key, module_name)
-                        min_val = option_entry.get('min', -5.0) if option_entry else -5.0
-                        max_val = option_entry.get('max', 5.0) if option_entry else 5.0
-
-                        ui_components[combined_key] = {
-                            "component_type": "RangeSliderTemplate",
-                            "label": "cfg.trialdef.prestim\ncfg.trialdef.poststim",
-                            "matlab_property": "trial_time_window",
-                            "first_value": prestim_val,
-                            "second_value": poststim_val,
-                            "from": min_val,
-                            "to": max_val,
-                            "step_size": 0.1,
-                            "unit": "s",
-                            "width_factor": 0.1,
-                            "background_color": "white"
-                        }
-                        
-                        del ui_components[prestim_key]
-                        del ui_components[poststim_key]
-                    except ValueError:
-                        pass # Keep original if parsing fails
 
             return json.dumps(ui_components)
         except Exception as e:

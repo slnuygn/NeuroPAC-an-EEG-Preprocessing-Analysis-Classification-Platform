@@ -22,7 +22,3 @@ spectr_standard = ft_freqanalysis(cfg, standard);
 cfg.trials   = (data.trialinfo == S202);
 novelty = ft_selectdata(cfg, data);
 spectr_novelty = ft_freqanalysis(cfg, novelty);
-
-
-% bu scripte gerek yok, time freqle yapılabilir
-cfg.pad = 8;

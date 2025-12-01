@@ -50,6 +50,10 @@ Item {
                     } else {
                         values[key] = config.model[config.current_index] || ""
                     }
+                } else if (config.component_type === 'InputBoxTemplate') {
+                    values[key] = config.text || ""
+                } else if (config.component_type === 'CheckBoxTemplate') {
+                    values[key] = config.checked || false
                 }
             }
             dynamicValues = values
@@ -659,6 +663,19 @@ Item {
                     needsCellFormat, 
                     "Preprocessing"
                 )
+            } else if (config.component_type === 'InputBoxTemplate') {
+                success = matlabExecutor.saveInputPropertyToMatlab(
+                    config.matlab_property,
+                    value,
+                    config.is_numeric || false,
+                    "Preprocessing"
+                )
+            } else if (config.component_type === 'CheckBoxTemplate') {
+                success = matlabExecutor.saveCheckboxPropertyToMatlab(
+                    config.matlab_property,
+                    value,
+                    "Preprocessing"
+                )
             }
             
             if (success) {
@@ -688,31 +705,12 @@ Item {
         // Save parameters first
         saveParameters()
 
-        // Get values for runAndSaveConfiguration (legacy support for execution)
-        var prestimValue = 0.0
-        var poststimValue = 0.0
-        
-        if (dynamicValues["trial_time_window"]) {
-            prestimValue = parseFloat(dynamicValues["trial_time_window"][0])
-            poststimValue = parseFloat(dynamicValues["trial_time_window"][1])
-        } else {
-            prestimValue = parseFloat(dynamicValues["trialdef.prestim"] || 0.0)
-            poststimValue = parseFloat(dynamicValues["trialdef.poststim"] || 0.0)
-        }
-
-        var trialfunValue = dynamicValues["trialfun"] || ""
-        var eventtypeValue = dynamicValues["trialdef.eventtype"] || ""
-        var eventvalues = dynamicValues["trialdef.eventvalue"] || []
-        var baselineWindow = dynamicValues["baselinewindow"] || [0, 0]
-        var dftfreq = dynamicValues["dftfreq"] || [0, 0]
-        
-        var selectedChannelsList = preprocessingPageRoot.selectedChannels
-        
         console.log("Running preprocessing and ICA:")
         console.log("data path =", preprocessingPageRoot.currentFolder)
         
-        // We still call runAndSaveConfiguration to handle the execution and data_dir update
-        matlabExecutor.runAndSaveConfiguration(prestimValue, poststimValue, trialfunValue, eventtypeValue, selectedChannelsList, eventvalues, true, baselineWindow[0], baselineWindow[1], true, dftfreq[0], dftfreq[1], preprocessingPageRoot.currentFolder)
+        // Update data directory and execute
+        matlabExecutor.updateDataDirectory(preprocessingPageRoot.currentFolder)
+        matlabExecutor.executePreprocessing()
     }
     
     Timer {
@@ -721,10 +719,10 @@ Item {
         onTriggered: preprocessingPageRoot.saveMessage = ""
     }
 
-    // Custom Split Button - Top Right
+    // Action Button - Top Right
     Rectangle {
-        id: splitButton
-        width: 160
+        id: actionButton
+        width: 200
         height: 50
         color: enabled ? "#2196f3" : "#888888"
         radius: 5
@@ -748,100 +746,15 @@ Item {
                 radius: 5
             }
 
-            Row {
+            Text {
+                text: preprocessingPageRoot.isProcessing ? "Processing..." : "Preprocess and Run ICA"
+                color: "white"
+                font.pixelSize: 14
                 anchors.centerIn: parent
-                spacing: 10
-                
-                Text {
-                    text: preprocessingPageRoot.isProcessing ? "Processing..." : "Apply"
-                    color: "white"
-                    font.pixelSize: 14
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                
-                Text {
-                    text: "▼"
-                    color: "white"
-                    font.pixelSize: 12
-                    anchors.verticalCenter: parent.verticalCenter
-                }
             }
             
             onClicked: {
-                optionsMenuRect.visible = !optionsMenuRect.visible
-            }
-        }
-    }
-
-    // Overlay to close menu when clicking outside
-    MouseArea {
-        anchors.fill: parent
-        z: 1500
-        enabled: optionsMenuRect.visible
-        onClicked: optionsMenuRect.visible = false
-    }
-
-    Rectangle {
-        id: optionsMenuRect
-        visible: false
-        z: 2000
-        
-        // Position relative to splitButton
-        x: splitButton.x
-        y: splitButton.y + splitButton.height + 2
-        width: splitButton.width
-        height: menuColumn.height
-        
-        color: "#ebebeb"
-        border.color: "#cccccc"
-        border.width: 1
-        radius: 2
-        
-        Column {
-            id: menuColumn
-            width: parent.width
-            
-            Repeater {
-                model: [
-                    { text: "Save changes", action: function() { console.log("Save changes selected"); preprocessingPageRoot.saveParameters(); } },
-                    { text: "Preprocess", action: function() { console.log("Preprocess selected"); preprocessingPageRoot.runPipeline(); } },
-                    { text: "Run ICA", action: function() { console.log("Run ICA selected"); preprocessingPageRoot.runPipeline(); } }
-                ]
-                
-                delegate: Rectangle {
-                    width: optionsMenuRect.width
-                    height: 40
-                    color: itemMouseArea.containsMouse ? "#e0e0e0" : "transparent"
-                    
-                    Row {
-                        anchors.fill: parent
-                        anchors.leftMargin: 10
-                        spacing: 5
-                        
-                        CheckBox {
-                            anchors.verticalCenter: parent.verticalCenter
-                            checked: false
-                            hoverEnabled: false
-                        }
-
-                        Text {
-                            text: modelData.text
-                            anchors.verticalCenter: parent.verticalCenter
-                            font.pixelSize: 14
-                            color: "#333333"
-                        }
-                    }
-                    
-                    MouseArea {
-                        id: itemMouseArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                            optionsMenuRect.visible = false
-                            modelData.action()
-                        }
-                    }
-                }
+                preprocessingPageRoot.runPipeline()
             }
         }
     }
