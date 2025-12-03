@@ -217,6 +217,13 @@ Item {
                     matlabExecutor.addCustomOption(parameterConfig.matlab_property, newItem, dynamicParameterLoader.moduleName);
                 }
             }
+
+            onDeleteItem: {
+                // Remove the custom option from the JSON configuration
+                if (dynamicParameterLoader.autoSaveEnabled) {
+                    matlabExecutor.removeCustomOption(parameterConfig.matlab_property, itemToDelete, dynamicParameterLoader.moduleName);
+                }
+            }
         }
     }
 

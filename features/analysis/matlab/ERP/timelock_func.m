@@ -98,6 +98,7 @@ for i = 1:numTrials
     cfg.hmm = {'a' 'b'};
     cfg.lalalala  = 'test';
     cfg.isthistest = 'yes';
+    cfg.number = 5;
     
     
     if isfield(data_decomposed(i), 'target') && ~isempty(data_decomposed(i).target)

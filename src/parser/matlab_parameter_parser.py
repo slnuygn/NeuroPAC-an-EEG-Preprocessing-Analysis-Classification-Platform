@@ -243,18 +243,41 @@ class DropdownOptionStore:
             }
         
         entry = self._options[key]
+        changed = False
+
         if "options" not in entry:
             entry["options"] = []
+            changed = True
             
         if new_option not in entry["options"]:
             entry["options"].append(new_option)
+            changed = True
             
-            # Ensure module is listed
-            if "modules" not in entry:
-                entry["modules"] = [module_name]
-            elif module_name not in entry["modules"]:
-                entry["modules"].append(module_name)
+        # Ensure module is listed
+        if "modules" not in entry:
+            entry["modules"] = [module_name]
+            changed = True
+        elif module_name and module_name not in entry["modules"]:
+            entry["modules"].append(module_name)
+            changed = True
                 
+        return changed
+
+    def remove_option(self, parameter_name: str, option_to_remove: str, module_name: str) -> bool:
+        """Remove an option from the dropdown list."""
+        key = (parameter_name or "").strip().lower()
+        if not key or not option_to_remove:
+            return False
+
+        if key not in self._options:
+            return False
+        
+        entry = self._options[key]
+        if "options" not in entry:
+            return False
+            
+        if option_to_remove in entry["options"]:
+            entry["options"].remove(option_to_remove)
             return True
             
         return False

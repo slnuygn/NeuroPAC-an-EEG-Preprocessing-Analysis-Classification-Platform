@@ -338,7 +338,7 @@ Item {
                         Repeater {
                             model: comboBox.model
                             delegate: Rectangle {
-                                width: singleSelectPopup.width
+                                width: singleSelectPopup.width - 5
                                 height: 25
                                 color: comboBox.currentIndex === index ? "#e3f2fd" : (optionMouseArea.containsMouse ? "#f5f5f5" : "transparent")
 
@@ -346,6 +346,7 @@ Item {
                                     anchors.fill: parent
                                     anchors.leftMargin: 5
                                     anchors.rightMargin: 5
+                                    z: 1
 
                                     Rectangle {
                                         id: singleOptionCheckbox
@@ -370,47 +371,57 @@ Item {
                                         id: singleOptionText
                                         anchors.left: singleOptionCheckbox.right
                                         anchors.leftMargin: 8
-                                        anchors.right: dropdownTemplate.dropdownState === "edit" ? trashIcon.left : parent.right
-                                        anchors.rightMargin: dropdownTemplate.dropdownState === "edit" ? 8 : 0
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: dropdownTemplate.dropdownState === "edit" ? 25 : 0
                                         anchors.verticalCenter: parent.verticalCenter
                                         text: modelData
                                         font.pixelSize: 12
                                         color: "#333"
                                         elide: Text.ElideRight  // Truncate text if too long
                                     }
+                                }
 
-                                    // Trash icon (visible only in edit mode, higher opacity on hover)
-                                    Text {
-                                        id: trashIcon
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        anchors.right: parent.right
-                                        width: 20
-                                        height: 20
-                                        horizontalAlignment: Text.AlignHCenter
-                                        verticalAlignment: Text.AlignVCenter
-                                        text: "🗑️"
-                                        font.pixelSize: 12
-                                        color: "#666"
-                                        opacity: optionMouseArea.containsMouse ? 0.9 : 0.3
-                                        visible: dropdownTemplate.dropdownState === "edit"
-                                    }
+                            // Trash icon container
+                            Rectangle {
+                                id: trashContainer
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.right: parent.right
+                                anchors.rightMargin: 5
+                                width: 24
+                                height: 24
+                                radius: 4
+                                color: trashMouseArea.pressed ? "#ffcdd2" : (trashMouseArea.containsMouse ? "#ffebee" : "transparent")
+                                visible: dropdownTemplate.dropdownState === "edit"
+                                z: 2
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "🗑️"
+                                    font.pixelSize: 14
+                                    color: "#d32f2f"
+                                    opacity: 1.0
                                 }
 
                                 MouseArea {
-                                    id: optionMouseArea
+                                    id: trashMouseArea
                                     anchors.fill: parent
                                     hoverEnabled: true
-                                    onClicked: function(mouse) {
-                                        if (dropdownTemplate.dropdownState === "edit" && mouse.x >= parent.width - 25) {
-                                            // Clicked on trash icon area - delete the option
-                                            deleteOption(modelData, index)
-                                        } else {
-                                            // Clicked on option text area - select the option
-                                            comboBox.currentIndex = index
-                                            dropdownTemplate.currentIndex = index
-                                            singleSelectPopup.visible = false
-                                            selectionChanged(modelData, index)
-                                        }
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: deleteOption(modelData, index)
+                                }
+                            }                                MouseArea {
+                                    id: optionMouseArea
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    anchors.right: dropdownTemplate.dropdownState === "edit" ? trashContainer.left : parent.right
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        // Clicked on option text area - select the option
+                                        comboBox.currentIndex = index
+                                        dropdownTemplate.currentIndex = index
+                                        singleSelectPopup.visible = false
+                                        selectionChanged(modelData, index)
                                     }
                                 }
                             }
@@ -419,7 +430,7 @@ Item {
                         // Add new item option (only when hasAddFeature is true and in edit/add mode)
                         Rectangle {
                             visible: hasAddFeature && (dropdownState === "edit" || dropdownState === "add")
-                            width: singleSelectPopup.width
+                            width: singleSelectPopup.width - 5
                             height: singleAddInput.visible ? 30 : 25
                             color: "transparent"
 
@@ -594,7 +605,7 @@ Item {
 
                     // Include All option (only for multi-select with unlimited selections)
                     Rectangle {
-                        width: multiSelectPopup.width
+                        width: multiSelectPopup.width - 5
                         height: maxSelections === 1 ? 0 : 25
                         visible: maxSelections !== 1
                         color: selectedItems.length === allItems.length ? "#e3f2fd" : "transparent"
@@ -651,7 +662,7 @@ Item {
                         model: allItems
 
                         Rectangle {
-                            width: multiSelectPopup.width
+                            width: multiSelectPopup.width - 5
                             height: 25
                             color: selectedItems.indexOf(modelData) !== -1 ? "#e3f2fd" : (optionMouseArea.containsMouse ? "#f5f5f5" : "transparent")
 
@@ -659,6 +670,7 @@ Item {
                                 anchors.fill: parent
                                 anchors.leftMargin: 5
                                 anchors.rightMargin: 5
+                                z: 1
 
                                 Rectangle {
                                     id: optionCheckbox
@@ -683,64 +695,76 @@ Item {
                                     id: optionText
                                     anchors.left: optionCheckbox.right
                                     anchors.leftMargin: 8
-                                    anchors.right: dropdownTemplate.dropdownState === "edit" ? trashIcon.left : parent.right
-                                    anchors.rightMargin: dropdownTemplate.dropdownState === "edit" ? 8 : 0
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: dropdownTemplate.dropdownState === "edit" ? 25 : 0
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: modelData
                                     font.pixelSize: 12
                                     color: "#333"
                                     elide: Text.ElideRight  // Truncate text if too long
                                 }
+                            }
 
-                                // Trash icon (visible only in edit mode, higher opacity on hover)
+                            // Trash icon container
+                            Rectangle {
+                                id: trashContainer
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.right: parent.right
+                                anchors.rightMargin: 5
+                                width: 24
+                                height: 24
+                                radius: 4
+                                color: trashMouseArea.pressed ? "#ffcdd2" : (trashMouseArea.containsMouse ? "#ffebee" : "transparent")
+                                visible: dropdownTemplate.dropdownState === "edit"
+                                z: 2
+
                                 Text {
-                                    id: trashIcon
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.right: parent.right
-                                    width: 20
-                                    height: 20
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
+                                    anchors.centerIn: parent
                                     text: "🗑️"
-                                    font.pixelSize: 12
-                                    color: "#666"
-                                    opacity: optionMouseArea.containsMouse ? 0.9 : 0.3
-                                    visible: dropdownTemplate.dropdownState === "edit"
+                                    font.pixelSize: 14
+                                    color: "#d32f2f"
+                                    opacity: 1.0
+                                }
+
+                                MouseArea {
+                                    id: trashMouseArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: deleteOption(modelData, allItems.indexOf(modelData))
                                 }
                             }
 
                             MouseArea {
                                 id: optionMouseArea
-                                anchors.fill: parent
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                anchors.right: dropdownTemplate.dropdownState === "edit" ? trashContainer.left : parent.right
                                 hoverEnabled: true
-                                onClicked: function(mouse) {
-                                    if (dropdownTemplate.dropdownState === "edit" && mouse.x >= parent.width - 25) {
-                                        // Clicked on trash icon area - delete the option
-                                        deleteOption(modelData, allItems.indexOf(modelData))
-                                    } else {
-                                        // Clicked on option area - toggle selection
-                                        var index = selectedItems.indexOf(modelData)
-                                        var newSelection = selectedItems.slice()
+                                onClicked: {
+                                    // Clicked on option area - toggle selection
+                                    var index = selectedItems.indexOf(modelData)
+                                    var newSelection = selectedItems.slice()
 
-                                        if (index !== -1) {
-                                            // If already selected and maxSelections allows, remove it
-                                            if (maxSelections !== 1) {
-                                                newSelection.splice(index, 1)
-                                            }
-                                        } else {
-                                            // If not selected, add it
-                                            if (maxSelections === 1) {
-                                                // Single select mode - replace selection
-                                                newSelection = [modelData]
-                                            } else {
-                                                // Multi select mode - add to selection
-                                                newSelection.push(modelData)
-                                            }
+                                    if (index !== -1) {
+                                        // If already selected and maxSelections allows, remove it
+                                        if (maxSelections !== 1) {
+                                            newSelection.splice(index, 1)
                                         }
-
-                                        selectedItems = newSelection
-                                        multiSelectionChanged(selectedItems)
+                                    } else {
+                                        // If not selected, add it
+                                        if (maxSelections === 1) {
+                                            // Single select mode - replace selection
+                                            newSelection = [modelData]
+                                        } else {
+                                            // Multi select mode - add to selection
+                                            newSelection.push(modelData)
+                                        }
                                     }
+
+                                    selectedItems = newSelection
+                                    multiSelectionChanged(selectedItems)
                                 }
                             }
                         }
@@ -749,7 +773,7 @@ Item {
                         // Add new item option (only when hasAddFeature is true and in edit/add mode)
                     Rectangle {
                         visible: hasAddFeature && (dropdownState === "edit" || dropdownState === "add")
-                        width: multiSelectPopup.width
+                        width: multiSelectPopup.width - 5
                         height: addInput.visible ? 30 : 25
                         color: "transparent"
 

@@ -185,9 +185,9 @@
     },
     "trialdef.eventvalue": {
       "options": [
-        "S200",
+        "S202",
         "S201",
-        "S202"
+        "S200"
       ],
       "modules": [
         "Preprocessing"
@@ -212,9 +212,8 @@
       ],
       "options": [
         "Stimulus",
-        "Response",
         "Trigger",
-        "unknown"
+        "asdasd"
       ],
       "has_add_feature": true,
       "is_multi_select": false

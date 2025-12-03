@@ -1156,11 +1156,37 @@ class MatlabExecutor(QObject):
 
             if self._option_store.add_option(param_name, new_option, module_name):
                 self._option_store.save()
-                print(f"Added custom option '{new_option}' to {param_name}")
+                msg = f"Added custom option '{new_option}' to {param_name}"
+                print(msg)
+                self.configSaved.emit(msg)
                 return True
             return False
         except Exception as e:
-            print(f"Error adding custom option: {e}")
+            error_msg = f"Error adding custom option: {e}"
+            print(error_msg)
+            self.configSaved.emit(error_msg)
+            return False
+
+    @pyqtSlot(str, str, str, result=bool)
+    def removeCustomOption(self, matlab_property, option_to_remove, module_name):
+        """Remove a custom option from the persistent JSON store."""
+        try:
+            # Strip cfg. prefix if present
+            param_name = matlab_property.strip()
+            if param_name.startswith("cfg."):
+                param_name = param_name[4:]
+            
+            if self._option_store.remove_option(param_name, option_to_remove, module_name):
+                self._option_store.save()
+                msg = f"Removed custom option '{option_to_remove}' from {param_name}"
+                print(msg)
+                self.configSaved.emit(msg)
+                return True
+            return False
+        except Exception as e:
+            error_msg = f"Error removing custom option: {e}"
+            print(error_msg)
+            self.configSaved.emit(error_msg)
             return False
 
     def _get_current_value_from_file(self, module_name, param_name):
