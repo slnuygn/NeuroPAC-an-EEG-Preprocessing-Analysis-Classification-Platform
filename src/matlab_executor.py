@@ -1139,8 +1139,8 @@ class MatlabExecutor(QObject):
             print(f"Error saving range slider bounds: {e}")
             return False
 
-    @pyqtSlot(str, str, str, result=bool)
-    def addCustomOption(self, matlab_property, new_option, module_name):
+    @pyqtSlot(str, str, str, bool, result=bool)
+    def addCustomOption(self, matlab_property, new_option, module_name, is_multi_select=False):
         """Add a custom option to the persistent JSON store."""
         try:
             # Strip cfg. prefix if present
@@ -1152,9 +1152,9 @@ class MatlabExecutor(QObject):
             current_val = self._get_current_value_from_file(module_name, param_name)
             if current_val:
                 # Add current value first so it appears in the list
-                self._option_store.add_option(param_name, current_val, module_name)
+                self._option_store.add_option(param_name, current_val, module_name, is_multi_select)
 
-            if self._option_store.add_option(param_name, new_option, module_name):
+            if self._option_store.add_option(param_name, new_option, module_name, is_multi_select):
                 self._option_store.save()
                 msg = f"Added custom option '{new_option}' to {param_name}"
                 print(msg)

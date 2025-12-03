@@ -228,7 +228,7 @@ class DropdownOptionStore:
             
         return changed
 
-    def add_option(self, parameter_name: str, new_option: str, module_name: str) -> bool:
+    def add_option(self, parameter_name: str, new_option: str, module_name: str, is_multi_select: bool = False) -> bool:
         """Add a new option to the dropdown list."""
         key = (parameter_name or "").strip().lower()
         if not key or not new_option:
@@ -239,11 +239,16 @@ class DropdownOptionStore:
                 "modules": [module_name],
                 "options": [],
                 "has_add_feature": True,
-                "is_multi_select": False # Default to false, can be changed manually
+                "is_multi_select": is_multi_select
             }
         
         entry = self._options[key]
         changed = False
+
+        # Update is_multi_select if it's true (upgrade to multi-select, never downgrade)
+        if is_multi_select and not entry.get("is_multi_select", False):
+            entry["is_multi_select"] = True
+            changed = True
 
         if "options" not in entry:
             entry["options"] = []

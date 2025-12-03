@@ -242,7 +242,7 @@ Item {
             
             config.model = options;
             config.current_index = 0;
-            config.has_add_feature = false;
+            config.has_add_feature = true;
             config.is_multi_select = true;
             config.selected_items = options;
             config.all_items = options;
@@ -280,21 +280,17 @@ Item {
                 config.label = paramName.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
                 config.model = [stringValue];
                 config.current_index = 0;
-                config.has_add_feature = false;
+                config.has_add_feature = true;
                 config.is_multi_select = false;
                 applyDropdownOptionOverrides(config, paramName, stringValue);
             }
         }
         // Check if it's a number
         else if (!isNaN(parseFloat(paramValue))) {
-            // For now, treat numbers as dropdowns with single option
-            config.component_type = 'DropdownTemplate';
+            config.component_type = 'InputBoxTemplate';
             config.label = paramName.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
-            config.model = [paramValue];
-            config.current_index = 0;
-            config.has_add_feature = false;
-            config.is_multi_select = false;
-            applyDropdownOptionOverrides(config, paramName, paramValue);
+            config.text = paramValue;
+            config.is_numeric = true;
         }
 
         return config;

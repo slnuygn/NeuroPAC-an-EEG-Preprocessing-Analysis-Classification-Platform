@@ -95,10 +95,10 @@ for i = 1:numTrials
     cfg = [];
     cfg.latency = [0 1];
     cfg.whatever = [5 3];
-    cfg.hmm = {'a' 'b'};
-    cfg.lalalala  = 'test';
-    cfg.isthistest = 'yes';
-    cfg.number = 5;
+    cfg.hmm = {'a' 'b' 'c'};
+    cfg.lalalala  = 'aasa';
+    cfg.isthistest = 'no';
+    cfg.number = 6;
     
     
     if isfield(data_decomposed(i), 'target') && ~isempty(data_decomposed(i).target)

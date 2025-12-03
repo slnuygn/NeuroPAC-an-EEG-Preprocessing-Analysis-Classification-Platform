@@ -214,7 +214,7 @@ Item {
             onAddItem: {
                 // Persist the new custom option to the JSON configuration
                 if (dynamicParameterLoader.autoSaveEnabled) {
-                    matlabExecutor.addCustomOption(parameterConfig.matlab_property, newItem, dynamicParameterLoader.moduleName);
+                    matlabExecutor.addCustomOption(parameterConfig.matlab_property, newItem, dynamicParameterLoader.moduleName, parameterConfig.is_multi_select);
                 }
             }
 
