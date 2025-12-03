@@ -45,13 +45,46 @@ fprintf('Number of trials/subjects: %d\n', numTrials);
 % Initialize FieldTrip if not already done
 if ~exist('ft_defaults', 'file')
     fprintf('FieldTrip not found, attempting to initialize...\n');
-    % Try to find FieldTrip in common locations
-    ft_paths = {
-        'C:\Program Files\MATLAB\fieldtrip';  % Default MATLAB installation
-        'C:\fieldtrip';  % Alternative location
-        'D:\fieldtrip';  % Another possible location
-        fullfile(userpath, 'fieldtrip')  % User path
-        };
+    % Try to find FieldTrip path from preprocessing.m
+    ft_paths = {};
+    
+    % Resolve path to preprocessing.m relative to this script
+    currentFile = mfilename('fullpath');
+    [currentDir, ~, ~] = fileparts(currentFile);
+    % Go up 3 levels: ERP -> matlab -> analysis -> features
+    % Then down to preprocessing/matlab/preprocessing.m
+    preprocessingScript = fullfile(currentDir, '..', '..', '..', 'preprocessing', 'matlab', 'preprocessing.m');
+    
+    if exist(preprocessingScript, 'file')
+        fid = fopen(preprocessingScript, 'r');
+        if fid ~= -1
+            while ~feof(fid)
+                tline = fgetl(fid);
+                if ischar(tline) && contains(tline, 'addpath') && (contains(tline, 'fieldtrip', 'IgnoreCase', true) || contains(tline, 'FIELDTRIP'))
+                    % Extract path between quotes
+                    tokens = regexp(tline, 'addpath\([''"]([^''"]+)[''"]\)', 'tokens');
+                    if ~isempty(tokens) && ~isempty(tokens{1})
+                        extractedPath = tokens{1}{1};
+                        fprintf('Found FieldTrip path in preprocessing.m: %s\n', extractedPath);
+                        ft_paths{end+1} = extractedPath;
+                    end
+                end
+            end
+            fclose(fid);
+        end
+    else
+        fprintf('Warning: preprocessing.m not found at %s\n', preprocessingScript);
+    end
+    
+    % Add common fallback locations if not found
+    if isempty(ft_paths)
+        ft_paths = {
+            'C:\Program Files\MATLAB\fieldtrip';  % Default MATLAB installation
+            'C:\fieldtrip';  % Alternative location
+            'D:\fieldtrip';  % Another possible location
+            fullfile(userpath, 'fieldtrip')  % User path
+            };
+    end
     
     ft_found = false;
     for i = 1:length(ft_paths)
@@ -94,11 +127,11 @@ for i = 1:numTrials
     fprintf('Timelock analysis for trial %d/%d\n', i, numTrials);
     cfg = [];
     cfg.latency = [0 1];
-    cfg.whatever = [5 3];
+    cfg.whatever = [-0.2 0.5];
     cfg.hmm = {'a' 'b' 'c'};
-    cfg.lalalala  = 'aasa';
-    cfg.isthistest = 'no';
-    cfg.number = 6;
+    cfg.lalalala  = 'asadasd';
+    cfg.isthistest = 'yes';
+    cfg.number = 7;
     
     
     if isfield(data_decomposed(i), 'target') && ~isempty(data_decomposed(i).target)

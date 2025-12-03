@@ -987,6 +987,10 @@ class MatlabExecutor(QObject):
                 else:
                     normalized_property = f"cfg.{normalized_property}"
 
+            # Prevent saving of internal variables like ft_paths
+            if normalized_property == "cfg.ft_paths":
+                return False
+
             if hasattr(selected_values, 'toVariant'):
                 selected_values = selected_values.toVariant()
 
@@ -1267,6 +1271,10 @@ class MatlabExecutor(QObject):
             if not normalized_property.startswith("cfg."):
                 normalized_property = f"cfg.{normalized_property}"
 
+            # Prevent saving of internal variables like ft_paths
+            if normalized_property == "cfg.ft_paths":
+                return False
+
             if is_numeric:
                 formatted_value = str(value)
             else:
@@ -1289,6 +1297,10 @@ class MatlabExecutor(QObject):
 
             if not normalized_property.startswith("cfg."):
                 normalized_property = f"cfg.{normalized_property}"
+
+            # Prevent saving of internal variables like ft_paths
+            if normalized_property == "cfg.ft_paths":
+                return False
 
             formatted_value = "'yes'" if is_checked else "'no'"
 
@@ -1368,6 +1380,10 @@ class MatlabExecutor(QObject):
 
             if not normalized_property.startswith("cfg."):
                 normalized_property = f"cfg.{normalized_property}"
+
+            # Prevent saving of internal variables like ft_paths
+            if normalized_property == "cfg.ft_paths":
+                return False
 
             # Special handling for trial_time_window
             if normalized_property == "cfg.trial_time_window":
@@ -4121,9 +4137,14 @@ browse_ICA('{mat_file_path.replace(chr(92), '/')}');
                     current_to = param_info.get('to', 1)
                     
                     # Logic: Expand range to be at least [value-1, value+1]
+                    # If from == to (e.g. [4 4]), we need to ensure min < max for the slider to work
                     desired_min = current_from - 1.0
                     desired_max = current_to + 1.0
                     
+                    if current_from == current_to:
+                        desired_min = current_from - 1.0
+                        desired_max = current_from + 1.0
+
                     if option_store.update_range_limits(param_name, desired_min, desired_max, module_name):
                         changes_made = True
             

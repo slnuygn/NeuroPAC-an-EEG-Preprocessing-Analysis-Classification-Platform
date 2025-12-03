@@ -53,6 +53,11 @@ class MatlabParameterParser:
         # Process in order
         for match in all_matches:
             param_name = match['name']
+            
+            # Skip internal variables
+            if param_name == 'ft_paths':
+                continue
+
             param_type = match['type']
             param_value = match['value']
             
@@ -381,6 +386,14 @@ def create_ui_component(
         except ValueError:
             current_index = 0
 
+        # Determine is_multi_select:
+        # 1. If file says it's multi-select (cell array), it MUST be multi-select.
+        # 2. Otherwise, check JSON config.
+        # 3. Default to False.
+        is_multi_select = parameter_info.get('is_multi_select', False)
+        if not is_multi_select:
+            is_multi_select = bool(option_entry.get('is_multi_select', False))
+
         component.update({
             'component_type': 'DropdownTemplate',
             'label': f'{parameter_name.replace("_", " ").title()}',
@@ -388,7 +401,7 @@ def create_ui_component(
             'all_items': options,  # Ensure all_items is populated for multi-select
             'current_index': current_index,
             'has_add_feature': bool(option_entry.get('has_add_feature', True)),
-            'is_multi_select': bool(option_entry.get('is_multi_select', parameter_info.get('is_multi_select', False)))
+            'is_multi_select': is_multi_select
         })
 
         if option_entry.get('max_selections') is not None:
