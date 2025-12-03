@@ -94,17 +94,22 @@ for i = 1:numTrials
     fprintf('Timelock analysis for trial %d/%d\n', i, numTrials);
     cfg = [];
     cfg.latency = [0 1];
+    cfg.whatever = [5 3];
+    cfg.hmm = {'a' 'b'};
+    cfg.lalalala  = 'test';
+    cfg.isthistest = 'yes';
     
-    if isfield(data_decomposed(i), 'target_data') && ~isempty(data_decomposed(i).target_data)
-        ERP_data(i).target = ft_timelockanalysis(cfg, data_decomposed(i).target_data);
+    
+    if isfield(data_decomposed(i), 'target') && ~isempty(data_decomposed(i).target)
+        ERP_data(i).target = ft_timelockanalysis(cfg, data_decomposed(i).target);
     end
     
-    if isfield(data_decomposed(i), 'standard_data') && ~isempty(data_decomposed(i).standard_data)
-        ERP_data(i).standard = ft_timelockanalysis(cfg, data_decomposed(i).standard_data);
+    if isfield(data_decomposed(i), 'standard') && ~isempty(data_decomposed(i).standard)
+        ERP_data(i).standard = ft_timelockanalysis(cfg, data_decomposed(i).standard);
     end
     
-    if isfield(data_decomposed(i), 'novelty_data') && ~isempty(data_decomposed(i).novelty_data)
-        ERP_data(i).novelty = ft_timelockanalysis(cfg, data_decomposed(i).novelty_data);
+    if isfield(data_decomposed(i), 'novelty') && ~isempty(data_decomposed(i).novelty)
+        ERP_data(i).novelty = ft_timelockanalysis(cfg, data_decomposed(i).novelty);
     end
 end
 fprintf('Timelock analysis completed\n');

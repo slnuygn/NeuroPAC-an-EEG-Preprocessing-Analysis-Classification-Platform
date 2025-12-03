@@ -97,6 +97,29 @@ Item {
             config.max_selections = entry.max_selections
     }
 
+    function applyRangeSliderOverrides(config, paramName) {
+        if (!config || config.component_type !== 'RangeSliderTemplate')
+            return
+
+        var entry = getDropdownOptionEntry(paramName)
+        if (!entry)
+            return
+
+        if (entry.min !== undefined) {
+            config.from = entry.min
+            // Ensure selection is within bounds
+            if (config.first_value < config.from) config.first_value = config.from
+            if (config.second_value < config.from) config.second_value = config.from
+        }
+        
+        if (entry.max !== undefined) {
+            config.to = entry.max
+            // Ensure selection is within bounds
+            if (config.first_value > config.to) config.first_value = config.to
+            if (config.second_value > config.to) config.second_value = config.to
+        }
+    }
+
     function loadDynamicParameters() {
         // Parse MATLAB file directly
         var matlabFile = getMatlabFilePath(moduleName);
@@ -175,6 +198,7 @@ Item {
                     config.unit = paramName.toLowerCase().includes('latency') ? 'ms' : '';
                     config.width_factor = 0.1;
                     config.background_color = 'white';
+                    applyRangeSliderOverrides(config, paramName);
                 }
             }
         }
@@ -203,17 +227,63 @@ Item {
                 }
             }
         }
+        // Check if it's a cell array {'a' 'b'}
+        else if (paramValue.startsWith('{') && paramValue.endsWith('}')) {
+            config.component_type = 'DropdownTemplate';
+            config.label = paramName.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+            
+            // Extract strings from cell array
+            var options = [];
+            var stringPattern = /['"]([^'"]+)['"]/g;
+            var match;
+            while ((match = stringPattern.exec(paramValue)) !== null) {
+                options.push(match[1]);
+            }
+            
+            config.model = options;
+            config.current_index = 0;
+            config.has_add_feature = false;
+            config.is_multi_select = true;
+            config.selected_items = options;
+            config.all_items = options;
+
+            // Try to merge with JSON options if available
+            var entry = getDropdownOptionEntry(paramName);
+            if (entry && entry.options) {
+                var jsonOptions = entry.options.slice();
+                // Add any file options that aren't in JSON
+                for (var i = 0; i < options.length; i++) {
+                    if (jsonOptions.indexOf(options[i]) === -1) {
+                        jsonOptions.push(options[i]);
+                    }
+                }
+                config.model = jsonOptions;
+                config.all_items = jsonOptions;
+                
+                if (entry.has_add_feature !== undefined) config.has_add_feature = entry.has_add_feature;
+                if (entry.max_selections !== undefined) config.max_selections = entry.max_selections;
+            }
+        }
         // Check if it's a string 'value'
         else if ((paramValue.startsWith("'") && paramValue.endsWith("'")) ||
                  (paramValue.startsWith('"') && paramValue.endsWith('"'))) {
-            config.component_type = 'DropdownTemplate';
-            config.label = paramName.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
             var stringValue = paramValue.slice(1, -1);
-            config.model = [stringValue];
-            config.current_index = 0;
-            config.has_add_feature = false;
-            config.is_multi_select = false;
-            applyDropdownOptionOverrides(config, paramName, stringValue);
+            var lowerValue = stringValue.toLowerCase();
+
+            // Check for boolean values
+            if (lowerValue === 'yes' || lowerValue === 'no' || lowerValue === 'true' || lowerValue === 'false') {
+                config.component_type = 'CheckBoxTemplate';
+                config.label = paramName.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+                config.checked = (lowerValue === 'yes' || lowerValue === 'true');
+            } else {
+                config.component_type = 'DropdownTemplate';
+                config.label = paramName.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+                config.model = [stringValue];
+                config.current_index = 0;
+                config.has_add_feature = false;
+                config.is_multi_select = false;
+                applyDropdownOptionOverrides(config, paramName, stringValue);
+            }
         }
         // Check if it's a number
         else if (!isNaN(parseFloat(paramValue))) {

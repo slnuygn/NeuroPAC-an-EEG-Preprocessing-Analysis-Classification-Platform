@@ -130,6 +130,7 @@ Item {
 
     // Signals
     signal rangeChanged(real firstValue, real secondValue)
+    signal boundsChanged(real from, real to)
 
     function snapValue(value) {
         if (rangeSlider && typeof rangeSlider.snapToStep === "function") {
@@ -417,7 +418,7 @@ Item {
                         border.width: 1
                         radius: 3
                     }
-                    validator: DoubleValidator { bottom: rangeSliderTemplate.from; top: rangeSliderTemplate.to }
+                    // validator: DoubleValidator { bottom: rangeSliderTemplate.from; top: rangeSliderTemplate.to }
                     onAccepted: updateFirstValue()
                     Component.onCompleted: text = rangeSliderTemplate.formatValue(rangeSliderTemplate.firstValue)
                     onActiveFocusChanged: {
@@ -449,7 +450,7 @@ Item {
                         border.width: 1
                         radius: 3
                     }
-                    validator: DoubleValidator { bottom: rangeSliderTemplate.from; top: rangeSliderTemplate.to }
+                    // validator: DoubleValidator { bottom: rangeSliderTemplate.from; top: rangeSliderTemplate.to }
                     onAccepted: updateSecondValue()
                     Component.onCompleted: text = rangeSliderTemplate.formatValue(rangeSliderTemplate.secondValue)
                     onActiveFocusChanged: {
@@ -563,6 +564,7 @@ Item {
         fromInput.text = formatValue(from)
         warningText.text = ""
         rangeChanged(firstValue, secondValue)
+        boundsChanged(from, to)
         updateQmlFile()
         console.log("Updated from:", from, "firstValue:", firstValue, "secondValue:", secondValue)
     }
@@ -584,6 +586,7 @@ Item {
         toInput.text = formatValue(to)
         warningText.text = ""
         rangeChanged(firstValue, secondValue)
+        boundsChanged(from, to)
         updateQmlFile()
         console.log("Updated to:", to, "firstValue:", firstValue, "secondValue:", secondValue)
     }
@@ -598,8 +601,8 @@ Item {
             warningText.text = "First value must be between " + from.toFixed(1) + " and " + to.toFixed(1)
             return
         }
-        if (newFirst >= secondValue) {
-            warningText.text = "First value must be less than second value"
+        if (newFirst > secondValue) {
+            warningText.text = "First value must be less than or equal to second value"
             return
         }
     firstValue = rangeSlider.snapToStep(newFirst)
@@ -620,8 +623,8 @@ Item {
             warningText.text = "Second value must be between " + from.toFixed(1) + " and " + to.toFixed(1)
             return
         }
-        if (newSecond <= firstValue) {
-            warningText.text = "Second value must be greater than first value"
+        if (newSecond < firstValue) {
+            warningText.text = "Second value must be greater than or equal to first value"
             return
         }
     secondValue = rangeSlider.snapToStep(newSecond)

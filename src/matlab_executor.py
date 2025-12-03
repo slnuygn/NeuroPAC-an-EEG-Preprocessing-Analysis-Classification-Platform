@@ -1120,6 +1120,25 @@ class MatlabExecutor(QObject):
             self.configSaved.emit(error_msg)
             return False
 
+    @pyqtSlot(str, float, float, str, result=bool)
+    def saveRangeSliderBoundsToJson(self, matlab_property, min_val, max_val, module_name=""):
+        """Save the min/max bounds of a range slider to the JSON configuration."""
+        try:
+            # Strip cfg. prefix if present
+            param_name = matlab_property.strip()
+            if param_name.startswith("cfg."):
+                param_name = param_name[4:]
+            
+            # Update the option store
+            if self._option_store.update_range_limits(param_name, min_val, max_val, module_name):
+                self._option_store.save()
+                print(f"Updated bounds for {param_name}: min={min_val}, max={max_val}")
+                return True
+            return False
+        except Exception as e:
+            print(f"Error saving range slider bounds: {e}")
+            return False
+
     @pyqtSlot(str, str, str, result=bool)
     def addCustomOption(self, matlab_property, new_option, module_name):
         """Add a custom option to the persistent JSON store."""

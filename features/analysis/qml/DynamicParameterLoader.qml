@@ -130,13 +130,23 @@ Item {
             backgroundColor: parameterConfig.background_color || "white"
             sliderState: editModeEnabled ? "edit" : "default"
 
-            onRangeChanged: {
+            onRangeChanged: function(firstValue, secondValue) {
                 if (initialized) {
                     console.log("Range changed for " + parameterName + ": " + firstValue + " - " + secondValue);
                     dynamicParameterLoader.parameterChanged(parameterName, [firstValue, secondValue]);
                     // Auto-save to MATLAB
                     if (dynamicParameterLoader.autoSaveEnabled) {
                         matlabExecutor.saveRangeSliderPropertyToMatlab(parameterConfig.matlab_property, firstValue, secondValue, parameterConfig.unit || "", dynamicParameterLoader.moduleName);
+                    }
+                }
+            }
+
+            onBoundsChanged: function(from, to) {
+                if (initialized) {
+                    console.log("Bounds changed for " + parameterName + ": " + from + " - " + to);
+                    // Save bounds to JSON configuration (does not affect MATLAB file selection)
+                    if (dynamicParameterLoader.autoSaveEnabled) {
+                        matlabExecutor.saveRangeSliderBoundsToJson(parameterConfig.matlab_property, from, to, dynamicParameterLoader.moduleName);
                     }
                 }
             }

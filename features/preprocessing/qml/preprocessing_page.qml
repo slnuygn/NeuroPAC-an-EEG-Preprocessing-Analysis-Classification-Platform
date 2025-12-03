@@ -345,6 +345,10 @@ Item {
             persistCustomRangeSlider(rangeSlider)
         })
 
+        rangeSlider.boundsChanged.connect(function(from, to) {
+            persistCustomRangeSlider(rangeSlider)
+        })
+
         rangeSlider.deleteRequested.connect(function() {
             if (rangeSlider.persistentId && rangeSlider.persistentId.length > 0) {
                 matlabExecutor.removeCustomRangeSlider(rangeSlider.persistentId)

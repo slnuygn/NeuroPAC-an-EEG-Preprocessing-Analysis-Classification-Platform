@@ -207,15 +207,14 @@ class DropdownOptionStore:
         entry = self._options[key]
         changed = False
         
-        # Update min if not present or if new value is lower (expand range)
+        # Update min/max unconditionally to allow shrinking or expanding
         current_min = entry.get('min')
-        if current_min is None or min_val < current_min:
+        if current_min is None or current_min != min_val:
             entry['min'] = float(min_val)
             changed = True
             
-        # Update max if not present or if new value is higher (expand range)
         current_max = entry.get('max')
-        if current_max is None or max_val > current_max:
+        if current_max is None or current_max != max_val:
             entry['max'] = float(max_val)
             changed = True
             
