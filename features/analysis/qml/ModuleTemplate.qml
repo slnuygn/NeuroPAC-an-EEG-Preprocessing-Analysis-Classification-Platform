@@ -1,10 +1,11 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
+import QtQuick.Controls 2.15
 
 Item {
     id: moduleTemplate
     width: parent.width
-    height: rectangle.height + 4 + (expanded ? expandedRect.height + 2 : 0)
+    height: rectangle.height + 4 + (expanded ? contentContainer.height + 2 : 0)
     z: 1000
 
     property string displayText: "Analysis Module"
@@ -108,77 +109,98 @@ Item {
         }
     }
 
-    Rectangle {
-        id: expandedRect
+    Column {
+        id: contentContainer
         visible: expanded
         width: parent.width - 10
-        height: expanded ? Math.max(contentContainer.implicitHeight + 20, 120) : 0
         anchors.top: rectangle.bottom
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.topMargin: 1
-        color: "#e0e0e0"
-        border.color: "#ccc"
-        border.width: 1
-        radius: 3
+        spacing: 10
 
-        Column {
-            id: contentContainer
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: 10
-            spacing: 10
+        Rectangle {
+            width: parent.width
+            height: parametersColumn.implicitHeight + 20
+            color: "#e0e0e0"
+            border.color: "#ccc"
+            border.width: 1
+            radius: 3
 
-            // Dynamic parameters loaded from MATLAB file
-            Repeater {
-                model: Object.keys(dynamicParameters)
-                delegate: DynamicParameterLoader {
-                    width: contentContainer.width
-                    parameterName: modelData
-                    parameterConfig: dynamicParameters[modelData]
-                    editModeEnabled: moduleTemplate.editModeEnabled
-                    moduleName: moduleTemplate.moduleName
+            Column {
+                id: parametersColumn
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                anchors.topMargin: 10
+                spacing: 10
 
-                    onParameterChanged: function(paramName, value) {
-                        console.log("Parameter changed:", paramName, "=", value);
-                        // TODO: Save parameter to MATLAB
+                // Dynamic parameters loaded from MATLAB file
+                Repeater {
+                    model: Object.keys(dynamicParameters)
+                    delegate: DynamicParameterLoader {
+                        width: parametersColumn.width
+                        parameterName: modelData
+                        parameterConfig: dynamicParameters[modelData]
+                        editModeEnabled: moduleTemplate.editModeEnabled
+                        moduleName: moduleTemplate.moduleName
+
+                        onParameterChanged: function(paramName, value) {
+                            console.log("Parameter changed:", paramName, "=", value);
+                            // TODO: Save parameter to MATLAB
+                        }
                     }
                 }
-            }
 
-            // Error text display - common for all modules
-            Text {
-                id: errorText
-                text: ""
-                color: "red"
-                visible: text !== ""
-                font.pixelSize: 12
-                width: parent.width
+                // Error text display - common for all modules
+                Text {
+                    id: errorText
+                    text: ""
+                    color: "red"
+                    visible: text !== ""
+                    font.pixelSize: 12
+                    width: parent.width
+                }
             }
         }
+    }
 
-        Item {
-            width: parent.width - 20
-            height: moduleButton.implicitHeight
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.margins: 10
+    // Floating Action Button - anchored to contentContainer bottom right
+    Rectangle {
+        id: moduleButton
+        visible: expanded
+        width: 150
+        height: 40
+        color: "#2196f3"
+        radius: 5
+        
+        anchors.right: contentContainer.right
+        anchors.bottom: contentContainer.bottom
+        anchors.margins: 10
+        
+        z: 1000
 
-            Button {
-                id: moduleButton
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            
+            Rectangle {
+                anchors.fill: parent
+                color: parent.pressed ? "#1565c0" : (parent.containsMouse ? "#1976d2" : "transparent")
+                radius: 5
+            }
+
+            Text {
                 text: "Feature Extract"
-                anchors.right: parent.right
-                flat: true
-                padding: 10
-                background: Rectangle {
-                    color: "#2196f3"
-                    radius: 4
-                    anchors.fill: parent
-                }
-
-                onClicked: {
-                    moduleTemplate.buttonClicked()
-                }
+                color: "white"
+                font.pixelSize: 14
+                anchors.centerIn: parent
+            }
+            
+            onClicked: {
+                moduleTemplate.buttonClicked()
             }
         }
     }

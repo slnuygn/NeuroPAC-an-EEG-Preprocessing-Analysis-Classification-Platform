@@ -127,11 +127,6 @@ for i = 1:numTrials
     fprintf('Timelock analysis for trial %d/%d\n', i, numTrials);
     cfg = [];
     cfg.latency = [0 1];
-    cfg.whatever = [-0.2 0.5];
-    cfg.hmm = {'a' 'b' 'c'};
-    cfg.lalalala  = 'asadasd';
-    cfg.isthistest = 'yes';
-    cfg.number = 7;
     
     
     if isfield(data_decomposed(i), 'target') && ~isempty(data_decomposed(i).target)

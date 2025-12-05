@@ -3,8 +3,8 @@ cfg         = [];
 cfg.output     = 'pow';
 cfg.method     = 'wavelet';
 
-cfg.toi        = [-2 2];
-cfg.foi        = [1 15.1];
+cfg.toi        = -2:0.01:2;
+cfg.foi        = 1:0.5:15;
 
 cfg.pad = 8;
 cfg.width = 3;
