@@ -10,7 +10,8 @@ class MatlabParameterParser:
         self.parameter_patterns = {
             'range': re.compile(r'cfg\.([\w\.]+)\s*=\s*\[([^\]]+)\]'),  # cfg.param = [0 1]
             'string': re.compile(r'cfg\.([\w\.]+)\s*=\s*[\'"]([^\'"]*)[\'"]'),  # cfg.param = 'value'
-            'number': re.compile(r'cfg\.([\w\.]+)\s*=\s*(-?[0-9]+(?:\.[0-9]+)?)'),  # cfg.param = 1.5
+            'number': re.compile(r'cfg\.([\w\.]+)\s*=\s*(-?[0-9]+(?:\.[0-9]+)?)(?!:)'),  # cfg.param = 1.5 (not followed by :)
+            'step_range': re.compile(r'cfg\.([\w\.]+)\s*=\s*(-?[0-9]+(?:\.[0-9]+)?):(-?[0-9]+(?:\.[0-9]+)?):(-?[0-9]+(?:\.[0-9]+)?)'),  # cfg.param = 1:0.5:15
             'array': re.compile(r'cfg\.([\w\.]+)\s*=\s*([0-9:\.\-]+(?:\s+[0-9:\.\-]+)*)'),  # cfg.param = 1:2:40
             'cell_array': re.compile(r'cfg\.([\w\.]+)\s*=\s*\{([^\}]+)\}'), # cfg.param = {'a' 'b'}
             'standalone_cell_array': re.compile(r'(?<!\.)\b(\w+)\s*=\s*\{([^\}]+)\}'), # var = {'a' 'b'}
@@ -36,7 +37,11 @@ class MatlabParameterParser:
             for match in pattern.finditer(content):
                 try:
                     param_name = match.group(1)
-                    param_value = match.group(2)
+                    # For step_range, we need all 4 groups (name, start, step, end)
+                    if param_type == 'step_range':
+                        param_value = (match.group(2), match.group(3), match.group(4))
+                    else:
+                        param_value = match.group(2)
                     all_matches.append({
                         'start': match.start(),
                         'name': param_name,
@@ -67,9 +72,22 @@ class MatlabParameterParser:
 
         return parameters
 
-    def _parse_parameter_value(self, param_type: str, value_str: str, param_name: str = "") -> Dict[str, Any]:
+    def _parse_parameter_value(self, param_type: str, value_str: Any, param_name: str = "") -> Dict[str, Any]:
         """Parse the parameter value based on its type."""
-        if param_type == 'range':
+        if param_type == 'step_range':
+            # Parse start:step:end format (e.g., 1:0.5:15)
+            # value_str is a tuple of (start, step, end)
+            if isinstance(value_str, tuple) and len(value_str) == 3:
+                start, step, end = value_str
+                return {
+                    'type': 'step_range',
+                    'from': float(start),
+                    'step': float(step),
+                    'to': float(end),
+                    'first_value': float(start),
+                    'second_value': float(end)
+                }
+        elif param_type == 'range':
             # Parse [0 1] or [0, 1] format
             values = re.findall(r'-?[0-9]+(?:\.[0-9]+)?', value_str)
             if len(values) >= 2:
@@ -323,7 +341,20 @@ def create_ui_component(
 
     option_entry = option_entry or {}
 
-    if parameter_info['type'] == 'range':
+    if parameter_info['type'] == 'step_range':
+        # Create StepRangeSliderTemplate for start:step:end notation
+        component.update({
+            'component_type': 'StepRangeSliderTemplate',
+            'label': f'{parameter_name.replace("_", " ").title()}',
+            'from': parameter_info.get('from', 0),
+            'to': parameter_info.get('to', 1),
+            'first_value': parameter_info.get('first_value', parameter_info.get('from', 0)),
+            'second_value': parameter_info.get('second_value', parameter_info.get('to', 1)),
+            'step_size': parameter_info.get('step', 0.1),
+            'unit': '',
+            'background_color': '#e0e0e0'
+        })
+    elif parameter_info['type'] == 'range':
         # Check if explicit min/max are defined in options
         min_val = option_entry.get('min')
         max_val = option_entry.get('max')

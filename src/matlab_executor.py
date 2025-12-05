@@ -401,6 +401,32 @@ class MatlabExecutor(QObject):
         print("Unable to resolve timefreqanalysis.m path.")
         return None
 
+    def _get_channelwise_script_path(self) -> Optional[str]:
+        """Return the absolute path to channelwise.m if it exists."""
+        candidates = [
+            os.path.join(self._project_root, "features", "analysis", "matlab", "connectivity", "channelwise", "channelwise.m"),
+        ]
+
+        for candidate in candidates:
+            if candidate and os.path.exists(candidate):
+                return candidate
+
+        print("Unable to resolve channelwise.m path.")
+        return None
+
+    def _get_intertrial_script_path(self) -> Optional[str]:
+        """Return the absolute path to intertrialcoherenceanalysis.m if it exists."""
+        candidates = [
+            os.path.join(self._project_root, "features", "analysis", "matlab", "connectivity", "intertrial", "intertrialcoherenceanalysis.m"),
+        ]
+
+        for candidate in candidates:
+            if candidate and os.path.exists(candidate):
+                return candidate
+
+        print("Unable to resolve intertrialcoherenceanalysis.m path.")
+        return None
+
     def _escape_matlab_single_quotes(self, value: str) -> str:
         return value.replace("'", "''") if value else value
 
@@ -1487,6 +1513,122 @@ class MatlabExecutor(QObject):
 
         except Exception as e:
             error_msg = f"Error saving range slider {matlab_property}: {str(e)}"
+            print(error_msg)
+            self.configSaved.emit(error_msg)
+            return False
+
+    @pyqtSlot(str, float, float, float, str, str, result=bool)
+    def saveStepRangeSliderPropertyToMatlab(self, matlab_property, first_value, step_value, second_value, unit, module_name=""):
+        """Persist a step range slider selection as a MATLAB colon notation assignment (start:step:end)."""
+        try:
+            normalized_property = (matlab_property or "").strip()
+            if not normalized_property:
+                return False
+
+            if not normalized_property.startswith("cfg."):
+                normalized_property = f"cfg.{normalized_property}"
+
+            # Always use colon format for step range sliders
+            formatted_value = self._format_matlab_colon_range(first_value, step_value, second_value)
+            unit_suffix = f" {unit}" if unit else ""
+
+            target_scripts = []
+            
+            # Strict module-based targeting
+            if module_name == "Spectral Analysis":
+                spectral_path = self._get_spectral_script_path()
+                if spectral_path:
+                    target_scripts.append(("spectralanalysis.m", spectral_path))
+            elif module_name == "Time-Frequency Analysis":
+                timefreq_path = self._get_timefreq_script_path()
+                if timefreq_path:
+                    target_scripts.append(("timefreqanalysis.m", timefreq_path))
+            elif module_name == "Channel-Wise Coherence Analysis":
+                channelwise_path = self._get_channelwise_script_path()
+                if channelwise_path:
+                    target_scripts.append(("channelwise.m", channelwise_path))
+            elif module_name == "Inter-Trial Coherence Analysis":
+                intertrial_path = self._get_intertrial_script_path()
+                if intertrial_path:
+                    target_scripts.append(("intertrialcoherenceanalysis.m", intertrial_path))
+            elif module_name == "ERP Analysis":
+                erp_path = self._get_timelock_script_path()
+                if erp_path:
+                    target_scripts.append(("timelock_func.m", erp_path))
+            else:
+                # Fallback: try to infer from property name
+                if normalized_property in ["cfg.foi", "cfg.toi"]:
+                    # Could be any frequency analysis - add all potential targets
+                    spectral_path = self._get_spectral_script_path()
+                    if spectral_path:
+                        target_scripts.append(("spectralanalysis.m", spectral_path))
+                    timefreq_path = self._get_timefreq_script_path()
+                    if timefreq_path:
+                        target_scripts.append(("timefreqanalysis.m", timefreq_path))
+                    channelwise_path = self._get_channelwise_script_path()
+                    if channelwise_path:
+                        target_scripts.append(("channelwise.m", channelwise_path))
+                    intertrial_path = self._get_intertrial_script_path()
+                    if intertrial_path:
+                        target_scripts.append(("intertrialcoherenceanalysis.m", intertrial_path))
+
+            if not target_scripts:
+                error_msg = f"No script targets available for {normalized_property}."
+                print(error_msg)
+                return False
+
+            messages = []
+            success_count = 0
+
+            for display_name, script_path in target_scripts:
+                try:
+                    with open(script_path, 'r', encoding='utf-8') as file:
+                        content = file.read()
+
+                    # Check if the property already exists in this file
+                    property_pattern = rf"(?m)^\s*{re.escape(normalized_property)}\s*="
+                    property_exists = re.search(property_pattern, content) is not None
+
+                    # Only proceed if: 1) property exists, OR 2) module_name was explicitly provided
+                    if not property_exists and not module_name:
+                        # Skip this file - don't insert into files where property doesn't exist
+                        # unless we have explicit module context
+                        print(f"Skipping {display_name}: {normalized_property} not found and no module context")
+                        continue
+
+                    replaced, new_content = self._replace_or_insert_matlab_assignment(
+                        content, normalized_property, formatted_value)
+
+                    if new_content == content:
+                        info_msg = f"No changes required for {normalized_property} in {display_name}"
+                        print(info_msg)
+                        success_count += 1
+                        continue
+
+                    with open(script_path, 'w', encoding='utf-8') as file:
+                        file.write(new_content)
+
+                    success_count += 1
+                    status = "Updated" if replaced else "Inserted"
+                    success_msg = f"{status} {normalized_property} = {formatted_value}{unit_suffix} in {display_name}"
+                    print(success_msg)
+                    messages.append(success_msg)
+                except Exception as inner_error:
+                    error_msg = f"Error updating {display_name} for {normalized_property}: {str(inner_error)}"
+                    print(error_msg)
+                    messages.append(error_msg)
+
+            if not messages:
+                if success_count > 0:
+                    return True
+                messages.append(f"No script updates performed for {normalized_property}.")
+
+            summary = "; ".join(messages)
+            self.configSaved.emit(summary)
+            return success_count > 0
+
+        except Exception as e:
+            error_msg = f"Error saving step range slider {matlab_property}: {str(e)}"
             print(error_msg)
             self.configSaved.emit(error_msg)
             return False

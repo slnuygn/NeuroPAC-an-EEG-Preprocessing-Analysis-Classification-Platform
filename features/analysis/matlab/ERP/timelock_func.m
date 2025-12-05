@@ -42,6 +42,10 @@ fprintf('Successfully loaded clean_data_decomposed\n');
 numTrials = numel(data_decomposed);
 fprintf('Number of trials/subjects: %d\n', numTrials);
 
+% Define configuration for timelock analysis
+cfg = [];
+cfg.latency = [0 1];
+
 % Initialize FieldTrip if not already done
 if ~exist('ft_defaults', 'file')
     fprintf('FieldTrip not found, attempting to initialize...\n');
@@ -125,9 +129,6 @@ ERP_data = struct( ...
 
 for i = 1:numTrials
     fprintf('Timelock analysis for trial %d/%d\n', i, numTrials);
-    cfg = [];
-    cfg.latency = [0 1];
-    
     
     if isfield(data_decomposed(i), 'target') && ~isempty(data_decomposed(i).target)
         ERP_data(i).target = ft_timelockanalysis(cfg, data_decomposed(i).target);

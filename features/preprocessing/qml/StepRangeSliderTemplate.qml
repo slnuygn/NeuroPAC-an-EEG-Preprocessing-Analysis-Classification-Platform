@@ -152,7 +152,7 @@ Item {
             Text {
                 id: propertyDisplay
                 visible: sliderState !== "add"
-                text: matlabProperty + " = [" + rangeSliderTemplate.formatValue(rangeSlider.first.value) + unit + " " + rangeSliderTemplate.formatValue(rangeSlider.second.value) + unit + "]"
+                text: matlabProperty + " = " + rangeSliderTemplate.formatValue(rangeSlider.first.value) + ":" + rangeSliderTemplate.formatValue(stepSize) + ":" + rangeSliderTemplate.formatValue(rangeSlider.second.value)
                 font.pixelSize: 12
                 color: "#666"
                 wrapMode: Text.Wrap
@@ -218,7 +218,7 @@ Item {
                 Text {
                     id: valuePreview
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "= [" + rangeSliderTemplate.formatValue(rangeSlider.first.value) + unit + " " + rangeSliderTemplate.formatValue(rangeSlider.second.value) + unit + "]"
+                    text: "= " + rangeSliderTemplate.formatValue(rangeSlider.first.value) + ":" + rangeSliderTemplate.formatValue(stepSize) + ":" + rangeSliderTemplate.formatValue(rangeSlider.second.value)
                     font.pixelSize: 12
                     color: "#666"
                     wrapMode: Text.NoWrap
@@ -525,12 +525,14 @@ Item {
                     rangeSliderTemplate.matlabPropertyDraft = propertyInput.text
                     rangeSliderTemplate.matlabProperty = rangeSliderTemplate.matlabPropertyDraft
 
-                    if (typeof matlabExecutor !== "undefined" && matlabExecutor.saveRangeSliderPropertyToMatlab) {
-                        matlabExecutor.saveRangeSliderPropertyToMatlab(
+                    if (typeof matlabExecutor !== "undefined" && matlabExecutor.saveStepRangeSliderPropertyToMatlab) {
+                        matlabExecutor.saveStepRangeSliderPropertyToMatlab(
                                     rangeSliderTemplate.matlabProperty,
                                     rangeSlider.first.value,
+                                    rangeSliderTemplate.stepSize,
                                     rangeSlider.second.value,
-                                    rangeSliderTemplate.unit)
+                                    rangeSliderTemplate.unit,
+                                    "")  // module_name will be inferred from property
                     }
 
                     propertySaveRequested(rangeSliderTemplate.matlabProperty,
@@ -684,6 +686,16 @@ Item {
             matlabExecutor.updatePrestimPoststimSliderValues(from, to, firstValue, secondValue)
         } else if (sliderId === "erpRangeSlider" && typeof matlabExecutor !== "undefined" && matlabExecutor.updateErpRangeSliderValues) {
             matlabExecutor.updateErpRangeSliderValues(from, to, firstValue, secondValue)
+        } else if (matlabProperty && typeof matlabExecutor !== "undefined" && matlabExecutor.saveStepRangeSliderPropertyToMatlab) {
+            // For dynamically loaded parameters, save using step range format
+            matlabExecutor.saveStepRangeSliderPropertyToMatlab(
+                matlabProperty,
+                firstValue,
+                stepSize,
+                secondValue,
+                unit,
+                ""  // module_name will be inferred
+            )
         }
     }
 }
