@@ -2121,8 +2121,9 @@ class MatlabExecutor(QObject):
             matlab_analysis_path = os.path.join(project_root, "features", "analysis", "matlab")
             matlab_preprocessing_path = os.path.join(project_root, "features", "preprocessing", "matlab")
             
-            # Build MATLAB path command to add function directories
-            path_cmd = f"addpath('{matlab_analysis_path}'); addpath('{matlab_preprocessing_path}'); "
+            # Build MATLAB path command to add function directories (including all subdirectories)
+            # Use genpath to recursively add all subdirectories
+            path_cmd = f"addpath(genpath('{matlab_analysis_path}')); addpath(genpath('{matlab_preprocessing_path}')); "
             
             # Combine path setup with the user's command
             full_command = path_cmd + command

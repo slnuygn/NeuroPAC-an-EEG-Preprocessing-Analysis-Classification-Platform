@@ -42,6 +42,47 @@ fprintf('Successfully loaded clean_data_decomposed\n');
 numTrials = numel(data_decomposed);
 fprintf('Number of trials/subjects: %d\n', numTrials);
 
+% Debug: Check the structure of the loaded data
+fprintf('\n=== Data Structure Debug ===\n');
+fprintf('Data decomposed is a: %s\n', class(data_decomposed));
+fprintf('Size: %s\n', mat2str(size(data_decomposed)));
+if numTrials > 0
+    fprintf('Fields in data_decomposed(1): %s\n', strjoin(fieldnames(data_decomposed(1)), ', '));
+    for i = 1:numTrials
+        fprintf('\nSubject %d fields:\n', i);
+        if isfield(data_decomposed(i), 'target_data')
+            if isempty(data_decomposed(i).target_data)
+                fprintf('  target_data: EMPTY\n');
+            else
+                fprintf('  target_data: exists, class=%s\n', class(data_decomposed(i).target_data));
+            end
+        else
+            fprintf('  target_data: MISSING FIELD\n');
+        end
+        
+        if isfield(data_decomposed(i), 'standard_data')
+            if isempty(data_decomposed(i).standard_data)
+                fprintf('  standard_data: EMPTY\n');
+            else
+                fprintf('  standard_data: exists, class=%s\n', class(data_decomposed(i).standard_data));
+            end
+        else
+            fprintf('  standard_data: MISSING FIELD\n');
+        end
+        
+        if isfield(data_decomposed(i), 'novelty_data')
+            if isempty(data_decomposed(i).novelty_data)
+                fprintf('  novelty_data: EMPTY\n');
+            else
+                fprintf('  novelty_data: exists, class=%s\n', class(data_decomposed(i).novelty_data));
+            end
+        else
+            fprintf('  novelty_data: MISSING FIELD\n');
+        end
+    end
+end
+fprintf('=== End Debug ===\n\n');
+
 % Define configuration for timelock analysis
 cfg = [];
 cfg.latency = [0 1];
@@ -128,18 +169,27 @@ ERP_data = struct( ...
     'novelty', cell(1, numTrials));
 
 for i = 1:numTrials
-    fprintf('Timelock analysis for trial %d/%d\n', i, numTrials);
+    fprintf('Timelock analysis for subject %d/%d\n', i, numTrials);
     
-    if isfield(data_decomposed(i), 'target') && ~isempty(data_decomposed(i).target)
-        ERP_data(i).target = ft_timelockanalysis(cfg, data_decomposed(i).target);
+    if isfield(data_decomposed(i), 'target_data') && ~isempty(data_decomposed(i).target_data)
+        fprintf('  Processing target_data...\n');
+        ERP_data(i).target = ft_timelockanalysis(cfg, data_decomposed(i).target_data);
+    else
+        fprintf('  Skipping target_data (missing or empty)\n');
     end
     
-    if isfield(data_decomposed(i), 'standard') && ~isempty(data_decomposed(i).standard)
-        ERP_data(i).standard = ft_timelockanalysis(cfg, data_decomposed(i).standard);
+    if isfield(data_decomposed(i), 'standard_data') && ~isempty(data_decomposed(i).standard_data)
+        fprintf('  Processing standard_data...\n');
+        ERP_data(i).standard = ft_timelockanalysis(cfg, data_decomposed(i).standard_data);
+    else
+        fprintf('  Skipping standard_data (missing or empty)\n');
     end
     
-    if isfield(data_decomposed(i), 'novelty') && ~isempty(data_decomposed(i).novelty)
-        ERP_data(i).novelty = ft_timelockanalysis(cfg, data_decomposed(i).novelty);
+    if isfield(data_decomposed(i), 'novelty_data') && ~isempty(data_decomposed(i).novelty_data)
+        fprintf('  Processing novelty_data...\n');
+        ERP_data(i).novelty = ft_timelockanalysis(cfg, data_decomposed(i).novelty_data);
+    else
+        fprintf('  Skipping novelty_data (missing or empty)\n');
     end
 end
 fprintf('Timelock analysis completed\n');

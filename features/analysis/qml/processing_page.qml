@@ -69,12 +69,30 @@ Item {
                     folderContents: processingPageRoot.folderContents
 
                     onButtonClicked: {
-                        if (!validateTargetFile()) {
-                            errorText.text = errorMessage
+                        // Check for the decomposed file instead of clean file
+                        var targetFileName = "data_ICApplied_clean_decomposed.mat"
+                        
+                        if (!currentFolder) {
+                            erpAnalysisModule.errorMessage = "No folder selected"
                             return
                         }
                         
-                        errorText.text = ""
+                        var foundFile = false
+                        for (var i = 0; i < folderContents.length; i++) {
+                            var rawEntry = folderContents[i]
+                            var sanitizedEntry = rawEntry.replace(/^[^\w]+/, '').trim()
+                            if (sanitizedEntry.toLowerCase() === targetFileName.toLowerCase()) {
+                                foundFile = true
+                                break
+                            }
+                        }
+                        
+                        if (!foundFile) {
+                            erpAnalysisModule.errorMessage = "data_ICApplied_clean_decomposed.mat not found in the selected folder"
+                            return
+                        }
+                        
+                        erpAnalysisModule.errorMessage = ""
                         var sanitizedFolder = currentFolder.replace(/^[^\w]+/, '').trim()
                         var basePath = sanitizedFolder.length > 0 ? sanitizedFolder : currentFolder
                         var normalizedFolder = basePath.replace(/\\/g, "/")
