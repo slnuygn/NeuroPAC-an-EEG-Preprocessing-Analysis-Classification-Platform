@@ -44,6 +44,9 @@ matlab_executor = MatlabExecutor()
 file_browser = FileBrowser()
 # classification_config = ClassificationConfig()
 
+# Keep MATLAB data_dir in sync whenever the file browser loads a folder
+file_browser.folderLoaded.connect(matlab_executor.updateDataDirectory)
+
 engine = QQmlApplicationEngine()
 engine.quit.connect(app.quit)
 

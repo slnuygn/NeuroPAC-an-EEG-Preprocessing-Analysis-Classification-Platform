@@ -8,6 +8,7 @@ class FileBrowser(QObject):
     # Signals for drive files (upper pane)
     folderContentsChanged = pyqtSignal(list)
     currentFolderChanged = pyqtSignal(str)
+    folderLoaded = pyqtSignal(str)  # Emits the normalized folder path when loaded
     
     # Signals for RAM files (lower pane)
     ramContentsChanged = pyqtSignal(list)
@@ -61,6 +62,7 @@ class FileBrowser(QObject):
     def loadFolder(self, folder_path):
         """Load contents of the specified folder"""
         try:
+            print(f"loadFolder called with: {folder_path}")
             # Convert QML URL to local path if needed
             if folder_path.startswith("file:///"):
                 folder_path = folder_path[8:]  # Remove file:/// prefix
@@ -71,6 +73,7 @@ class FileBrowser(QObject):
             folder_path = folder_path.replace('\\\\', '\\')
             
             self.currentFolder = folder_path  # Use property setter
+            self.folderLoaded.emit(folder_path)
             
             contents = []
             for item in os.listdir(folder_path):

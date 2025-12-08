@@ -15,11 +15,42 @@ Item {
     property string errorMessage: ""
     property string moduleName: ""  // Name used to find corresponding MATLAB file
     property bool editModeEnabled: false  // Track edit mode state
+    property string outputFileName: ""  // Output file to check for (e.g., "erp_output.mat")
+    property string visualizerFunction: ""  // MATLAB visualizer function name (e.g., "erp_visualizer")
     signal buttonClicked()
+    signal visualizeClicked()  // New signal for visualize button
     default property alias expandedContent: contentContainer.data
 
     // Dynamic parameters loaded from MATLAB file
     property var dynamicParameters: ({})
+
+    // Property to track if output file exists
+    property bool outputFileExists: false
+
+    // Check for output file whenever folder contents or outputFileName changes
+    onFolderContentsChanged: checkOutputFile()
+    onOutputFileNameChanged: checkOutputFile()
+    onCurrentFolderChanged: checkOutputFile()
+
+    function checkOutputFile() {
+        if (!outputFileName || !currentFolder || folderContents.length === 0) {
+            outputFileExists = false
+            return
+        }
+        
+        var found = false
+        for (var i = 0; i < folderContents.length; i++) {
+            var rawEntry = folderContents[i]
+            var sanitizedEntry = rawEntry.replace(/^[^\w]+/, '').trim()
+            if (sanitizedEntry.toLowerCase() === outputFileName.toLowerCase()) {
+                found = true
+                break
+            }
+        }
+        
+        outputFileExists = found
+        console.log("Output file check for", outputFileName, ":", found)
+    }
 
     // Load parameters when module name is set
     onModuleNameChanged: {
@@ -71,11 +102,6 @@ Item {
         return true
     }
 
-    MouseArea {
-        anchors.fill: parent
-        onClicked: expanded = !expanded
-    }
-
     Rectangle {
         id: rectangle
         width: parent.width - 10
@@ -87,6 +113,11 @@ Item {
         border.color: "#ccc"
         border.width: 1
         radius: 3
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: expanded = !expanded
+        }
 
         Text {
             id: text
@@ -166,6 +197,49 @@ Item {
         }
     }
 
+    // Visualize Button - anchored above Feature Extract button
+    Rectangle {
+        id: visualizeButton
+        visible: expanded && outputFileExists
+        width: 150
+        height: 40
+        color: "white"
+        border.color: "#2196f3"
+        border.width: 1
+        radius: 5
+        
+        anchors.right: contentContainer.right
+        anchors.bottom: moduleButton.top
+        anchors.margins: 10
+        
+        z: 1000
+
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            
+            onClicked: {
+                moduleTemplate.visualizeClicked()
+            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 1  // Keep inside the border
+            color: parent.parent.pressed ? "#e3f2fd" : (parent.parent.containsMouse ? "#dcdbdbff" : "transparent")
+            radius: 4
+            z: -1  // Place behind the text
+        }
+
+        Text {
+            text: "Visualize"
+            color: "#2196f3"
+            font.pixelSize: 14
+            anchors.centerIn: parent
+        }
+    }
+
     // Floating Action Button - anchored to contentContainer bottom right
     Rectangle {
         id: moduleButton
@@ -188,7 +262,7 @@ Item {
             
             Rectangle {
                 anchors.fill: parent
-                color: parent.pressed ? "#1565c0" : (parent.containsMouse ? "#1976d2" : "transparent")
+                color: parent.pressed ? "#1565c0" : (parent.containsMouse ? "#2196f3" : "transparent")
                 radius: 5
             }
 

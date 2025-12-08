@@ -14,6 +14,7 @@ from parser.matlab_parameter_parser import (
     create_ui_component,
 )
 
+
 # Function to get the resource path (works for both development and PyInstaller)
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and for PyInstaller"""
@@ -27,14 +28,15 @@ def resource_path(relative_path):
 
 class MatlabWorkerThread(QThread):
     """Worker thread for running MATLAB commands in the background"""
+
     finished = pyqtSignal(dict)  # Emits result dictionary
-    
+
     def __init__(self, matlab_path, script_dir, show_console=False):
         super().__init__()
         self.matlab_path = matlab_path
         self.script_dir = script_dir
         self.show_console = show_console
-        
+
     def run(self):
         """Run MATLAB preprocessing in background thread"""
         try:
@@ -57,9 +59,9 @@ class MatlabWorkerThread(QThread):
                     '-batch',
                     f"cd('{script_dir_unix}'); preprocessing"
                 ]
-            
+
             print(f"Running MATLAB command in background: {' '.join(cmd)}")
-            
+
             creation_flags = 0
             if hasattr(subprocess, 'CREATE_NO_WINDOW'):
                 creation_flags = subprocess.CREATE_NO_WINDOW
@@ -84,14 +86,14 @@ class MatlabWorkerThread(QThread):
                 )
                 stdout = result.stdout
                 stderr = result.stderr
-            
+
             # Emit the result
             self.finished.emit({
                 'returncode': result.returncode,
                 'stdout': stdout,
                 'stderr': stderr
             })
-            
+
         except subprocess.TimeoutExpired:
             self.finished.emit({
                 'returncode': -1,
@@ -801,40 +803,57 @@ class MatlabExecutor(QObject):
     
     @pyqtSlot(str)
     def updateDataDirectory(self, folder_path):
-        """Update the data_dir in preprocessing.m with the selected folder path"""
+        """Update the data_dir in preprocessing.m with the selected folder path."""
         try:
-            script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "features", "preprocessing", "matlab", "preprocessing.m")
-            
-            # Convert QML URL to local path if needed
-            if folder_path.startswith("file:///"):
-                folder_path = folder_path[8:]  # Remove file:/// prefix
-            
+            script_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "features",
+                "preprocessing",
+                "matlab",
+                "preprocessing.m",
+            )
+
+            # Normalize incoming paths from QML (often prefixed with file:///)
+            normalized = folder_path or ""
+            if normalized.startswith("file:///"):
+                normalized = normalized[8:]
+            elif normalized.startswith("file://"):
+                normalized = normalized[7:]
+            normalized = normalized.strip()
+
+            print(f"updateDataDirectory: incoming='{folder_path}' normalized='{normalized}' script='{script_path}'")
+
             # Read the current file
-            with open(script_path, 'r') as file:
+            with open(script_path, "r", encoding="utf-8") as file:
                 content = file.read()
-            
-            # Replace the data_dir line
-            if folder_path.strip():  # If a folder is selected
-                # Convert Windows path to MATLAB format (forward slashes work in MATLAB)
-                matlab_path = folder_path.replace('\\', '/')
-                data_dir_pattern = r'data_dir\s*=\s*[^;]+;'
+
+            # Decide replacement (MATLAB accepts forward slashes on Windows)
+            if normalized:
+                matlab_path = normalized.replace("\\", "/")
                 data_dir_replacement = f"data_dir = '{matlab_path}';"
-            else:  # If no folder selected, use pwd
-                data_dir_pattern = r'data_dir\s*=\s*[^;]+;'
+                log_path = matlab_path
+            else:
                 data_dir_replacement = "data_dir = pwd;"
-            
-            content = re.sub(data_dir_pattern, data_dir_replacement, content)
-            
-            # Write the updated content back to the file
-            with open(script_path, 'w') as file:
-                file.write(content)
-            
-            success_msg = f"Data directory updated to: {folder_path if folder_path.strip() else 'pwd (current directory)'}"
-            print(success_msg)
-            
+                log_path = "pwd (current directory)"
+
+            # Replace only the data_dir line; if missing, append it
+            pattern = r"^\s*data_dir\s*=\s*[^;]+;"
+            new_content, count = re.subn(pattern, data_dir_replacement, content, flags=re.MULTILINE)
+            if count == 0:
+                if not new_content.endswith("\n"):
+                    new_content += "\n"
+                new_content += data_dir_replacement + "\n"
+
+            print(f"updateDataDirectory: replacements={count} writing value='{data_dir_replacement}'")
+
+            with open(script_path, "w", encoding="utf-8") as file:
+                file.write(new_content)
+
+            self._current_data_dir = normalized
+            print(f"Data directory updated to: {log_path}")
+
         except Exception as e:
-            error_msg = f"Error updating data directory: {str(e)}"
-            print(error_msg)
+            print(f"Error updating data directory: {str(e)}")
 
     @pyqtSlot(result=str)
     def getCurrentFieldtripPath(self):
@@ -1831,34 +1850,6 @@ class MatlabExecutor(QObject):
             error_msg = f"Error in run and save configuration: {str(e)}"
             print(error_msg)
             self.configSaved.emit(error_msg)
-    
-    @pyqtSlot(str)
-    def updateDataDirectory(self, data_path):
-        """Update the data_dir path in preprocessing.m"""
-        try:
-            script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "features", "preprocessing", "matlab", "preprocessing.m")
-            
-            # Read the current file
-            with open(script_path, 'r') as file:
-                content = file.read()
-            
-            # Replace the data_dir line
-            # Convert Windows backslashes to forward slashes for MATLAB
-            matlab_path = data_path.replace('\\', '/')
-            data_dir_pattern = r"data_dir\s*=\s*'[^']*';"
-            data_dir_replacement = f"data_dir = '{matlab_path}';"
-            content = re.sub(data_dir_pattern, data_dir_replacement, content)
-            
-            # Write the updated content back to the file
-            with open(script_path, 'w') as file:
-                file.write(content)
-            
-            print(f"Updated data directory to: {matlab_path}")
-            
-        except Exception as e:
-            error_msg = f"Error updating data directory: {str(e)}"
-            print(error_msg)
-            raise e
     
     @pyqtSlot()
     def executePreprocessing(self):

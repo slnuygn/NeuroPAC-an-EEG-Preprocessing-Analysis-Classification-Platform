@@ -194,7 +194,23 @@ for i = 1:numTrials
 end
 fprintf('Timelock analysis completed\n');
 
+% Reformat into an (subjects x 3) struct array expected by erp_visualizer
+defaultRecord = struct('time', [], 'avg', [], 'label', [], 'var', [], 'dof', [], 'dimord', '', 'cfg', []);
+erp_records = repmat(defaultRecord, numTrials, 3);
+
+for i = 1:numTrials
+    if isfield(ERP_data(i), 'target') && ~isempty(ERP_data(i).target)
+        erp_records(i, 1) = ERP_data(i).target;
+    end
+    if isfield(ERP_data(i), 'standard') && ~isempty(ERP_data(i).standard)
+        erp_records(i, 2) = ERP_data(i).standard;
+    end
+    if isfield(ERP_data(i), 'novelty') && ~isempty(ERP_data(i).novelty)
+        erp_records(i, 3) = ERP_data(i).novelty;
+    end
+end
+
 outputPath = fullfile(dataFolder, 'erp_output.mat');
-save(outputPath, 'ERP_data');
+save(outputPath, 'ERP_data', 'erp_records');
 fprintf('ERP analysis results saved to %s\n', outputPath);
 end

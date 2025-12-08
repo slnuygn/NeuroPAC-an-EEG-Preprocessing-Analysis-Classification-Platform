@@ -65,8 +65,30 @@ Item {
                     id: erpAnalysisModule
                     displayText: "ERP Analysis"
                     moduleName: "ERP Analysis"
+                    outputFileName: "erp_output.mat"
+                    visualizerFunction: "erp_visualizer"
                     currentFolder: processingPageRoot.currentFolder
                     folderContents: processingPageRoot.folderContents
+
+                    onVisualizeClicked: {
+                        var sanitizedFolder = currentFolder.replace(/^[^\w]+/, '').trim()
+                        var basePath = sanitizedFolder.length > 0 ? sanitizedFolder : currentFolder
+                        var normalizedFolder = basePath.replace(/\\/g, "/")
+                        var outputFilePath = normalizedFolder + "/erp_output.mat"
+                        var escapedPath = outputFilePath.replace(/'/g, "\\'")
+                        // Add MATLAB paths, load the MAT file, then call erp_visualizer with available data.
+                        // Use a single set of addpath calls to avoid duplicate/escaped quote issues.
+                        var scriptParts = [
+                            "addpath(genpath('C:/Users/mamam/Desktop/Capstone/features/analysis/matlab'));",
+                            "addpath(genpath('C:/Users/mamam/Desktop/Capstone/features/preprocessing/matlab'));",
+                            "load('" + escapedPath + "');",
+                            "if exist('erp_records','var'), erp_visualizer(erp_records);",
+                            "elseif exist('ERP_data','var'), erp_visualizer(ERP_data);",
+                            "else, error('erp_output.mat missing erp_records/ERP_data'); end"
+                        ];
+                        var script = scriptParts.join(' ');
+                        matlabExecutor.runMatlabScriptInteractive(script, true)
+                    }
 
                     onButtonClicked: {
                         // Check for the decomposed file instead of clean file
@@ -105,24 +127,76 @@ Item {
                     id: timeFreqModule
                     displayText: "Time-Frequency Analysis"
                     moduleName: "Time-Frequency Analysis"
+                    outputFileName: "timefreq_output.mat"
+                    visualizerFunction: "timefreq_visualizer"
+                    currentFolder: processingPageRoot.currentFolder
+                    folderContents: processingPageRoot.folderContents
+
+                    onVisualizeClicked: {
+                        var sanitizedFolder = currentFolder.replace(/^[^\w]+/, '').trim()
+                        var basePath = sanitizedFolder.length > 0 ? sanitizedFolder : currentFolder
+                        var normalizedFolder = basePath.replace(/\\/g, "/")
+                        var outputFilePath = normalizedFolder + "/timefreq_output.mat"
+                        var escapedPath = outputFilePath.replace(/'/g, "\\'")
+                        matlabExecutor.runMatlabScriptInteractive("load('" + escapedPath + "'); timefreq_visualizer(timefreq_data);", true)
+                    }
                 }
 
                 ModuleTemplate {
                     id: interTrialModule
                     displayText: "Inter-Trial Coherence Analysis"
                     moduleName: "Inter-Trial Coherence Analysis"
+                    outputFileName: "intertrial_coherence_output.mat"
+                    visualizerFunction: "intertrial_visualizer"
+                    currentFolder: processingPageRoot.currentFolder
+                    folderContents: processingPageRoot.folderContents
+
+                    onVisualizeClicked: {
+                        var sanitizedFolder = currentFolder.replace(/^[^\w]+/, '').trim()
+                        var basePath = sanitizedFolder.length > 0 ? sanitizedFolder : currentFolder
+                        var normalizedFolder = basePath.replace(/\\/g, "/")
+                        var outputFilePath = normalizedFolder + "/intertrial_coherence_output.mat"
+                        var escapedPath = outputFilePath.replace(/'/g, "\\'")
+                        matlabExecutor.runMatlabScriptInteractive("load('" + escapedPath + "'); intertrial_visualizer(intertrial_coherence_output);", true)
+                    }
                 }
 
                 ModuleTemplate {
                     id: channelWiseModule
                     displayText: "Channel-Wise Coherence Analysis"
                     moduleName: "Channel-Wise Coherence Analysis"
+                    outputFileName: "channelwise_coherence_output.mat"
+                    visualizerFunction: "channelwise_visualizer"
+                    currentFolder: processingPageRoot.currentFolder
+                    folderContents: processingPageRoot.folderContents
+
+                    onVisualizeClicked: {
+                        var sanitizedFolder = currentFolder.replace(/^[^\w]+/, '').trim()
+                        var basePath = sanitizedFolder.length > 0 ? sanitizedFolder : currentFolder
+                        var normalizedFolder = basePath.replace(/\\/g, "/")
+                        var outputFilePath = normalizedFolder + "/channelwise_coherence_output.mat"
+                        var escapedPath = outputFilePath.replace(/'/g, "\\'")
+                        matlabExecutor.runMatlabScriptInteractive("load('" + escapedPath + "'); channelwise_visualizer(channelwise_coherence_output);", true)
+                    }
                 }
 
                 ModuleTemplate {
                     id: spectralModule
                     displayText: "Spectral Analysis"
                     moduleName: "Spectral Analysis"
+                    outputFileName: "spectral_output.mat"
+                    visualizerFunction: "spectral_visualizer"
+                    currentFolder: processingPageRoot.currentFolder
+                    folderContents: processingPageRoot.folderContents
+
+                    onVisualizeClicked: {
+                        var sanitizedFolder = currentFolder.replace(/^[^\w]+/, '').trim()
+                        var basePath = sanitizedFolder.length > 0 ? sanitizedFolder : currentFolder
+                        var normalizedFolder = basePath.replace(/\\/g, "/")
+                        var outputFilePath = normalizedFolder + "/spectral_output.mat"
+                        var escapedPath = outputFilePath.replace(/'/g, "\\'")
+                        matlabExecutor.runMatlabScriptInteractive("load('" + escapedPath + "'); spectral_visualizer(spectral_output);", true)
+                    }
                 }
             }
         }
