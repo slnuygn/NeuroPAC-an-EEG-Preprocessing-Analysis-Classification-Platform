@@ -10,8 +10,8 @@ cfg.trialdef.eventtype  = 'Stimulus';
 
 cfg.trialdef.eventvalue = {'S200' 'S201' 'S202'};
 
-cfg.trialdef.prestim    = 2; % in seconds
-cfg.trialdef.poststim   = 2; % in seconds
+cfg.trialdef.prestim    = 0.0; % in seconds
+cfg.trialdef.poststim   = 1.0; % in seconds
 
 cfg = ft_definetrial(cfg);
 cfg.channel = {'F4' 'Fz' 'C3' 'Pz' 'P3' 'O1' 'Oz' 'O2' 'P4' 'Cz' 'C4' 'F3'};
@@ -23,6 +23,7 @@ cfg.baselinewindow = [-1.5 -0.5];
 
 cfg.dftfilter = 'yes';
 cfg.dftfreq = [50 60];
+
 
 
 

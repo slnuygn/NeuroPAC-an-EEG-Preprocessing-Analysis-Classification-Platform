@@ -159,8 +159,8 @@ cfg.foi = 1:0.5:15;
 
 % Initialize output structures
 spectral_data = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
-defaultRecord = struct('powspctrm', [], 'freq', [], 'label', [], 'dimord', '', 'cfg', []);
-spectral_records = repmat(defaultRecord, numSubjects, 3);
+% Use cells for spectral_records to accommodate FieldTrip outputs with dynamic fields
+spectral_records = cell(numSubjects, 3);
 
 fprintf('Starting spectral analysis...\n');
 for s = 1:numSubjects
@@ -171,7 +171,7 @@ for s = 1:numSubjects
         if ~isempty(condData)
             spectr_out = ft_freqanalysis(cfg, condData);
             spectral_data(s).(condName) = spectr_out;
-            spectral_records(s, c) = spectr_out;
+            spectral_records{s, c} = spectr_out;
         end
     end
 end

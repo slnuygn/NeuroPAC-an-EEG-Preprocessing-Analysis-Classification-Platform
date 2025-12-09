@@ -549,6 +549,35 @@ class MatlabExecutor(QObject):
             return True, new_content
         return False, content
     
+    def _comment_matlab_assignment(self, content: str, property_name: str):
+        """Comment out a MATLAB assignment line."""
+        # Match the line, preserving existing comments
+        pattern = rf"(?m)^(\s*)({re.escape(property_name)}\s*=.*)$"
+        
+        def _add_comment(match: re.Match) -> str:
+            indent = match.group(1)
+            line = match.group(2)
+            # Don't double-comment
+            if line.strip().startswith('%'):
+                return match.group(0)
+            return f"{indent}% {line}"
+        
+        new_content, count = re.subn(pattern, _add_comment, content, count=1)
+        return count > 0, new_content
+    
+    def _uncomment_matlab_assignment(self, content: str, property_name: str):
+        """Uncomment a MATLAB assignment line."""
+        # Match commented line
+        pattern = rf"(?m)^(\s*)%\s*({re.escape(property_name)}\s*=.*)$"
+        
+        def _remove_comment(match: re.Match) -> str:
+            indent = match.group(1)
+            line = match.group(2)
+            return f"{indent}{line}"
+        
+        new_content, count = re.subn(pattern, _remove_comment, content, count=1)
+        return count > 0, new_content
+    
     @pyqtSlot(result=float)
     def getCurrentPrestim(self):
         """Read the current prestim value from preprocess_data.m"""
@@ -1347,6 +1376,10 @@ class MatlabExecutor(QObject):
             if normalized_property == "cfg.ft_paths":
                 return False
 
+            # Special handling for demean - when set to 'no', comment out both demean and baselinewindow
+            if normalized_property == "cfg.demean" and module_name == "Preprocessing":
+                return self._save_demean_with_baseline(is_checked, module_name)
+
             formatted_value = "'yes'" if is_checked else "'no'"
 
             return self._save_property_generic(normalized_property, formatted_value, module_name)
@@ -1355,6 +1388,72 @@ class MatlabExecutor(QObject):
             print(error_msg)
             self.configSaved.emit(error_msg)
             return False
+    
+    def _save_demean_with_baseline(self, is_checked, module_name):
+        """Special handler for demean parameter - comments/uncomments both demean and baselinewindow."""
+        try:
+            preprocess_path = self._get_preprocess_data_script_path()
+            if not preprocess_path:
+                print("Could not find preprocess_data.m script path")
+                return False
+            
+            with open(preprocess_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            modified = False
+            
+            if is_checked:
+                # When demean is 'yes', uncomment both lines
+                changed1, content = self._uncomment_matlab_assignment(content, "cfg.demean")
+                changed2, content = self._uncomment_matlab_assignment(content, "cfg.baselinewindow")
+                modified = changed1 or changed2
+                
+                # Also set the value to 'yes'
+                replaced, content = self._replace_or_insert_matlab_assignment(
+                    content, "cfg.demean", "'yes'")
+                modified = modified or replaced
+                
+                # Remove any duplicate uncommented baselinewindow lines (keep only the first one)
+                content = self._remove_duplicate_assignments(content, "cfg.baselinewindow")
+            else:
+                # When demean is 'no', comment out both lines AND remove any uncommented duplicates
+                changed1, content = self._comment_matlab_assignment(content, "cfg.demean")
+                changed2, content = self._comment_matlab_assignment(content, "cfg.baselinewindow")
+                
+                # Also remove any uncommented baselinewindow lines that might have been added
+                removed, content = self._remove_matlab_assignment(content, "cfg.baselinewindow")
+                
+                modified = changed1 or changed2 or removed
+            
+            if modified:
+                with open(preprocess_path, 'w', encoding='utf-8') as file:
+                    file.write(content)
+                print(f"Successfully saved demean={'yes' if is_checked else 'no'} with baselinewindow")
+                self.configSaved.emit(f"Demean and baselinewindow updated")
+                return True
+            else:
+                print("No changes made to demean/baselinewindow")
+                return True
+                
+        except Exception as e:
+            error_msg = f"Error saving demean with baseline: {str(e)}"
+            print(error_msg)
+            self.configSaved.emit(error_msg)
+            return False
+    
+    def _remove_duplicate_assignments(self, content: str, property_name: str):
+        """Remove duplicate assignments of a property, keeping only the first one."""
+        pattern = rf"(?m)^\s*{re.escape(property_name)}\s*=.*(?:\n|$)"
+        matches = list(re.finditer(pattern, content))
+        
+        if len(matches) <= 1:
+            return content
+        
+        # Keep the first match, remove all others
+        for match in reversed(matches[1:]):
+            content = content[:match.start()] + content[match.end():]
+        
+        return content
 
     def _save_property_generic(self, normalized_property, formatted_value, module_name):
         """Generic helper to save a property to the correct script based on module."""

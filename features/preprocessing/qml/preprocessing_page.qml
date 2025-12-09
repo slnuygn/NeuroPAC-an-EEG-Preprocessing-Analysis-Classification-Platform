@@ -649,6 +649,12 @@ Item {
             
             if (!config) continue
             
+            // Skip baselinewindow if demean is disabled
+            if (key === 'baselinewindow' && dynamicValues['demean'] === false) {
+                console.log("Skipping baselinewindow (demean is disabled)")
+                continue
+            }
+            
             if (config.component_type === 'RangeSliderTemplate') {
                 // Handle range slider (including trial_time_window)
                 success = matlabExecutor.saveRangeSliderPropertyToMatlab(
