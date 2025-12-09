@@ -21,31 +21,27 @@ erp_records = normalize_erp_records(erp_records);
 % Get number of subjects from the data
 num_subjects = size(erp_records, 1);
 
-% Create figure with 12x3 grid
+% Create figure (hidden initially to avoid flash) with white background
 fig = figure('Name', 'ERP Analysis Visualization', 'NumberTitle', 'off', ...
-    'Position', [50, 50, 1400, 900], 'WindowState', 'maximized');
+    'Position', [50, 50, 1400, 900], 'WindowState', 'maximized', ...
+    'Color', [1 1 1], 'Visible', 'off');
 
 % Create data structure to store current state
 data.erp_records = erp_records;
 data.num_subjects = num_subjects;
 data.current_subject = 1;
+data.channel_labels = get_channel_labels(erp_records);
+data.selected_channel_indices = 1:numel(data.channel_labels); % default to all channels
 
-% Create UI controls for navigation
-data.prev_btn = uicontrol('Style', 'pushbutton', 'String', '← Previous', ...
-    'Position', [20, 20, 100, 30], ...
-    'Callback', @(src, evt) navigate_subject(fig, -1));
-
-data.next_btn = uicontrol('Style', 'pushbutton', 'String', 'Next →', ...
-    'Position', [130, 20, 100, 30], ...
-    'Callback', @(src, evt) navigate_subject(fig, 1));
-
-data.subject_label = uicontrol('Style', 'text', 'String', ...
-    sprintf('Subject: 1/%d', num_subjects), ...
-    'Position', [240, 20, 150, 30], ...
-    'FontSize', 10);
-
-% Store data in figure
+% Store data in figure, build UI once
 guidata(fig, data);
+create_ui_controls(fig, data);
+
+% Show the figure (controls appear immediately) and draw UI
+if strcmp(get(fig, 'Visible'), 'off')
+    set(fig, 'Visible', 'on');
+    drawnow; % ensure controls render promptly
+end
 
 % Plot initial subject
 plot_subject(fig);
@@ -103,7 +99,6 @@ end
 % Update if changed
 if new_subject ~= data.current_subject
     data.current_subject = new_subject;
-    set(data.subject_label, 'String', sprintf('Subject: %d/%d', new_subject, data.num_subjects));
     guidata(fig, data);
     plot_subject(fig);
 end
@@ -118,10 +113,65 @@ target_data = data.erp_records(data.current_subject, 1);
 standard_data = data.erp_records(data.current_subject, 2);
 novelty_data = data.erp_records(data.current_subject, 3);
 
-% Clear existing plots
-clf(fig, 'reset');
+num_channels = size(target_data.avg, 1);
 
-% Recreate UI controls (since clf removes them)
+% Ensure channel selection is valid for current data
+selected_channels = data.selected_channel_indices;
+selected_channels = selected_channels(selected_channels <= num_channels);
+data.selected_channel_indices = selected_channels;
+
+% Clear existing axes only (keep UI controls for responsiveness)
+delete(findall(fig, 'Type', 'axes'));
+
+% Create grid of subplots for selected channels x 3 conditions
+num_selected = numel(selected_channels);
+for idx = 1:num_selected
+    channel = selected_channels(idx);
+    channel_label = data.channel_labels{channel};
+    
+    % Target column (column 1)
+    subplot(num_selected, 3, (idx-1)*3 + 1);
+    plot(target_data.time, target_data.avg(channel, :));
+    ylabel(channel_label);
+    if idx == 1
+        title('Target');
+    end
+    if idx == num_selected
+        xlabel('Time (s)');
+    end
+    grid on;
+    
+    % Standard column (column 2)
+    subplot(num_selected, 3, (idx-1)*3 + 2);
+    plot(standard_data.time, standard_data.avg(channel, :));
+    if idx == 1
+        title('Standard');
+    end
+    if idx == num_selected
+        xlabel('Time (s)');
+    end
+    grid on;
+    
+    % Novelty column (column 3)
+    subplot(num_selected, 3, (idx-1)*3 + 3);
+    plot(novelty_data.time, novelty_data.avg(channel, :));
+    if idx == 1
+        title('Novelty');
+    end
+    if idx == num_selected
+        xlabel('Time (s)');
+    end
+    grid on;
+end
+
+% Add main title with subject info
+sgtitle(sprintf('ERP Analysis - Subject %d/%d', data.current_subject, data.num_subjects));
+
+end
+
+% UI creation helper
+function create_ui_controls(fig, data)
+
 data.prev_btn = uicontrol('Style', 'pushbutton', 'String', '← Previous', ...
     'Position', [20, 20, 100, 30], ...
     'Callback', @(src, evt) navigate_subject(fig, -1));
@@ -130,53 +180,118 @@ data.next_btn = uicontrol('Style', 'pushbutton', 'String', 'Next →', ...
     'Position', [130, 20, 100, 30], ...
     'Callback', @(src, evt) navigate_subject(fig, 1));
 
-data.subject_label = uicontrol('Style', 'text', 'String', ...
-    sprintf('Subject: %d/%d', data.current_subject, data.num_subjects), ...
-    'Position', [240, 20, 150, 30], ...
-    'FontSize', 10);
+data.channel_toggle_btn = uicontrol('Style', 'pushbutton', 'String', 'Channels', ...
+    'Position', [20, 70, 120, 30], ...
+    'Callback', @(src, evt) toggle_channel_panel(fig));
 
-guidata(fig, data);
+num_channels = numel(data.channel_labels);
+panel_height = 30 + num_channels * 22;
+panel_width = 200;
 
-% Get number of channels (should be 12)
-num_channels = size(target_data.avg, 1);
+panel = uipanel('Parent', fig, 'Units', 'pixels', ...
+    'Position', [20, 70 + 30, panel_width, panel_height], ...
+    'BorderType', 'etchedin', ...
+    'Visible', 'off');
 
-% Create 12x3 grid of subplots (12 channels x 3 conditions)
-for channel = 1:num_channels
-    % Target column (column 1)
-    subplot(num_channels, 3, (channel-1)*3 + 1);
-    plot(target_data.time, target_data.avg(channel, :));
-    ylabel(sprintf('Ch %d', channel));
-    if channel == 1
-        title('Target');
-    end
-    if channel == num_channels
-        xlabel('Time (s)');
-    end
-    grid on;
-    
-    % Standard column (column 2)
-    subplot(num_channels, 3, (channel-1)*3 + 2);
-    plot(standard_data.time, standard_data.avg(channel, :));
-    if channel == 1
-        title('Standard');
-    end
-    if channel == num_channels
-        xlabel('Time (s)');
-    end
-    grid on;
-    
-    % Novelty column (column 3)
-    subplot(num_channels, 3, (channel-1)*3 + 3);
-    plot(novelty_data.time, novelty_data.avg(channel, :));
-    if channel == 1
-        title('Novelty');
-    end
-    if channel == num_channels
-        xlabel('Time (s)');
-    end
-    grid on;
+all_selected = numel(data.selected_channel_indices) == num_channels;
+all_cb = uicontrol('Parent', panel, 'Style', 'checkbox', ...
+    'String', 'All Channels', ...
+    'Value', all_selected, ...
+    'Position', [10, panel_height - 25, panel_width - 20, 20], ...
+    'Callback', []); % assign after channel checkboxes exist
+
+channel_cbs = cell(1, num_channels);
+for i = 1:num_channels
+    y = panel_height - 25 - (i * 22);
+    channel_cbs{i} = uicontrol('Parent', panel, 'Style', 'checkbox', ...
+        'String', data.channel_labels{i}, ...
+        'Value', ismember(i, data.selected_channel_indices), ...
+        'Position', [10, y, panel_width - 20, 20], ...
+        'Callback', []); % assign after creation
 end
 
-% Add main title with subject info
-sgtitle(sprintf('ERP Analysis - Subject %d/%d', data.current_subject, data.num_subjects));
+% Now wire callbacks with full handle visibility
+set(all_cb, 'Callback', @(src, evt) handle_all_checkbox(fig, src, channel_cbs));
+for i = 1:num_channels
+    set(channel_cbs{i}, 'Callback', @(src, evt) handle_channel_checkbox(fig, all_cb, channel_cbs, i));
+end
+
+data.channel_panel = panel;
+data.channel_checkboxes = channel_cbs;
+data.channel_all_checkbox = all_cb;
+data.channel_panel_visible = false;
+
+guidata(fig, data);
+end
+
+% Checkbox callbacks
+function handle_all_checkbox(fig, all_cb, channel_cbs)
+value = get(all_cb, 'Value');
+for i = 1:numel(channel_cbs)
+    set(channel_cbs{i}, 'Value', value);
+end
+if value == 1
+    set_selected_channels(fig, 1:numel(channel_cbs));
+else
+    set_selected_channels(fig, []);
+end
+end
+
+function handle_channel_checkbox(fig, all_cb, channel_cbs, idx)
+unused = idx; %#ok<NASGU> Intentionally unused but keeps signature clear
+vals = cellfun(@(cb) logical(get(cb, 'Value')), channel_cbs);
+if all(vals)
+    set(all_cb, 'Value', 1);
+else
+    set(all_cb, 'Value', 0);
+end
+
+selected = find(vals);
+set_selected_channels(fig, selected);
+end
+
+function set_selected_channels(fig, selected_indices)
+data = guidata(fig);
+num_channels = numel(data.channel_labels);
+
+selected_indices = selected_indices(selected_indices >= 1 & selected_indices <= num_channels);
+
+data.selected_channel_indices = selected_indices;
+guidata(fig, data);
+plot_subject(fig);
+end
+
+% Toggle panel visibility
+function toggle_channel_panel(fig)
+data = guidata(fig);
+
+is_visible = strcmp(get(data.channel_panel, 'Visible'), 'on');
+if is_visible
+    set(data.channel_panel, 'Visible', 'off');
+    set(data.channel_toggle_btn, 'String', 'Channels');
+    data.channel_panel_visible = false;
+else
+    set(data.channel_panel, 'Visible', 'on');
+    set(data.channel_toggle_btn, 'String', 'Channels (open)');
+    data.channel_panel_visible = true;
+end
+
+guidata(fig, data);
+end
+
+% Helper to extract channel labels or generate defaults
+function labels = get_channel_labels(erp_records)
+first_record = erp_records(1, 1);
+
+if isfield(first_record, 'label') && ~isempty(first_record.label)
+    raw_labels = first_record.label;
+    if isstring(raw_labels) || ischar(raw_labels)
+        labels = cellstr(raw_labels);
+    else
+        labels = raw_labels;
+    end
+else
+    num_channels = size(first_record.avg, 1);
+    labels = arrayfun(@(i) sprintf('Ch %d', i), 1:num_channels, 'UniformOutput', false);
+end
 end
