@@ -56,11 +56,12 @@ class MatlabParameterParser:
         all_matches.sort(key=lambda x: (x['start'], x['priority']))
 
         # Process in order
+        skip_params = {'ft_paths', 'conditionnames'}  # conditionNames is an internal helper, not a user parameter
         for match in all_matches:
             param_name = match['name']
             
-            # Skip internal variables
-            if param_name == 'ft_paths':
+            # Skip internal/constant variables
+            if param_name.lower() in skip_params:
                 continue
 
             param_type = match['type']

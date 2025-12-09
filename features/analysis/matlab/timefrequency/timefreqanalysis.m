@@ -39,8 +39,119 @@ end
 data_decomposed = loadedData.clean_data_decomposed;
 fprintf('Successfully loaded clean_data_decomposed\n');
 
-numTrials = numel(data_decomposed);
-fprintf('Number of trials/subjects: %d\n', numTrials);
+% Initialize FieldTrip if not already done (reuse preprocessing.m path hint)
+if ~exist('ft_defaults', 'file')
+    fprintf('FieldTrip not found, attempting to initialize...\n');
+    ft_paths = {};
+    currentFile = mfilename('fullpath');
+    [currentDir, ~, ~] = fileparts(currentFile);
+    preprocessingScript = fullfile(currentDir, '..', '..', '..', 'preprocessing', 'matlab', 'preprocessing.m');
+    
+    if exist(preprocessingScript, 'file')
+        fid = fopen(preprocessingScript, 'r');
+        if fid ~= -1
+            while ~feof(fid)
+                tline = fgetl(fid);
+                if ischar(tline) && contains(tline, 'addpath') && (contains(tline, 'fieldtrip', 'IgnoreCase', true) || contains(tline, 'FIELDTRIP'))
+                    tokens = regexp(tline, 'addpath\([''\"]([^''\"]+)[''\"]\)', 'tokens');
+                    if ~isempty(tokens) && ~isempty(tokens{1})
+                        extractedPath = tokens{1}{1};
+                        fprintf('Found FieldTrip path in preprocessing.m: %s\n', extractedPath);
+                        ft_paths{end+1} = extractedPath; %#ok<AGROW>
+                    end
+                end
+            end
+            fclose(fid);
+        end
+    else
+        fprintf('Warning: preprocessing.m not found at %s\n', preprocessingScript);
+    end
+    
+    if isempty(ft_paths)
+        ft_paths = {
+            'C:\\Program Files\\MATLAB\\fieldtrip';
+            'C:\\fieldtrip';
+            'D:\\fieldtrip';
+            fullfile(userpath, 'fieldtrip')
+            };
+    end
+    
+    ft_found = false;
+    for i = 1:length(ft_paths)
+        ft_path = ft_paths{i};
+        if exist(ft_path, 'dir')
+            fprintf('Found FieldTrip at: %s\n', ft_path);
+            addpath(ft_path);
+            try
+                ft_defaults;
+                fprintf('FieldTrip initialized successfully\n');
+                ft_found = true;
+                break;
+            catch
+                fprintf('Failed to initialize FieldTrip from: %s\n', ft_path);
+                rmpath(ft_path);
+            end
+        end
+    end
+    
+    if ~ft_found
+        error(['FieldTrip not found. Please install FieldTrip and ensure it is on MATLAB path.\n' ...
+            'Common installation locations:\n' ...
+            '- C:\\Program Files\\MATLAB\\fieldtrip\n' ...
+            '- C:\\fieldtrip\n' ...
+            '- Your MATLAB userpath/fieldtrip\n' ...
+            'Or add FieldTrip to MATLAB path manually.']);
+    end
+else
+    fprintf('FieldTrip already initialized\n');
+end
+
+% Inspect structure to decide how to map subjects/conditions
+dataSize = size(data_decomposed);
+hasTarget = isstruct(data_decomposed) && any(isfield(data_decomposed, 'target'));
+hasTargetData = isstruct(data_decomposed) && any(isfield(data_decomposed, 'target_data'));
+fprintf('\n=== Data Structure Debug ===\n');
+fprintf('Class: %s\n', class(data_decomposed));
+fprintf('Size: %s\n', mat2str(dataSize));
+if isstruct(data_decomposed)
+    allFields = fieldnames(data_decomposed);
+    fprintf('Fields (union): %s\n', strjoin(allFields.', ', '));
+end
+fprintf('=== End Debug ===\n\n');
+
+conditionNames = {'target', 'standard', 'novelty'};
+
+% Normalize input into an array of subjects with condition fields
+if hasTargetData || hasTarget
+    % Case: struct array with fields per subject
+    numSubjects = numel(data_decomposed);
+    subjectData = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
+    for s = 1:numSubjects
+        for c = 1:numel(conditionNames)
+            baseName = conditionNames{c};
+            fieldName = baseName;
+            if hasTargetData
+                fieldName = [baseName '_data'];
+            end
+            if isfield(data_decomposed(s), fieldName)
+                subjectData(s).(baseName) = data_decomposed(s).(fieldName);
+            end
+        end
+    end
+elseif ismatrix(data_decomposed) && numel(dataSize) == 2 && dataSize(2) == 3
+    % Case: matrix shaped as subjects x conditions (e.g., 2x3)
+    numSubjects = dataSize(1);
+    subjectData = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
+    for s = 1:numSubjects
+        for c = 1:3
+            subjectData(s).(conditionNames{c}) = data_decomposed(s, c);
+        end
+    end
+else
+    error('Unsupported data_decomposed layout. Expect fields target/_data or a subjects x 3 matrix.');
+end
+
+fprintf('Number of subjects: %d\n', numSubjects);
 
 % Define configuration for time-frequency analysis
 cfg = [];
@@ -51,29 +162,22 @@ cfg.foi = 1:0.5:15;
 cfg.pad = 8;
 cfg.width = 3;
 
-% Initialize output structure
-timefreq_data = struct( ...
-    'target', cell(1, numTrials), ...
-    'standard', cell(1, numTrials), ...
-    'novelty', cell(1, numTrials));
+% Initialize output structure (subjects x 3 convenience matrix too)
+timefreq_data = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
+defaultRecord = struct('powspctrm', [], 'freq', [], 'time', [], 'label', [], 'dimord', '', 'cfg', []);
+timefreq_records = repmat(defaultRecord, numSubjects, 3);
 
 fprintf('Starting time-frequency analysis...\n');
-for i = 1:numTrials
-    fprintf('Time-frequency analysis for trial %d/%d\n', i, numTrials);
-    
-    if isfield(data_decomposed(i), 'target') && ~isempty(data_decomposed(i).target)
-        freq_target = ft_freqanalysis(cfg, data_decomposed(i).target);
-        timefreq_data(i).target = freq_target;
-    end
-    
-    if isfield(data_decomposed(i), 'standard') && ~isempty(data_decomposed(i).standard)
-        freq_standard = ft_freqanalysis(cfg, data_decomposed(i).standard);
-        timefreq_data(i).standard = freq_standard;
-    end
-    
-    if isfield(data_decomposed(i), 'novelty') && ~isempty(data_decomposed(i).novelty)
-        freq_novelty = ft_freqanalysis(cfg, data_decomposed(i).novelty);
-        timefreq_data(i).novelty = freq_novelty;
+for s = 1:numSubjects
+    fprintf('Time-frequency analysis for subject %d/%d\n', s, numSubjects);
+    for c = 1:3
+        condName = conditionNames{c};
+        condData = subjectData(s).(condName);
+        if ~isempty(condData)
+            freq_out = ft_freqanalysis(cfg, condData);
+            timefreq_data(s).(condName) = freq_out;
+            timefreq_records(s, c) = freq_out;
+        end
     end
 end
 fprintf('Time-frequency analysis completed\n');
@@ -85,21 +189,19 @@ cfg_baseline.baselinetype = 'absolute';
 cfg_baseline.parameter = 'powspctrm';
 cfg_baseline.baseline = [-1 -0.5];
 
-for i = 1:numTrials
-    if ~isempty(timefreq_data(i).target)
-        timefreq_data(i).target = ft_freqbaseline(cfg_baseline, timefreq_data(i).target);
-    end
-    if ~isempty(timefreq_data(i).standard)
-        timefreq_data(i).standard = ft_freqbaseline(cfg_baseline, timefreq_data(i).standard);
-    end
-    if ~isempty(timefreq_data(i).novelty)
-        timefreq_data(i).novelty = ft_freqbaseline(cfg_baseline, timefreq_data(i).novelty);
+for s = 1:numSubjects
+    for c = 1:3
+        condName = conditionNames{c};
+        if ~isempty(timefreq_data(s).(condName))
+            timefreq_data(s).(condName) = ft_freqbaseline(cfg_baseline, timefreq_data(s).(condName));
+            timefreq_records(s, c) = timefreq_data(s).(condName);
+        end
     end
 end
 fprintf('Baseline correction completed\n');
 
 % Save results
 outputPath = fullfile(dataFolder, 'timefreq_output.mat');
-save(outputPath, 'timefreq_data');
+save(outputPath, 'timefreq_data', 'timefreq_records');
 fprintf('Time-frequency analysis results saved to %s\n', outputPath);
 end

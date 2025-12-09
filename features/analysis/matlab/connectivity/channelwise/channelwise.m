@@ -39,8 +39,116 @@ end
 data_decomposed = loadedData.clean_data_decomposed;
 fprintf('Successfully loaded clean_data_decomposed\n');
 
-numTrials = numel(data_decomposed);
-fprintf('Number of trials/subjects: %d\n', numTrials);
+% Initialize FieldTrip if not already done (reuse preprocessing.m path hint)
+if ~exist('ft_defaults', 'file')
+    fprintf('FieldTrip not found, attempting to initialize...\n');
+    ft_paths = {};
+    currentFile = mfilename('fullpath');
+    [currentDir, ~, ~] = fileparts(currentFile);
+    preprocessingScript = fullfile(currentDir, '..', '..', '..', 'preprocessing', 'matlab', 'preprocessing.m');
+    
+    if exist(preprocessingScript, 'file')
+        fid = fopen(preprocessingScript, 'r');
+        if fid ~= -1
+            while ~feof(fid)
+                tline = fgetl(fid);
+                if ischar(tline) && contains(tline, 'addpath') && (contains(tline, 'fieldtrip', 'IgnoreCase', true) || contains(tline, 'FIELDTRIP'))
+                    tokens = regexp(tline, 'addpath\([''\"]([^''\"]+)[''\"]\)', 'tokens');
+                    if ~isempty(tokens) && ~isempty(tokens{1})
+                        extractedPath = tokens{1}{1};
+                        fprintf('Found FieldTrip path in preprocessing.m: %s\n', extractedPath);
+                        ft_paths{end+1} = extractedPath; %#ok<AGROW>
+                    end
+                end
+            end
+            fclose(fid);
+        end
+    else
+        fprintf('Warning: preprocessing.m not found at %s\n', preprocessingScript);
+    end
+    
+    if isempty(ft_paths)
+        ft_paths = {
+            'C:\Program Files\MATLAB\fieldtrip';
+            'C:\fieldtrip';
+            'D:\fieldtrip';
+            fullfile(userpath, 'fieldtrip')
+            };
+    end
+    
+    ft_found = false;
+    for i = 1:length(ft_paths)
+        ft_path = ft_paths{i};
+        if exist(ft_path, 'dir')
+            fprintf('Found FieldTrip at: %s\n', ft_path);
+            addpath(ft_path);
+            try
+                ft_defaults;
+                fprintf('FieldTrip initialized successfully\n');
+                ft_found = true;
+                break;
+            catch
+                fprintf('Failed to initialize FieldTrip from: %s\n', ft_path);
+                rmpath(ft_path);
+            end
+        end
+    end
+    
+    if ~ft_found
+        error(['FieldTrip not found. Please install FieldTrip and ensure it is on MATLAB path.\n' ...
+            'Common installation locations:\n' ...
+            '- C:\\Program Files\\MATLAB\\fieldtrip\n' ...
+            '- C:\\fieldtrip\n' ...
+            '- Your MATLAB userpath/fieldtrip\n' ...
+            'Or add FieldTrip to MATLAB path manually.']);
+    end
+else
+    fprintf('FieldTrip already initialized\n');
+end
+
+% Inspect structure and normalize to subjects x conditions
+dataSize = size(data_decomposed);
+hasTarget = isstruct(data_decomposed) && any(isfield(data_decomposed, 'target'));
+hasTargetData = isstruct(data_decomposed) && any(isfield(data_decomposed, 'target_data'));
+conditionNames = {'target', 'standard', 'novelty'};
+
+fprintf('\n=== Data Structure Debug ===\n');
+fprintf('Class: %s\n', class(data_decomposed));
+fprintf('Size: %s\n', mat2str(dataSize));
+if isstruct(data_decomposed)
+    fprintf('Fields (union): %s\n', strjoin(fieldnames(data_decomposed).', ', '));
+end
+fprintf('=== End Debug ===\n\n');
+
+if hasTargetData || hasTarget
+    numSubjects = numel(data_decomposed);
+    subjectData = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
+    for s = 1:numSubjects
+        for c = 1:3
+            baseName = conditionNames{c};
+            if hasTargetData
+                fieldName = [baseName '_data'];
+            else
+                fieldName = baseName;
+            end
+            if isfield(data_decomposed(s), fieldName)
+                subjectData(s).(baseName) = data_decomposed(s).(fieldName);
+            end
+        end
+    end
+elseif ismatrix(data_decomposed) && numel(dataSize) == 2 && dataSize(2) == 3
+    numSubjects = dataSize(1);
+    subjectData = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
+    for s = 1:numSubjects
+        for c = 1:3
+            subjectData(s).(conditionNames{c}) = data_decomposed(s, c);
+        end
+    end
+else
+    error('Unsupported data_decomposed layout. Expect fields target/_data or a subjects x 3 matrix.');
+end
+
+fprintf('Number of subjects: %d\n', numSubjects);
 
 % Define configuration for frequency computation (from freqcompute.m)
 cfg = [];
@@ -59,47 +167,30 @@ cfg_select.latency = [0 1];
 cfgC = [];
 cfgC.method = 'coh';
 
-% Initialize output structure
-coherence_data = struct( ...
-    'target', cell(1, numTrials), ...
-    'standard', cell(1, numTrials), ...
-    'novelty', cell(1, numTrials));
+% Initialize output structures
+coherence_data = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
+coherence_records = cell(numSubjects, 3);  % use cell to avoid field-mismatch issues
 
 fprintf('Starting channel-wise coherence analysis...\n');
-for i = 1:numTrials
-    fprintf('Channel-wise coherence analysis for trial %d/%d\n', i, numTrials);
-    
-    % Process target condition
-    if isfield(data_decomposed(i), 'target') && ~isempty(data_decomposed(i).target)
-        cfg.trials = 1:length(data_decomposed(i).target.trial);
-        freq_target = ft_freqanalysis(cfg, data_decomposed(i).target);
-        freq_target_selected = ft_selectdata(cfg_select, freq_target);
-        coh_target = ft_connectivityanalysis(cfgC, freq_target_selected);
-        coherence_data(i).target = coh_target;
-    end
-    
-    % Process standard condition
-    if isfield(data_decomposed(i), 'standard') && ~isempty(data_decomposed(i).standard)
-        cfg.trials = 1:length(data_decomposed(i).standard.trial);
-        freq_standard = ft_freqanalysis(cfg, data_decomposed(i).standard);
-        freq_standard_selected = ft_selectdata(cfg_select, freq_standard);
-        coh_standard = ft_connectivityanalysis(cfgC, freq_standard_selected);
-        coherence_data(i).standard = coh_standard;
-    end
-    
-    % Process novelty condition
-    if isfield(data_decomposed(i), 'novelty') && ~isempty(data_decomposed(i).novelty)
-        cfg.trials = 1:length(data_decomposed(i).novelty.trial);
-        freq_novelty = ft_freqanalysis(cfg, data_decomposed(i).novelty);
-        freq_novelty_selected = ft_selectdata(cfg_select, freq_novelty);
-        coh_novelty = ft_connectivityanalysis(cfgC, freq_novelty_selected);
-        coherence_data(i).novelty = coh_novelty;
+for s = 1:numSubjects
+    fprintf('Channel-wise coherence analysis for subject %d/%d\n', s, numSubjects);
+    for c = 1:3
+        condName = conditionNames{c};
+        condData = subjectData(s).(condName);
+        if ~isempty(condData)
+            cfg.trials = 1:length(condData.trial);
+            freq_out = ft_freqanalysis(cfg, condData);
+            freq_selected = ft_selectdata(cfg_select, freq_out);
+            coh_out = ft_connectivityanalysis(cfgC, freq_selected);
+            coherence_data(s).(condName) = coh_out;
+            coherence_records{s, c} = coh_out;
+        end
     end
 end
 fprintf('Channel-wise coherence analysis completed\n');
 
 % Save results
 outputPath = fullfile(dataFolder, 'channelwise_coherence_output.mat');
-save(outputPath, 'coherence_data');
+save(outputPath, 'coherence_data', 'coherence_records');
 fprintf('Channel-wise coherence analysis results saved to %s\n', outputPath);
 end
