@@ -222,8 +222,8 @@
       "modules": [
         "Preprocessing"
       ],
-      "min": -1.2,
-      "max": 1.0
+      "min": -2.5,
+      "max": 0.5
     },
     "dftfreq": {
       "modules": [

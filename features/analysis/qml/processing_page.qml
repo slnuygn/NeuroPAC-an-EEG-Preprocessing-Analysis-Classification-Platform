@@ -140,6 +140,38 @@ Item {
                         var escapedPath = outputFilePath.replace(/'/g, "\\'")
                         matlabExecutor.runMatlabScriptInteractive("load('" + escapedPath + "'); timefreq_visualizer(timefreq_data);", true)
                     }
+
+                    onButtonClicked: {
+                        // Require decomposed cleaned data before running time-frequency analysis
+                        var targetFileName = "data_ICApplied_clean_decomposed.mat"
+
+                        if (!currentFolder) {
+                            timeFreqModule.errorMessage = "No folder selected"
+                            return
+                        }
+
+                        var foundFile = false
+                        for (var i = 0; i < folderContents.length; i++) {
+                            var rawEntry = folderContents[i]
+                            var sanitizedEntry = rawEntry.replace(/^[^\w]+/, '').trim()
+                            if (sanitizedEntry.toLowerCase() === targetFileName.toLowerCase()) {
+                                foundFile = true
+                                break
+                            }
+                        }
+
+                        if (!foundFile) {
+                            timeFreqModule.errorMessage = "data_ICApplied_clean_decomposed.mat not found in the selected folder"
+                            return
+                        }
+
+                        timeFreqModule.errorMessage = ""
+                        var sanitizedFolder = currentFolder.replace(/^[^\w]+/, '').trim()
+                        var basePath = sanitizedFolder.length > 0 ? sanitizedFolder : currentFolder
+                        var normalizedFolder = basePath.replace(/\\/g, "/")
+                        var escapedFolder = normalizedFolder.replace(/'/g, "\\'")
+                        matlabExecutor.runMatlabScriptInteractive("timefreqanalysis('" + escapedFolder + "')", true)
+                    }
                 }
 
                 ModuleTemplate {
@@ -158,6 +190,38 @@ Item {
                         var outputFilePath = normalizedFolder + "/intertrial_coherence_output.mat"
                         var escapedPath = outputFilePath.replace(/'/g, "\\'")
                         matlabExecutor.runMatlabScriptInteractive("load('" + escapedPath + "'); intertrial_visualizer(intertrial_coherence_output);", true)
+                    }
+
+                    onButtonClicked: {
+                        // Require decomposed cleaned data before running inter-trial coherence analysis
+                        var targetFileName = "data_ICApplied_clean_decomposed.mat"
+
+                        if (!currentFolder) {
+                            interTrialModule.errorMessage = "No folder selected"
+                            return
+                        }
+
+                        var foundFile = false
+                        for (var i = 0; i < folderContents.length; i++) {
+                            var rawEntry = folderContents[i]
+                            var sanitizedEntry = rawEntry.replace(/^[^\w]+/, '').trim()
+                            if (sanitizedEntry.toLowerCase() === targetFileName.toLowerCase()) {
+                                foundFile = true
+                                break
+                            }
+                        }
+
+                        if (!foundFile) {
+                            interTrialModule.errorMessage = "data_ICApplied_clean_decomposed.mat not found in the selected folder"
+                            return
+                        }
+
+                        interTrialModule.errorMessage = ""
+                        var sanitizedFolder = currentFolder.replace(/^[^\w]+/, '').trim()
+                        var basePath = sanitizedFolder.length > 0 ? sanitizedFolder : currentFolder
+                        var normalizedFolder = basePath.replace(/\\/g, "/")
+                        var escapedFolder = normalizedFolder.replace(/'/g, "\\'")
+                        matlabExecutor.runMatlabScriptInteractive("intertrialcoherenceanalysis('" + escapedFolder + "')", true)
                     }
                 }
 
@@ -178,6 +242,38 @@ Item {
                         var escapedPath = outputFilePath.replace(/'/g, "\\'")
                         matlabExecutor.runMatlabScriptInteractive("load('" + escapedPath + "'); channelwise_visualizer(channelwise_coherence_output);", true)
                     }
+
+                    onButtonClicked: {
+                        // Require decomposed cleaned data before running channel-wise coherence analysis
+                        var targetFileName = "data_ICApplied_clean_decomposed.mat"
+
+                        if (!currentFolder) {
+                            channelWiseModule.errorMessage = "No folder selected"
+                            return
+                        }
+
+                        var foundFile = false
+                        for (var i = 0; i < folderContents.length; i++) {
+                            var rawEntry = folderContents[i]
+                            var sanitizedEntry = rawEntry.replace(/^[^\w]+/, '').trim()
+                            if (sanitizedEntry.toLowerCase() === targetFileName.toLowerCase()) {
+                                foundFile = true
+                                break
+                            }
+                        }
+
+                        if (!foundFile) {
+                            channelWiseModule.errorMessage = "data_ICApplied_clean_decomposed.mat not found in the selected folder"
+                            return
+                        }
+
+                        channelWiseModule.errorMessage = ""
+                        var sanitizedFolder = currentFolder.replace(/^[^\w]+/, '').trim()
+                        var basePath = sanitizedFolder.length > 0 ? sanitizedFolder : currentFolder
+                        var normalizedFolder = basePath.replace(/\\/g, "/")
+                        var escapedFolder = normalizedFolder.replace(/'/g, "\\'")
+                        matlabExecutor.runMatlabScriptInteractive("channelwise('" + escapedFolder + "')", true)
+                    }
                 }
 
                 ModuleTemplate {
@@ -196,6 +292,38 @@ Item {
                         var outputFilePath = normalizedFolder + "/spectral_output.mat"
                         var escapedPath = outputFilePath.replace(/'/g, "\\'")
                         matlabExecutor.runMatlabScriptInteractive("load('" + escapedPath + "'); spectral_visualizer(spectral_output);", true)
+                    }
+
+                    onButtonClicked: {
+                        // Require decomposed cleaned data before running spectral analysis
+                        var targetFileName = "data_ICApplied_clean_decomposed.mat"
+
+                        if (!currentFolder) {
+                            spectralModule.errorMessage = "No folder selected"
+                            return
+                        }
+
+                        var foundFile = false
+                        for (var i = 0; i < folderContents.length; i++) {
+                            var rawEntry = folderContents[i]
+                            var sanitizedEntry = rawEntry.replace(/^[^\w]+/, '').trim()
+                            if (sanitizedEntry.toLowerCase() === targetFileName.toLowerCase()) {
+                                foundFile = true
+                                break
+                            }
+                        }
+
+                        if (!foundFile) {
+                            spectralModule.errorMessage = "data_ICApplied_clean_decomposed.mat not found in the selected folder"
+                            return
+                        }
+
+                        spectralModule.errorMessage = ""
+                        var sanitizedFolder = currentFolder.replace(/^[^\w]+/, '').trim()
+                        var basePath = sanitizedFolder.length > 0 ? sanitizedFolder : currentFolder
+                        var normalizedFolder = basePath.replace(/\\/g, "/")
+                        var escapedFolder = normalizedFolder.replace(/'/g, "\\'")
+                        matlabExecutor.runMatlabScriptInteractive("spectralanalysis('" + escapedFolder + "')", true)
                     }
                 }
             }
