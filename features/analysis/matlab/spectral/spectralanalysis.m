@@ -157,10 +157,8 @@ cfg.method = 'mtmfft';
 cfg.taper = 'hanning';
 cfg.foi = 1:0.5:15;
 
-% Initialize output structures
+% Initialize output structure
 spectral_data = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
-% Use cells for spectral_records to accommodate FieldTrip outputs with dynamic fields
-spectral_records = cell(numSubjects, 3);
 
 fprintf('Starting spectral analysis...\n');
 for s = 1:numSubjects
@@ -171,14 +169,13 @@ for s = 1:numSubjects
         if ~isempty(condData)
             spectr_out = ft_freqanalysis(cfg, condData);
             spectral_data(s).(condName) = spectr_out;
-            spectral_records{s, c} = spectr_out;
         end
     end
 end
 fprintf('Spectral analysis completed\n');
 
-% Save results
+% Save results (only the subject/condition struct)
 outputPath = fullfile(dataFolder, 'spectral_output.mat');
-save(outputPath, 'spectral_data', 'spectral_records');
+save(outputPath, 'spectral_data');
 fprintf('Spectral analysis results saved to %s\n', outputPath);
 end
