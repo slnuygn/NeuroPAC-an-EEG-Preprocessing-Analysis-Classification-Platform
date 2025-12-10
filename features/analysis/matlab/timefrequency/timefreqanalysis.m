@@ -162,10 +162,8 @@ cfg.foi = 1:0.5:15;
 cfg.pad = 8;
 cfg.width = 3;
 
-% Initialize output structure (subjects x 3 convenience matrix too)
+% Initialize output structure
 timefreq_data = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
-defaultRecord = struct('powspctrm', [], 'freq', [], 'time', [], 'label', [], 'dimord', '', 'cfg', []);
-timefreq_records = repmat(defaultRecord, numSubjects, 3);
 
 fprintf('Starting time-frequency analysis...\n');
 for s = 1:numSubjects
@@ -176,7 +174,6 @@ for s = 1:numSubjects
         if ~isempty(condData)
             freq_out = ft_freqanalysis(cfg, condData);
             timefreq_data(s).(condName) = freq_out;
-            timefreq_records(s, c) = freq_out;
         end
     end
 end
@@ -194,14 +191,13 @@ for s = 1:numSubjects
         condName = conditionNames{c};
         if ~isempty(timefreq_data(s).(condName))
             timefreq_data(s).(condName) = ft_freqbaseline(cfg_baseline, timefreq_data(s).(condName));
-            timefreq_records(s, c) = timefreq_data(s).(condName);
         end
     end
 end
 fprintf('Baseline correction completed\n');
 
-% Save results
+% Save results (only the subject/condition struct)
 outputPath = fullfile(dataFolder, 'timefreq_output.mat');
-save(outputPath, 'timefreq_data', 'timefreq_records');
+save(outputPath, 'timefreq_data');
 fprintf('Time-frequency analysis results saved to %s\n', outputPath);
 end
