@@ -167,9 +167,8 @@ cfg_select.latency = [0 1];
 cfgC = [];
 cfgC.method = 'coh';
 
-% Initialize output structures
+% Initialize output structure
 coherence_data = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
-coherence_records = cell(numSubjects, 3);  % use cell to avoid field-mismatch issues
 
 fprintf('Starting channel-wise coherence analysis...\n');
 for s = 1:numSubjects
@@ -183,14 +182,13 @@ for s = 1:numSubjects
             freq_selected = ft_selectdata(cfg_select, freq_out);
             coh_out = ft_connectivityanalysis(cfgC, freq_selected);
             coherence_data(s).(condName) = coh_out;
-            coherence_records{s, c} = coh_out;
         end
     end
 end
 fprintf('Channel-wise coherence analysis completed\n');
 
-% Save results
+% Save results (only the subject/condition struct)
 outputPath = fullfile(dataFolder, 'channelwise_coherence_output.mat');
-save(outputPath, 'coherence_data', 'coherence_records');
+save(outputPath, 'coherence_data');
 fprintf('Channel-wise coherence analysis results saved to %s\n', outputPath);
 end
