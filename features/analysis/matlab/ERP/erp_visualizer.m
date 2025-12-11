@@ -133,6 +133,8 @@ for idx = 1:num_selected
     subplot(num_selected, 3, (idx-1)*3 + 1);
     plot(target_data.time, target_data.avg(channel, :));
     ylabel(channel_label);
+    if ~isempty(data.xlim_override); xlim(data.xlim_override); end
+    if ~isempty(data.ylim_override); ylim(data.ylim_override); end
     if idx == 1
         title('Target');
     end
@@ -144,6 +146,8 @@ for idx = 1:num_selected
     % Standard column (column 2)
     subplot(num_selected, 3, (idx-1)*3 + 2);
     plot(standard_data.time, standard_data.avg(channel, :));
+    if ~isempty(data.xlim_override); xlim(data.xlim_override); end
+    if ~isempty(data.ylim_override); ylim(data.ylim_override); end
     if idx == 1
         title('Standard');
     end
@@ -155,6 +159,8 @@ for idx = 1:num_selected
     % Novelty column (column 3)
     subplot(num_selected, 3, (idx-1)*3 + 3);
     plot(novelty_data.time, novelty_data.avg(channel, :));
+    if ~isempty(data.xlim_override); xlim(data.xlim_override); end
+    if ~isempty(data.ylim_override); ylim(data.ylim_override); end
     if idx == 1
         title('Novelty');
     end
@@ -172,6 +178,9 @@ end
 % UI creation helper
 function create_ui_controls(fig, data)
 
+data.xlim_override = [];
+data.ylim_override = [];
+
 data.prev_btn = uicontrol('Style', 'pushbutton', 'String', '← Previous', ...
     'Position', [20, 20, 100, 30], ...
     'Callback', @(src, evt) navigate_subject(fig, -1));
@@ -180,8 +189,30 @@ data.next_btn = uicontrol('Style', 'pushbutton', 'String', 'Next →', ...
     'Position', [130, 20, 100, 30], ...
     'Callback', @(src, evt) navigate_subject(fig, 1));
 
+uicontrol('Style', 'text', 'String', 'xlim  min:', ...
+    'Position', [20, 130, 55, 15], 'HorizontalAlignment', 'left');
+data.xlim_min_edit = uicontrol('Style', 'edit', 'String', '', ...
+    'Position', [75, 128, 20, 20], ...
+    'Callback', @(src, evt) update_axis_limits(fig, 'x'));
+uicontrol('Style', 'text', 'String', 'max:', ...
+    'Position', [100, 130, 30, 15], 'HorizontalAlignment', 'left');
+data.xlim_max_edit = uicontrol('Style', 'edit', 'String', '', ...
+    'Position', [130, 128, 20, 20], ...
+    'Callback', @(src, evt) update_axis_limits(fig, 'x'));
+
+uicontrol('Style', 'text', 'String', 'ylim  min:', ...
+    'Position', [20, 100, 55, 15], 'HorizontalAlignment', 'left');
+data.ylim_min_edit = uicontrol('Style', 'edit', 'String', '', ...
+    'Position', [75, 98, 20, 20], ...
+    'Callback', @(src, evt) update_axis_limits(fig, 'y'));
+uicontrol('Style', 'text', 'String', 'max:', ...
+    'Position', [100, 100, 30, 15], 'HorizontalAlignment', 'left');
+data.ylim_max_edit = uicontrol('Style', 'edit', 'String', '', ...
+    'Position', [130, 98, 20, 20], ...
+    'Callback', @(src, evt) update_axis_limits(fig, 'y'));
+
 data.channel_toggle_btn = uicontrol('Style', 'pushbutton', 'String', 'Channels', ...
-    'Position', [20, 70, 120, 30], ...
+    'Position', [20, 60, 120, 30], ...
     'Callback', @(src, evt) toggle_channel_panel(fig));
 
 num_channels = numel(data.channel_labels);
@@ -189,7 +220,7 @@ panel_height = 30 + num_channels * 22;
 panel_width = 200;
 
 panel = uipanel('Parent', fig, 'Units', 'pixels', ...
-    'Position', [20, 70 + 30, panel_width, panel_height], ...
+    'Position', [20, 60 + 30, panel_width, panel_height], ...
     'BorderType', 'etchedin', ...
     'Visible', 'off');
 
@@ -248,6 +279,41 @@ end
 
 selected = find(vals);
 set_selected_channels(fig, selected);
+end
+
+function update_axis_limits(fig, axis_type)
+data = guidata(fig);
+
+if axis_type == 'x'
+    min_str = strtrim(get(data.xlim_min_edit, 'String'));
+    max_str = strtrim(get(data.xlim_max_edit, 'String'));
+    min_val = str2double(min_str);
+    max_val = str2double(max_str);
+    if isempty(min_str) || isempty(max_str)
+        data.xlim_override = [];
+    elseif isfinite(min_val) && isfinite(max_val) && min_val < max_val
+        data.xlim_override = [min_val, max_val];
+    else
+        warndlg('Enter numeric min < max for xlim.', 'Invalid axis limits');
+        return;
+    end
+else
+    min_str = strtrim(get(data.ylim_min_edit, 'String'));
+    max_str = strtrim(get(data.ylim_max_edit, 'String'));
+    min_val = str2double(min_str);
+    max_val = str2double(max_str);
+    if isempty(min_str) || isempty(max_str)
+        data.ylim_override = [];
+    elseif isfinite(min_val) && isfinite(max_val) && min_val < max_val
+        data.ylim_override = [min_val, max_val];
+    else
+        warndlg('Enter numeric min < max for ylim.', 'Invalid axis limits');
+        return;
+    end
+end
+
+guidata(fig, data);
+plot_subject(fig);
 end
 
 function set_selected_channels(fig, selected_indices)

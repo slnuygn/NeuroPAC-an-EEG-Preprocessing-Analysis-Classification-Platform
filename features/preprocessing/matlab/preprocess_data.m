@@ -19,7 +19,7 @@ cfg.channel = {'F4' 'Fz' 'C3' 'Pz' 'P3' 'O1' 'Oz' 'O2' 'P4' 'Cz' 'C4' 'F3'};
 
 
 cfg.demean = 'yes';
-cfg.baselinewindow = [-1.5 -0.5];
+cfg.baselinewindow = [-0.2 0];
 
 cfg.dftfilter = 'yes';
 cfg.dftfreq = [50 60];
