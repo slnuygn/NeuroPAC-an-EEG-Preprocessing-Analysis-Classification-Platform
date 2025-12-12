@@ -249,7 +249,16 @@ Item {
                         var normalizedFolder = basePath.replace(/\\/g, "/")
                         var outputFilePath = normalizedFolder + "/channelwise_coherence_output.mat"
                         var escapedPath = outputFilePath.replace(/'/g, "\\'")
-                        matlabExecutor.runMatlabScriptInteractive("load('" + escapedPath + "'); channelwise_visualizer(channelwise_coherence_output);", true)
+                        var scriptParts = [
+                            "addpath(genpath('C:/Users/mamam/Desktop/Capstone/features/analysis/matlab'));",
+                            "addpath(genpath('C:/Users/mamam/Desktop/Capstone/features/preprocessing/matlab'));",
+                            "data = load('" + escapedPath + "');",
+                            "if isfield(data,'channelwise_coherence_output'), channelwise_visualizer(data.channelwise_coherence_output);",
+                            "elseif isfield(data,'coherence_data'), channelwise_visualizer(data.coherence_data);",
+                            "else, error('channelwise_coherence_output.mat missing channelwise_coherence_output or coherence_data'); end"
+                        ]
+                        var script = scriptParts.join(' ')
+                        matlabExecutor.runMatlabScriptInteractive(script, true)
                     }
 
                     onButtonClicked: {
