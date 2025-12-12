@@ -138,7 +138,16 @@ Item {
                         var normalizedFolder = basePath.replace(/\\/g, "/")
                         var outputFilePath = normalizedFolder + "/timefreq_output.mat"
                         var escapedPath = outputFilePath.replace(/'/g, "\\'")
-                        matlabExecutor.runMatlabScriptInteractive("load('" + escapedPath + "'); timefreq_visualizer(timefreq_data);", true)
+                        var scriptParts = [
+                            "addpath(genpath('C:/Users/mamam/Desktop/Capstone/features/analysis/matlab'));",
+                            "addpath(genpath('C:/Users/mamam/Desktop/Capstone/features/preprocessing/matlab'));",
+                            "data = load('" + escapedPath + "');",
+                            "if isfield(data,'timefreq_output'), timefreq_visualizer(data.timefreq_output);",
+                            "elseif isfield(data,'timefreq_data'), timefreq_visualizer(data.timefreq_data);",
+                            "else, error('timefreq_output.mat missing timefreq_output or timefreq_data'); end"
+                        ]
+                        var script = scriptParts.join(' ')
+                        matlabExecutor.runMatlabScriptInteractive(script, true)
                     }
 
                     onButtonClicked: {
@@ -291,7 +300,16 @@ Item {
                         var normalizedFolder = basePath.replace(/\\/g, "/")
                         var outputFilePath = normalizedFolder + "/spectral_output.mat"
                         var escapedPath = outputFilePath.replace(/'/g, "\\'")
-                        matlabExecutor.runMatlabScriptInteractive("load('" + escapedPath + "'); spectral_visualizer(spectral_output);", true)
+                        var scriptParts = [
+                            "addpath(genpath('C:/Users/mamam/Desktop/Capstone/features/analysis/matlab'));",
+                            "addpath(genpath('C:/Users/mamam/Desktop/Capstone/features/preprocessing/matlab'));",
+                            "data = load('" + escapedPath + "');",
+                            "if isfield(data,'spectral_output'), spectral_visualizer(data.spectral_output);",
+                            "elseif isfield(data,'spectral_data'), spectral_visualizer(data.spectral_data);",
+                            "else, error('spectral_output.mat missing spectral_output or spectral_data'); end"
+                        ]
+                        var script = scriptParts.join(' ')
+                        matlabExecutor.runMatlabScriptInteractive(script, true)
                     }
 
                     onButtonClicked: {
