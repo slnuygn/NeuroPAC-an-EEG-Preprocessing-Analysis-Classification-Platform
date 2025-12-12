@@ -247,6 +247,7 @@ end
 
 try
     ft_singleplotTFR(cfg, freqStruct);
+    title(''); % ensure no channel/number title remains
 catch plotErr
     text(0.5, 0.5, sprintf('Plot error: %s', plotErr.message), 'HorizontalAlignment', 'center');
 end
