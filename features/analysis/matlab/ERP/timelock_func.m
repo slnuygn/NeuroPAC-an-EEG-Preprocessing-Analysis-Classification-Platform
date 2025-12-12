@@ -194,23 +194,58 @@ for i = 1:numTrials
 end
 fprintf('Timelock analysis completed\n');
 
+% Apply baseline correction to timelocked ERPs (matching timefreq baseline approach)
+cfg.baseline     = [-0.2 0];   % seconds relative to stimulus
+cfg.baselinetype = 'absolute'; % subtract mean in baseline window
+
+for i = 1:numTrials
+    if isfield(ERP_data(i), 'target') && ~isempty(ERP_data(i).target)
+        ERP_data(i).target = ft_timelockbaseline(cfg, ERP_data(i).target);
+    end
+    if isfield(ERP_data(i), 'standard') && ~isempty(ERP_data(i).standard)
+        ERP_data(i).standard = ft_timelockbaseline(cfg, ERP_data(i).standard);
+    end
+    if isfield(ERP_data(i), 'novelty') && ~isempty(ERP_data(i).novelty)
+        ERP_data(i).novelty = ft_timelockbaseline(cfg, ERP_data(i).novelty);
+    end
+end
+fprintf('Baseline correction applied (-0.2s to 0s)\n');
+
 % Reformat into an (subjects x 3) struct array expected by erp_visualizer
 defaultRecord = struct('time', [], 'avg', [], 'label', [], 'var', [], 'dof', [], 'dimord', '', 'cfg', []);
 erp_records = repmat(defaultRecord, numTrials, 3);
 
 for i = 1:numTrials
     if isfield(ERP_data(i), 'target') && ~isempty(ERP_data(i).target)
-        erp_records(i, 1) = ERP_data(i).target;
+        erp_records(i, 1) = sanitize_erp_record(ERP_data(i).target, defaultRecord);
     end
     if isfield(ERP_data(i), 'standard') && ~isempty(ERP_data(i).standard)
-        erp_records(i, 2) = ERP_data(i).standard;
+        erp_records(i, 2) = sanitize_erp_record(ERP_data(i).standard, defaultRecord);
     end
     if isfield(ERP_data(i), 'novelty') && ~isempty(ERP_data(i).novelty)
-        erp_records(i, 3) = ERP_data(i).novelty;
+        erp_records(i, 3) = sanitize_erp_record(ERP_data(i).novelty, defaultRecord);
     end
 end
 
 outputPath = fullfile(dataFolder, 'erp_output.mat');
 save(outputPath, 'ERP_data', 'erp_records');
 fprintf('ERP analysis results saved to %s\n', outputPath);
+end
+
+function out = sanitize_erp_record(src, template)
+% Ensure assigned ERP structs match expected fields for erp_visualizer
+out = template;
+if isempty(src)
+    return;
+end
+
+requiredFields = fieldnames(template);
+for k = 1:numel(requiredFields)
+    f = requiredFields{k};
+    if isfield(src, f)
+        out.(f) = src.(f);
+    else
+        out.(f) = template.(f);
+    end
+end
 end

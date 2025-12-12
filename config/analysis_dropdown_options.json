@@ -222,8 +222,8 @@
       "modules": [
         "Preprocessing"
       ],
-      "min": -2.5,
-      "max": 0.5
+      "min": -1.2,
+      "max": 1.0
     },
     "dftfreq": {
       "modules": [
@@ -286,10 +286,11 @@
     },
     "baseline": {
       "modules": [
-        "Time-Frequency Analysis"
+        "Time-Frequency Analysis",
+        "ERP Analysis"
       ],
-      "min": -2.0,
-      "max": 0.5
+      "min": -1.2,
+      "max": 1.0
     }
   }
 }
