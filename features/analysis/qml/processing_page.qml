@@ -198,7 +198,16 @@ Item {
                         var normalizedFolder = basePath.replace(/\\/g, "/")
                         var outputFilePath = normalizedFolder + "/intertrial_coherence_output.mat"
                         var escapedPath = outputFilePath.replace(/'/g, "\\'")
-                        matlabExecutor.runMatlabScriptInteractive("load('" + escapedPath + "'); intertrial_visualizer(intertrial_coherence_output);", true)
+                        var scriptParts = [
+                            "addpath(genpath('C:/Users/mamam/Desktop/Capstone/features/analysis/matlab'));",
+                            "addpath(genpath('C:/Users/mamam/Desktop/Capstone/features/preprocessing/matlab'));",
+                            "data = load('" + escapedPath + "');",
+                            "if isfield(data,'intertrial_coherence_output'), intertrial_visualizer(data.intertrial_coherence_output);",
+                            "elseif isfield(data,'itc_data'), intertrial_visualizer(data.itc_data);",
+                            "else, error('intertrial_coherence_output.mat missing intertrial_coherence_output or itc_data'); end"
+                        ]
+                        var script = scriptParts.join(' ')
+                        matlabExecutor.runMatlabScriptInteractive(script, true)
                     }
 
                     onButtonClicked: {

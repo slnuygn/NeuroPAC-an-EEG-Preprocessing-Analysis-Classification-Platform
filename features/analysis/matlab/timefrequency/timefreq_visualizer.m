@@ -266,6 +266,10 @@ data.next_btn = uicontrol('Style', 'pushbutton', 'String', 'Next →', ...
     'Position', [130, 20, 100, 30], ...
     'Callback', @(src, evt) navigate_subject(fig, 1));
 
+uicontrol('Style', 'pushbutton', 'String', 'ITPC Preview', ...
+    'Position', [240, 20, 120, 30], ...
+    'Callback', @(src, evt) plot_itpc_preview(fig));
+
 uicontrol('Style', 'text', 'String', 'xlim  min:', ...
     'Position', [20, 130, 55, 15], 'HorizontalAlignment', 'left');
 data.xlim_min_edit = uicontrol('Style', 'edit', 'String', '', ...
@@ -413,6 +417,100 @@ else
 end
 
 guidata(fig, data);
+end
+
+function plot_itpc_preview(fig)
+data = guidata(fig);
+
+if isempty(data.selected_channel_indices)
+    warndlg('Select at least one channel to preview ITPC.', 'No channel selected');
+    return;
+end
+
+chanIdx = data.selected_channel_indices(1);
+condData = data.timefreq_records(data.current_subject, 1); % use Target condition for preview
+
+[itpcMat, freqVec, timeVec] = compute_itpc(condData, chanIdx);
+if isempty(itpcMat)
+    warndlg('ITPC preview requires fourierspctrm (or complex powspctrm) with trials x channels x freq x time.', 'ITPC unavailable');
+    return;
+end
+
+edges = 10; % trim edge points similar to the Python example
+[timeTrim, itpcTrim] = trim_edges(timeVec, itpcMat, edges);
+
+fig = figure('Name', sprintf('ITPC Preview - %s (Subject %d)', data.channel_labels{chanIdx}, data.current_subject), ...
+    'NumberTitle', 'off', 'Color', [1 1 1], 'Position', [100, 100, 900, 350]);
+
+subplot(1,2,1);
+imagesc(timeTrim, freqVec, itpcTrim);
+axis xy;
+colormap(parula);
+colorbar;
+title('ITPC (trimmed edges)');
+xlabel('Time (s)'); ylabel('Frequency (Hz)');
+hold on; xline(0, '--k', 'LineWidth', 2); hold off;
+
+subplot(1,2,2);
+imagesc(timeTrim, freqVec, itpcTrim);
+axis xy;
+colormap(parula);
+colorbar;
+title('ITPC (alt view)');
+xlabel('Time (s)'); ylabel('Frequency (Hz)');
+hold on; xline(0, '--w', 'LineWidth', 2); hold off;
+
+sgtitle(sprintf('Channel: %s | Subject %d', data.channel_labels{chanIdx}, data.current_subject));
+end
+
+function [itpcMat, freqVec, timeVec] = compute_itpc(condData, chanIdx)
+itpcMat = [];
+freqVec = [];
+timeVec = [];
+
+if isempty(condData) || ~isstruct(condData)
+    return;
+end
+
+if isfield(condData, 'fourierspctrm') && ~isempty(condData.fourierspctrm)
+    four = condData.fourierspctrm;
+elseif isfield(condData, 'powspctrm') && ~isempty(condData.powspctrm) && ~isreal(condData.powspctrm)
+    four = condData.powspctrm;
+else
+    return;
+end
+
+if ndims(four) < 4 || chanIdx > size(four, 2)
+    return;
+end
+
+freqVec = condData.freq;
+timeVec = condData.time;
+
+phases = exp(1i * angle(four(:, chanIdx, :, :))); % trials x 1 x freq x time
+itpcMat = squeeze(abs(mean(phases, 1))); % freq x time
+end
+
+function [trimTime, trimItpc] = trim_edges(timeVec, itpcMat, edges)
+if nargin < 3 || isempty(edges)
+    edges = 0;
+end
+if isempty(timeVec) || isempty(itpcMat)
+    trimTime = timeVec;
+    trimItpc = itpcMat;
+    return;
+end
+
+edges = min(edges, floor(numel(timeVec) / 2));
+if edges <= 0
+    trimTime = timeVec;
+    trimItpc = itpcMat;
+    return;
+end
+
+trimIdx = (edges+1):(numel(timeVec)-edges);
+trimTime = timeVec(trimIdx);
+trimItpc = itpcMat(:, trimIdx);
 end
 
 function [labels, freq, timeVec] = get_channel_labels_and_axes(timefreq_records)
