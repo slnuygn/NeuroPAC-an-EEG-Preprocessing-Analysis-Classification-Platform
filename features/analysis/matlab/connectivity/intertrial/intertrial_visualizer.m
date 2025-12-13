@@ -22,6 +22,7 @@ data.channel_labels = get_channel_labels(itc_records);
 data.selected_channel_indices = 1:numel(data.channel_labels);
 data.xlim_override = [];
 data.ylim_override = [];
+data.coherence_mode = 'phase'; % 'phase' (ITPC) or 'linear' (ITLC)
 
 guidata(fig, data);
 create_ui_controls(fig, data);
@@ -125,7 +126,7 @@ for idx = 1:num_selected
     ch_label = data.channel_labels{ch};
     for c = 1:3
         subplot(num_selected,3,(idx-1)*3 + c);
-        plot_itpc(conds{c}, ch, ch_label, data);
+        plot_itc(conds{c}, ch, ch_label, data);
         if idx == 1
             title(titles{c});
         end
@@ -135,13 +136,17 @@ for idx = 1:num_selected
     end
 end
 
-sgtitle(sprintf('Inter-Trial Coherence - Subject %d/%d', data.current_subject, data.num_subjects));
+mode_label = 'Phase';
+if strcmp(data.coherence_mode,'linear')
+    mode_label = 'Linear';
+end
+sgtitle(sprintf('Inter-Trial Coherence (%s) - Subject %d/%d', mode_label, data.current_subject, data.num_subjects));
 
 guidata(fig, data);
 end
 
-function plot_itpc(condData, chIdx, chLabel, data)
-if isempty(condData) || ~isfield(condData,'itpc') || isempty(condData.itpc)
+function plot_itc(condData, chIdx, chLabel, data)
+if isempty(condData)
     text(0.5,0.5,'No data','HorizontalAlignment','center');
     return;
 end
@@ -151,12 +156,23 @@ timeVec = [];
 if isfield(condData,'freq'), freqVec = condData.freq; end
 if isfield(condData,'time'), timeVec = condData.time; end
 
-if chIdx > size(condData.itpc,1)
+if strcmp(data.coherence_mode,'linear')
+    fieldName = 'itlc';
+else
+    fieldName = 'itpc';
+end
+
+if ~isfield(condData, fieldName) || isempty(condData.(fieldName))
+    text(0.5,0.5,'No data','HorizontalAlignment','center');
+    return;
+end
+
+if chIdx > size(condData.(fieldName),1)
     text(0.5,0.5,'Channel missing','HorizontalAlignment','center');
     return;
 end
 
-Z = squeeze(condData.itpc(chIdx,:,:)); % freq x time
+Z = squeeze(condData.(fieldName)(chIdx,:,:)); % freq x time
 
 imagesc(timeVec, freqVec, Z);
 axis xy;
@@ -177,6 +193,13 @@ uicontrol('Style','pushbutton','String','← Previous', ...
 uicontrol('Style','pushbutton','String','Next →', ...
     'Position',[130 20 100 30], ...
     'Callback',@(src,evt) navigate_subject(fig,1));
+
+uicontrol('Style','text','String','Coherence:', ...
+    'Position',[250 25 70 20],'HorizontalAlignment','left');
+uicontrol('Style','popupmenu','String',{'Phase','Linear'}, ...
+    'Value',1, ...
+    'Position',[320 20 80 30], ...
+    'Callback',@(src,evt) set_coherence_mode(fig, src));
 
 % axis limit controls
 uicontrol('Style','text','String','xlim  min:', ...
@@ -336,4 +359,16 @@ else
 end
 
 guidata(fig, data);
+end
+
+function set_coherence_mode(fig, popup)
+data = guidata(fig);
+val = get(popup,'Value');
+if val == 2
+    data.coherence_mode = 'linear';
+else
+    data.coherence_mode = 'phase';
+end
+guidata(fig, data);
+plot_subject(fig);
 end
