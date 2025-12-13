@@ -25,6 +25,7 @@ num_subjects = size(erp_records, 1);
 fig = figure('Name', 'ERP Analysis Visualization', 'NumberTitle', 'off', ...
     'Position', [50, 50, 1400, 900], 'WindowState', 'maximized', ...
     'Color', [1 1 1], 'Visible', 'off');
+colormap(fig, 'jet');
 
 % Create data structure to store current state
 data.erp_records = erp_records;

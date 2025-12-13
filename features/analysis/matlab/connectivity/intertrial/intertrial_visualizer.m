@@ -176,8 +176,7 @@ Z = squeeze(condData.(fieldName)(chIdx,:,:)); % freq x time
 
 imagesc(timeVec, freqVec, Z);
 axis xy;
-colormap(parula);
-colorbar;
+colormap('jet');
 if ~isempty(data.xlim_override), xlim(data.xlim_override); end
 if ~isempty(data.ylim_override), ylim(data.ylim_override); end
 ylabel(chLabel);

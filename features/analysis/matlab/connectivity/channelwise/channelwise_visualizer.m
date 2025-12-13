@@ -142,7 +142,7 @@ for c = 1:3
     else
         cfg = [];
         cfg.channel = tfr.label;
-        cfg.colorbar = 'yes';
+        cfg.colorbar = 'no';
         cfg.zlim = [0 1];
         cfg.figure = gca;
         cfg.interactive = 'no';
@@ -152,6 +152,7 @@ for c = 1:3
         if ~isempty(data.xlim_override), cfg.xlim = data.xlim_override; end
         try
             ft_singleplotTFR(cfg, tfr);
+            colormap('jet');
             title(titles{c});
         catch plotErr
             text(0.5,0.5,sprintf('Plot error: %s', plotErr.message),'HorizontalAlignment','center');

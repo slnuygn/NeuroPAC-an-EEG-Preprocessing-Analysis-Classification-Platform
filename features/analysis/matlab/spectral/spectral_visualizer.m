@@ -12,6 +12,7 @@ num_subjects = size(spectral_records, 1);
 fig = figure('Name', 'Spectral Analysis Visualization', 'NumberTitle', 'off', ...
     'Position', [50, 50, 1400, 900], 'WindowState', 'maximized', ...
     'Color', [1 1 1], 'Visible', 'off');
+colormap(fig, 'jet');
 
 data.spectral_records = spectral_records;
 data.num_subjects = num_subjects;

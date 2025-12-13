@@ -17,6 +17,7 @@ num_subjects = size(timefreq_records, 1);
 fig = figure('Name', 'Time-Frequency Analysis Visualization', 'NumberTitle', 'off', ...
     'Position', [50, 50, 1400, 900], 'WindowState', 'maximized', ...
     'Color', [1 1 1], 'Visible', 'off');
+colormap(fig, 'jet');
 
 data.timefreq_records = timefreq_records;
 data.num_subjects = num_subjects;
@@ -227,7 +228,7 @@ end
 
 cfg = [];
 cfg.channel = {channel_label};
-cfg.colorbar = 'yes';
+cfg.colorbar = 'no';
 cfg.zlim = 'maxabs';
 cfg.figure = gca; % render into the current subplot
 cfg.interactive = 'no'; % disable FieldTrip interactive callbacks
@@ -247,6 +248,7 @@ end
 
 try
     ft_singleplotTFR(cfg, freqStruct);
+    colormap('jet');
     title(''); % ensure no channel/number title remains
 catch plotErr
     text(0.5, 0.5, sprintf('Plot error: %s', plotErr.message), 'HorizontalAlignment', 'center');
@@ -445,8 +447,7 @@ fig = figure('Name', sprintf('ITPC Preview - %s (Subject %d)', data.channel_labe
 subplot(1,2,1);
 imagesc(timeTrim, freqVec, itpcTrim);
 axis xy;
-colormap(parula);
-colorbar;
+colormap('jet');
 title('ITPC (trimmed edges)');
 xlabel('Time (s)'); ylabel('Frequency (Hz)');
 hold on; xline(0, '--k', 'LineWidth', 2); hold off;
@@ -454,8 +455,7 @@ hold on; xline(0, '--k', 'LineWidth', 2); hold off;
 subplot(1,2,2);
 imagesc(timeTrim, freqVec, itpcTrim);
 axis xy;
-colormap(parula);
-colorbar;
+colormap('jet');
 title('ITPC (alt view)');
 xlabel('Time (s)'); ylabel('Frequency (Hz)');
 hold on; xline(0, '--w', 'LineWidth', 2); hold off;
