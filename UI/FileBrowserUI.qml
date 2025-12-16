@@ -25,6 +25,8 @@ Item {
     
     // Signal for file left-click
     signal fileLeftClicked(string fileName, string displayName)
+    // Signal for clicking specifically a data .mat file
+    signal fileMatClicked(string fileName, string fullPath, string displayName)
     
     // Signal for file right-click (for context menu)
     signal fileRightClicked(string cleanFilename, string fullPath, bool isMatFile, real mouseX, real mouseY)
@@ -162,10 +164,22 @@ Item {
                 }
             }
 
-            // Drive Files (full height)
-            Item {
+            // Drive Files
+            Column {
+                id: driveColumn
                 width: parent.width
-                height: parent.height - 30  // Full height minus header row
+                spacing: 2
+
+                // computed responsive section height (split remaining space)
+                property real computedSectionHeight: {
+                    var total = parent ? parent.height : 0
+                    var hLabel = fileExplorerLabel ? fileExplorerLabel.implicitHeight : 0
+                    var hSubLabel = (typeof label !== 'undefined') ? label.implicitHeight : 0
+                    var used = hLabel + hSubLabel + spacing*2 + 12
+                    var avail = total - used
+                    var base = avail > 80 ? avail/2 : Math.max(80, avail/2)
+                    return base * 0.95
+                }
 
                 Text {
                     id: fileExplorerLabel
@@ -173,13 +187,15 @@ Item {
                     font.bold: true
                     color: "#495057"
                     font.pixelSize: 12
-                    
                 }
 
+                // small spacer between explorer rectangle and label
+                Item { height: 8 }
+
+                // Label section (placed under the file explorer)
                 Rectangle {
                     width: parent.width
-                    height: parent.height - 15  // Account for text height
-                    y: fileExplorerLabel.height + 2  // Position 2px below text
+                    height: driveColumn.computedSectionHeight
                     color: "white"
                     border.color: "#ccc"
                     border.width: 1
@@ -241,7 +257,13 @@ Item {
                                                             matlabExecutor.launchMatlabICABrowser(fullPath)
                                                         }
                                                     } else {
-                                                        console.log("Not an ICA file:", cleanFilename)
+                                                            // If it's the special data.mat we want to open in the classification UI, emit dedicated signal
+                                                            var fullPath = fileBrowserUI.currentFolder + "/" + cleanFilename
+                                                            if (cleanFilename.toLowerCase() === 'data.mat') {
+                                                                fileBrowserUI.fileMatClicked(cleanFilename, fullPath, modelData)
+                                                            } else {
+                                                                console.log("Not an ICA file:", cleanFilename)
+                                                            }
                                                     }
                                                 } else {
                                                     console.log("Not a .mat file:", cleanFilename)
@@ -287,10 +309,61 @@ Item {
                         }
                     }
                 }
+
+            // Label section (placed under the file explorer)
+            Column {
+                width: parent.width
+                spacing: 2
+
+                Text {
+                    id: label
+                    text: "Label Your Data"
+                    font.bold: true
+                    color: "#495057"
+                    font.pixelSize: 12
+                    anchors.left: parent.left
+                }
+
+                Rectangle {
+                    width: parent.width
+                    height: driveColumn.computedSectionHeight
+                    color: "white"
+                    border.color: "#ccc"
+                    border.width: 1
+                    radius: 3
+
+                    ScrollView {
+                                    anchors.fill: parent
+                                    clip: true
+
+                                    Column {
+                                        id: labelContentColumn
+                                        width: parent.width
+                                        spacing: 4
+                                        Repeater {
+                                            model: labelListModel
+                                            delegate: Rectangle {
+                                                width: parent.width
+                                                height: 24
+                                                color: (index % 2 === 0) ? "white" : "#e6f7ff"
+
+                                                Text {
+                                                    anchors.left: parent.left
+                                                    anchors.leftMargin: 8
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    text: (index+1) + ": " + model.text
+                                                    font.pixelSize: 12
+                                                    elide: Text.ElideRight
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                }
             }
         }
     }
-    
+
     // File Menu Items Component
     Component {
         id: fileMenuItems
@@ -369,4 +442,8 @@ Item {
         console.warn("createFileExplorerView is deprecated. Use FileBrowserUI component directly.")
         return null
     }
+
 }
+
+}
+

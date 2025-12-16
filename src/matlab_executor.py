@@ -2290,6 +2290,104 @@ class MatlabExecutor(QObject):
             return f"MATLAB not found at: {matlab_path}\nPlease verify the path is correct."
         except Exception as e:
             return f"Error executing MATLAB command: {str(e)}"
+
+    @pyqtSlot(str, result=list)
+    def listMatDatasets(self, mat_path):
+        """Return a list of dataset/display names contained in a .mat file.
+
+        Tries scipy.io.loadmat first (fast for v7 and earlier). For v7.3 files
+        falls back to h5py inspection. Returns a Python list of strings. On
+        failure returns an empty list.
+        """
+        try:
+            if not mat_path or not os.path.exists(mat_path):
+                return []
+
+            # Try scipy loader for common v7 formats
+            try:
+                mat = scipy.io.loadmat(mat_path, struct_as_record=False, squeeze_me=True)
+                # Prefer a variable named 'data' if present
+                candidates = []
+                if 'data' in mat:
+                    candidates = [('data', mat['data'])]
+                else:
+                    # collect non-internal variables
+                    candidates = [(k, v) for k, v in mat.items() if not k.startswith('__')]
+
+                names = []
+                for varname, val in candidates:
+                    # If it's an array/struct like with elements that may have cfg.dataset
+                    try:
+                        # Handle single struct
+                        # If numpy structured array or recarray
+                        if hasattr(val, 'dtype') and getattr(val.dtype, 'names', None):
+                            iterable = val if hasattr(val, '__iter__') else [val]
+                            max_iter = min(200, len(iterable) if hasattr(iterable, '__len__') else 200)
+                            for idx, elem in enumerate(iterable):
+                                if idx >= max_iter:
+                                    break
+                                try:
+                                    cfg = getattr(elem, 'cfg', None)
+                                    if cfg is not None and hasattr(cfg, 'dataset'):
+                                        ds = getattr(cfg, 'dataset')
+                                        if isinstance(ds, str):
+                                            names.append(os.path.splitext(os.path.basename(ds))[0])
+                                        else:
+                                            names.append(str(ds))
+                                except Exception:
+                                    continue
+                        else:
+                            # Fallback: single value
+                            # If it's a list-like container, iterate a few items
+                            try:
+                                iterable = val if hasattr(val, '__iter__') and not isinstance(val, (str, bytes)) else [val]
+                                max_iter = min(200, len(iterable) if hasattr(iterable, '__len__') else 200)
+                                for idx, elem in enumerate(iterable):
+                                    if idx >= max_iter:
+                                        break
+                                    try:
+                                        cfg = getattr(elem, 'cfg', None)
+                                        if cfg is not None and hasattr(cfg, 'dataset'):
+                                            ds = getattr(cfg, 'dataset')
+                                            names.append(os.path.splitext(os.path.basename(str(ds)))[0])
+                                    except Exception:
+                                        continue
+                            except Exception:
+                                # Last-resort single-object check
+                                if hasattr(val, 'cfg') and hasattr(val.cfg, 'dataset'):
+                                    ds = val.cfg.dataset
+                                    names.append(os.path.splitext(os.path.basename(str(ds)))[0])
+                    except Exception:
+                        continue
+
+                # Dedupe and filter
+                uniq = []
+                for n in names:
+                    if n and n not in uniq:
+                        uniq.append(n)
+
+                if uniq:
+                    return uniq
+            except Exception:
+                # scipy failed, fall through to h5py
+                pass
+
+            # Fallback for v7.3 MAT-files using h5py
+            try:
+                import h5py
+                with h5py.File(mat_path, 'r') as h5f:
+                    # list top-level groups/datasets
+                    keys = list(h5f.keys())
+                    if keys:
+                        # normalize names
+                        return [str(k) for k in keys]
+            except Exception:
+                pass
+
+            return []
+        except Exception as e:
+            print(f"listMatDatasets error: {e}")
+            return []
     
     @pyqtSlot(result=list)
     def getCurrentChannels(self):
