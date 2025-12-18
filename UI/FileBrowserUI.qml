@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
 import QtQuick.Dialogs
 import FileBrowser 1.0
 
@@ -67,16 +68,19 @@ Item {
                 var datasetNames = matlabExecutor.listMatDatasets(fp)
                 parent.loadingStateChanged(false)
                 if (datasetNames && datasetNames.length > 0) {
+                    // Load existing labels
+                    var existingLabels = matlabExecutor.loadLabels()
                     for (var i = 0; i < datasetNames.length; ++i) {
-                        labelListModel.append({"text": datasetNames[i]})
+                        var label = (i < existingLabels.length) ? existingLabels[i] : ""
+                        labelListModel.append({"text": datasetNames[i], "label": label})
                     }
                 } else {
-                    labelListModel.append({"text": displayName || fileName})
+                    labelListModel.append({"text": displayName || fileName, "label": ""})
                 }
             } catch (e) {
                 parent.loadingStateChanged(false)
                 console.log('Error calling matlabExecutor.listMatDatasets:', e)
-                labelListModel.append({"text": displayName || fileName})
+                labelListModel.append({"text": displayName || fileName, "label": ""})
             }
         }
     }
@@ -87,6 +91,17 @@ Item {
             fileBrowser.refreshCurrentFolder()
         }
         refreshRequested()
+    }
+    
+    // Function to save labels to Python
+    function saveLabels() {
+        var labels = []
+        for (var i = 0; i < labelListModel.count; ++i) {
+            labels.push(labelListModel.get(i).label)
+        }
+        if (typeof matlabExecutor !== "undefined" && matlabExecutor) {
+            matlabExecutor.saveLabels(labels)
+        }
     }
     
     // File Dialog for folder selection
@@ -346,6 +361,9 @@ Item {
                     }
                 }
 
+
+            Item { height: 10 }  // Spacer to push the label section down
+
             // Label section (placed under the file explorer)
             Column {
                 width: parent.width
@@ -371,37 +389,61 @@ Item {
                     ScrollView {
                                     anchors.fill: parent
                                     clip: true
+                                    topPadding: 5
 
                                     Column {
                                         id: labelContentColumn
                                         width: parent.width
                                         spacing: 4
                                         
-                                        Text {
-                                            visible: fileBrowserUI.isLoadingLabels
-                                            text: "Loading dataset names..."
-                                            font.pixelSize: 12
-                                            color: "#666"
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                        }
-                                        
                                         Repeater {
                                             model: labelListModel
                                             delegate: Rectangle {
                                                 anchors.left: parent.left
                                                 anchors.right: parent.right
-                                                anchors.leftMargin: 0
+                                                anchors.leftMargin: 2
                                                 anchors.rightMargin: 2
                                                 height: 24
-                                                color: (index % 2 === 0) ? "white" : "#e6f7ff"
+                                                color: (index % 2 === 0) ? "white" : "#e2f6ffff"
 
-                                                Text {
-                                                    anchors.left: parent.left
-                                                    anchors.leftMargin: 5
-                                                    anchors.verticalCenter: parent.verticalCenter
-                                                    text: (index+1) + ": " + model.text
-                                                    font.pixelSize: 12
-                                                    elide: Text.ElideRight
+                                                RowLayout {
+                                                    anchors.fill: parent
+                                                    spacing: 20
+
+                                                    Text {
+                                                        text: (index+1) + ": " + model.text
+                                                        font.pixelSize: 12
+                                                        elide: Text.ElideRight
+                                                        width: 150
+                                                        Layout.alignment: Qt.AlignVCenter
+                                                    }
+
+                                                    Item {
+                                                        Layout.fillWidth: true
+                                                    }
+
+                                                    TextField {
+                                                        id: inputBox
+                                                        width: 40
+                                                        placeholderText: "Enter label"
+                                                        horizontalAlignment: Text.AlignLeft
+                                                        color: "black"
+                                                        placeholderTextColor: "white"
+                                                        background: Rectangle {
+                                                            color: "white"
+                                                            radius: 2
+                                                            border.color: "#ccc"
+                                                            border.width: 1
+                                                        }
+                                                        Component.onCompleted: text = model.label
+                                                        onTextChanged: {
+                                                            labelListModel.setProperty(index, "label", text)
+                                                        }
+                                                        onAccepted: {
+                                                            saveLabels()
+                                                        }
+                                                        Layout.alignment: Qt.AlignVCenter
+                                                    }
                                                 }
                                             }
                                         }

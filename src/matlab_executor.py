@@ -4508,3 +4508,36 @@ browse_ICA('{mat_file_path.replace(chr(92), '/')}');
         except Exception as e:
             print(f"Error getting module parameters: {e}")
             return "{}"
+
+    @pyqtSlot(list)
+    def saveLabels(self, labels_list):
+        """Save the list of labels to labels.py"""
+        try:
+            labels_file_path = os.path.join(os.path.dirname(__file__), '..', 'features', 'classification', 'python', 'labels.py')
+            with open(labels_file_path, 'w', encoding='utf-8') as f:
+                f.write('labels = [\n')
+                for label in labels_list:
+                    f.write(f'    "{label}",\n')
+                f.write(']\n')
+            print(f"Labels saved to {labels_file_path}")
+        except Exception as e:
+            print(f"Error saving labels: {e}")
+
+    @pyqtSlot(result=list)
+    def loadLabels(self):
+        """Load the list of labels from labels.py"""
+        try:
+            labels_file_path = os.path.join(os.path.dirname(__file__), '..', 'features', 'classification', 'python', 'labels.py')
+            if os.path.exists(labels_file_path):
+                with open(labels_file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                # Simple parsing: assume it's labels = ["a", "b", ...]
+                import ast
+                tree = ast.parse(content)
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.List):
+                        return [elt.s for elt in node.elts if isinstance(elt, ast.Str)]
+            return []
+        except Exception as e:
+            print(f"Error loading labels: {e}")
+            return []
