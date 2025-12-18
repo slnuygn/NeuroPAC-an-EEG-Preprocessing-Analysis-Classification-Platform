@@ -116,6 +116,7 @@ class MatlabExecutor(QObject):
     configSaved = pyqtSignal(str)  # Signal for save confirmation
     fileExplorerRefresh = pyqtSignal()  # Signal to refresh file explorer
     processingFinished = pyqtSignal()  # Signal when ICA processing is complete
+    scriptFinished = pyqtSignal(str)  # Signal for async script result
     
     def __init__(self):
         super().__init__()
@@ -2191,10 +2192,21 @@ class MatlabExecutor(QObject):
         except Exception as e:
             return f"Error executing MATLAB script: {str(e)}"
     
-    @pyqtSlot(str, result=str)
+    @pyqtSlot(str)
     def runMatlabScript(self, command):
-        """Execute a MATLAB command string and return the output"""
-        return self.runMatlabScriptInteractive(command, False)
+        """Execute a MATLAB command string asynchronously and emit result via signal"""
+        # Start a thread to run the script
+        thread = threading.Thread(target=self._run_script_thread, args=(command,))
+        thread.daemon = True
+        thread.start()
+    
+    def _run_script_thread(self, command):
+        """Run the script in a thread and emit the result"""
+        try:
+            result = self.runMatlabScriptInteractive(command, False)
+            self.scriptFinished.emit(result)
+        except Exception as e:
+            self.scriptFinished.emit(f"Error executing MATLAB script: {str(e)}")
     
     @pyqtSlot(str, bool, result=str)
     def runMatlabScriptInteractive(self, command, interactive=False):
@@ -2293,100 +2305,103 @@ class MatlabExecutor(QObject):
 
     @pyqtSlot(str, result=list)
     def listMatDatasets(self, mat_path):
-        """Return a list of dataset/display names contained in a .mat file.
-
-        Tries scipy.io.loadmat first (fast for v7 and earlier). For v7.3 files
-        falls back to h5py inspection. Returns a Python list of strings. On
-        failure returns an empty list.
-        """
+        """Return a list of dataset names from the 'data' struct in a .mat file."""
         try:
             if not mat_path or not os.path.exists(mat_path):
                 return []
-
-            # Try scipy loader for common v7 formats
+            # Try scipy first for v7 and earlier
             try:
                 mat = scipy.io.loadmat(mat_path, struct_as_record=False, squeeze_me=True)
-                # Prefer a variable named 'data' if present
-                candidates = []
                 if 'data' in mat:
-                    candidates = [('data', mat['data'])]
-                else:
-                    # collect non-internal variables
-                    candidates = [(k, v) for k, v in mat.items() if not k.startswith('__')]
-
-                names = []
-                for varname, val in candidates:
-                    # If it's an array/struct like with elements that may have cfg.dataset
-                    try:
-                        # Handle single struct
-                        # If numpy structured array or recarray
-                        if hasattr(val, 'dtype') and getattr(val.dtype, 'names', None):
-                            iterable = val if hasattr(val, '__iter__') else [val]
-                            max_iter = min(200, len(iterable) if hasattr(iterable, '__len__') else 200)
-                            for idx, elem in enumerate(iterable):
-                                if idx >= max_iter:
-                                    break
-                                try:
-                                    cfg = getattr(elem, 'cfg', None)
-                                    if cfg is not None and hasattr(cfg, 'dataset'):
-                                        ds = getattr(cfg, 'dataset')
+                    d = mat['data']
+                    names = []
+                    # Assume d is an array of structs
+                    for elem in d:
+                        try:
+                            cfg = elem['cfg']
+                            ds = cfg['dataset']
+                            # Handle array case
+                            if hasattr(ds, '__len__') and len(ds) > 0:
+                                ds = ds.flat[0] if hasattr(ds, 'flat') else ds[0]
+                            if isinstance(ds, str):
+                                name = os.path.splitext(os.path.basename(ds))[0]
+                                names.append(name)
+                            else:
+                                names.append(str(ds))
+                        except Exception:
+                            continue
+                    return list(set(names))
+            except Exception:
+                # Fallback to h5py for v7.3
+                import h5py
+                with h5py.File(mat_path, 'r') as f:
+                    if 'data' in f:
+                        d = f['data']
+                        names = []
+                        if isinstance(d, h5py.Dataset):
+                            if d.dtype.names and 'cfg' in d.dtype.names:
+                                data = d[:]
+                                for elem in data:
+                                    cfg = elem['cfg']
+                                    if 'dataset' in cfg.dtype.names:
+                                        ds = cfg['dataset']
+                                        if isinstance(ds, bytes):
+                                            ds = ds.decode('utf-8')
                                         if isinstance(ds, str):
-                                            names.append(os.path.splitext(os.path.basename(ds))[0])
+                                            name = os.path.splitext(os.path.basename(ds))[0]
+                                            names.append(name)
                                         else:
                                             names.append(str(ds))
-                                except Exception:
-                                    continue
-                        else:
-                            # Fallback: single value
-                            # If it's a list-like container, iterate a few items
-                            try:
-                                iterable = val if hasattr(val, '__iter__') and not isinstance(val, (str, bytes)) else [val]
-                                max_iter = min(200, len(iterable) if hasattr(iterable, '__len__') else 200)
-                                for idx, elem in enumerate(iterable):
-                                    if idx >= max_iter:
-                                        break
-                                    try:
-                                        cfg = getattr(elem, 'cfg', None)
-                                        if cfg is not None and hasattr(cfg, 'dataset'):
-                                            ds = getattr(cfg, 'dataset')
-                                            names.append(os.path.splitext(os.path.basename(str(ds)))[0])
-                                    except Exception:
-                                        continue
-                            except Exception:
-                                # Last-resort single-object check
-                                if hasattr(val, 'cfg') and hasattr(val.cfg, 'dataset'):
-                                    ds = val.cfg.dataset
-                                    names.append(os.path.splitext(os.path.basename(str(ds)))[0])
-                    except Exception:
-                        continue
-
-                # Dedupe and filter
-                uniq = []
-                for n in names:
-                    if n and n not in uniq:
-                        uniq.append(n)
-
-                if uniq:
-                    return uniq
-            except Exception:
-                # scipy failed, fall through to h5py
-                pass
-
-            # Fallback for v7.3 MAT-files using h5py
-            try:
-                import h5py
-                with h5py.File(mat_path, 'r') as h5f:
-                    # list top-level groups/datasets
-                    keys = list(h5f.keys())
-                    if keys:
-                        # normalize names
-                        return [str(k) for k in keys]
-            except Exception:
-                pass
-
-            return []
-        except Exception as e:
-            print(f"listMatDatasets error: {e}")
+                        elif isinstance(d, h5py.Group):
+                            if 'cfg' in d:
+                                cfg = d['cfg']
+                                if isinstance(cfg, h5py.Dataset):
+                                    if cfg.dtype == object:
+                                        refs = cfg[:].flatten()
+                                        for ref in refs:
+                                            cfg_group = d.file[ref]
+                                            if 'dataset' in cfg_group:
+                                                ds = cfg_group['dataset']
+                                                ds_value = ds[()]
+                                                import numpy as np
+                                                if isinstance(ds_value, np.ndarray) and ds_value.dtype.kind in 'ui':
+                                                    byte_array = bytes(ds_value.flatten())
+                                                    ds_str = byte_array.decode('utf-8').replace('\x00', '')
+                                                    name = os.path.splitext(os.path.basename(ds_str))[0]
+                                                    names.append(name)
+                                                elif isinstance(ds_value, bytes):
+                                                    ds_value = ds_value.decode('utf-8')
+                                                    name = os.path.splitext(os.path.basename(ds_value))[0]
+                                                    names.append(name)
+                                                elif isinstance(ds_value, str):
+                                                    name = os.path.splitext(os.path.basename(ds_value))[0]
+                                                    names.append(name)
+                                                else:
+                                                    names.append(str(ds_value))
+                                elif isinstance(cfg, h5py.Group):
+                                    for key in sorted(cfg.keys()):
+                                        if key.isdigit():
+                                            elem = cfg[key]
+                                            if isinstance(elem, h5py.Group) and 'dataset' in elem:
+                                                ds = elem['dataset']
+                                                ds_value = ds[()]
+                                                import numpy as np
+                                                if isinstance(ds_value, np.ndarray) and ds_value.dtype.kind in 'ui':
+                                                    byte_array = bytes(ds_value.flatten())
+                                                    ds_str = byte_array.decode('utf-8').replace('\x00', '')
+                                                    name = os.path.splitext(os.path.basename(ds_str))[0]
+                                                    names.append(name)
+                                                elif isinstance(ds_value, bytes):
+                                                    ds_value = ds_value.decode('utf-8')
+                                                    name = os.path.splitext(os.path.basename(ds_value))[0]
+                                                    names.append(name)
+                                                elif isinstance(ds_value, str):
+                                                    name = os.path.splitext(os.path.basename(ds_value))[0]
+                                                    names.append(name)
+                                                else:
+                                                    names.append(str(ds_value))
+                        return list(set(names))
+        except Exception:
             return []
     
     @pyqtSlot(result=list)

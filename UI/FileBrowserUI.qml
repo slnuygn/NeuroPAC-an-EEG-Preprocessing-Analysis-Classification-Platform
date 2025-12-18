@@ -15,6 +15,7 @@ Item {
     property string currentFolder: ""
     property alias folderDialog: folderDialog
     property alias fieldtripDialog: fieldtripDialog
+    property bool isLoadingLabels: false
     
     // Signals for parent communication
     signal refreshRequested()
@@ -340,6 +341,15 @@ Item {
                                         id: labelContentColumn
                                         width: parent.width
                                         spacing: 4
+                                        
+                                        Text {
+                                            visible: fileBrowserUI.isLoadingLabels
+                                            text: "Loading dataset names..."
+                                            font.pixelSize: 12
+                                            color: "#666"
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                        }
+                                        
                                         Repeater {
                                             model: labelListModel
                                             delegate: Rectangle {
