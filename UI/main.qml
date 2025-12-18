@@ -18,6 +18,12 @@ ApplicationWindow {
     property string saveMessage: ""
     property string fieldtripPath: ""
     
+    // Global model for label data persistence across pages
+    ListModel {
+        id: globalLabelListModel
+    }
+    property bool globalIsLoadingLabels: false
+    
     // FileBrowser component (Hidden, used for dialogs and logic)
     FileBrowserUI {
         id: fileBrowserComponent
@@ -302,6 +308,13 @@ ApplicationWindow {
                     item.fieldtripPath = Qt.binding(function() { return window.fieldtripPath })
                     item.saveMessage = Qt.binding(function() { return window.saveMessage })
                     
+                    // Set global label model for persistence across pages
+                    item.globalLabelListModel = globalLabelListModel
+                    item.globalIsLoadingLabels = Qt.binding(function() { return window.globalIsLoadingLabels })
+                    item.loadingStateChanged.connect(function(loading) {
+                        window.globalIsLoadingLabels = loading
+                    })
+                    
                     // Initialize eventvalue dropdown with current values from MATLAB file
                     if (matlabExecutor) {
                         var currentEventvalues = matlabExecutor.getCurrentEventvalue()
@@ -353,6 +366,13 @@ ApplicationWindow {
                         item.currentFolder = Qt.binding(function() { return fileBrowserComponent.currentFolder })
                         item.folderContents = Qt.binding(function() { return fileBrowserComponent.folderContents })
                         
+                        // Set global label model for persistence across pages
+                        item.globalLabelListModel = globalLabelListModel
+                        item.globalIsLoadingLabels = Qt.binding(function() { return window.globalIsLoadingLabels })
+                        item.loadingStateChanged.connect(function(loading) {
+                            window.globalIsLoadingLabels = loading
+                        })
+                        
                         // Connect signals
                         item.openFolderDialog.connect(function() { fileBrowserComponent.folderDialog.open() })
                         item.refreshFileExplorer.connect(function() { 
@@ -391,6 +411,13 @@ ApplicationWindow {
                     if (item) {
                         item.currentFolder = Qt.binding(function() { return fileBrowserComponent.currentFolder })
                         item.folderContents = Qt.binding(function() { return fileBrowserComponent.folderContents })
+                        
+                        // Set global label model for persistence across pages
+                        item.globalLabelListModel = globalLabelListModel
+                        item.globalIsLoadingLabels = Qt.binding(function() { return window.globalIsLoadingLabels })
+                        item.loadingStateChanged.connect(function(loading) {
+                            window.globalIsLoadingLabels = loading
+                        })
                         
                         // Connect signals
                         item.openFolderDialog.connect(function() { fileBrowserComponent.folderDialog.open() })

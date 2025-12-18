@@ -14,6 +14,11 @@ Item {
     property string currentFolder: ""
     property var folderContents: []
     
+    // Global properties for label persistence
+    property var globalLabelListModel
+    property bool globalIsLoadingLabels
+    signal loadingStateChanged(bool loading)
+    
     // Signals to communicate with main.qml
     signal openFolderDialog()
     signal refreshFileExplorer()
@@ -39,6 +44,9 @@ Item {
         anchors.top: parent.top
         width: parent.width * 0.2
         height: parent.height
+        
+        labelListModel: globalLabelListModel
+        isLoadingLabels: globalIsLoadingLabels
     }
 
     // Right side - Modules Area with Scrolling

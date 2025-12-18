@@ -21,6 +21,11 @@ Item {
     property int customDropdownCount: 0
     property int customRangeSliderCount: 0
 
+    // Global properties for label persistence
+    property var globalLabelListModel
+    property bool globalIsLoadingLabels
+    signal loadingStateChanged(bool loading)
+
     // Dynamic parameters
     property var dynamicParameters: ({})
     property var dynamicValues: ({})
@@ -516,6 +521,8 @@ Item {
     FileBrowserUI {
         id: fileExplorerRect
         
+        labelListModel: globalLabelListModel
+        isLoadingLabels: globalIsLoadingLabels
 
         // Connect signals if needed, though FileBrowserUI handles most logic internally
 

@@ -33,6 +33,12 @@ Item {
     signal fileRightClicked(string cleanFilename, string fullPath, bool isMatFile, real mouseX, real mouseY)
     signal fieldtripPathUpdateRequested(string path)
     
+    // Model for the label window contents (can be set externally for global persistence)
+    property var labelListModel: internalLabelListModel
+    ListModel {
+        id: internalLabelListModel
+    }
+    
     // Connect to the fileBrowser backend signals
     Connections {
         target: fileBrowser
@@ -43,6 +49,35 @@ Item {
         function onCurrentFolderChanged(folder) {
             fileBrowserUI.currentFolder = folder
             fileBrowserUI.folderChanged(folder)
+        }
+    }
+    
+    // Populate label window when the file browser reports a data.mat click
+    Connections {
+        target: fileBrowserUI
+        function onFileMatClicked(fileName, fullPath, displayName) {
+            labelListModel.clear()
+            parent.loadingStateChanged(true)
+
+            // Normalize path separators
+            var fp = fullPath.replace(/\\/g, '/')
+
+            // Use Python method to get dataset names
+            try {
+                var datasetNames = matlabExecutor.listMatDatasets(fp)
+                parent.loadingStateChanged(false)
+                if (datasetNames && datasetNames.length > 0) {
+                    for (var i = 0; i < datasetNames.length; ++i) {
+                        labelListModel.append({"text": datasetNames[i]})
+                    }
+                } else {
+                    labelListModel.append({"text": displayName || fileName})
+                }
+            } catch (e) {
+                parent.loadingStateChanged(false)
+                console.log('Error calling matlabExecutor.listMatDatasets:', e)
+                labelListModel.append({"text": displayName || fileName})
+            }
         }
     }
     
@@ -353,13 +388,16 @@ Item {
                                         Repeater {
                                             model: labelListModel
                                             delegate: Rectangle {
-                                                width: parent.width
+                                                anchors.left: parent.left
+                                                anchors.right: parent.right
+                                                anchors.leftMargin: 0
+                                                anchors.rightMargin: 2
                                                 height: 24
                                                 color: (index % 2 === 0) ? "white" : "#e6f7ff"
 
                                                 Text {
                                                     anchors.left: parent.left
-                                                    anchors.leftMargin: 8
+                                                    anchors.leftMargin: 5
                                                     anchors.verticalCenter: parent.verticalCenter
                                                     text: (index+1) + ": " + model.text
                                                     font.pixelSize: 12
