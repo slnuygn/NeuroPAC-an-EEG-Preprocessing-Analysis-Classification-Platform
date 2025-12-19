@@ -58,24 +58,21 @@ Item {
                     
 
                 ClassifierTemplate {
-                    displayText: "CNN Classifier"
+                    displayText: "EEGNet Classifier"
                 }
 
                 ClassifierTemplate {
-                    displayText: "RNN Classifier"
+                    displayText: "EEG-Inception Classifier"
                 }
 
                 ClassifierTemplate {
-                    displayText: "SVM Classifier"
+                    displayText: "CNN-LSTM Classifier"
                 }
 
                 ClassifierTemplate {
-                    displayText: "KNN Classifier"
+                    displayText: "Riemannian Classifier"
                 }
 
-                ClassifierTemplate {
-                    displayText: "LSTM Classifier"
-                }
             }
         }
     }
