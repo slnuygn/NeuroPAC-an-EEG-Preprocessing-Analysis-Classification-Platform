@@ -7,13 +7,14 @@ class PreprocessBridge:
         # You can set the path here once
         self.data_path = data_folder
         
-        # Map analysis types to their actual .mat filenames (including subfolders)
+        # Map analysis types to their actual .mat filenames
+        # Files are assumed to be directly in the selected data_path folder
         self.file_map = {
-            "erp": "erp/erp_output.mat",
-            "time_frequency": "time_frequency/timefrequencyanalysis_output.mat",
-            "spectral": "spectral/spectral_output.mat",
-            "connectivity": "connectivity/channelwise_output.mat",
-            "intertrial_coherence": "intertrial_coherence/itc_output.mat"
+            "erp": "erp_output.mat",
+            "time_frequency": "timefreq_output.mat",
+            "spectral": "spectral_output.mat",
+            "connectivity": "channelwise_coherence_output.mat",
+            "intertrial_coherence": "intertrial_coherence_output.mat"
         }
 
     def set_data_path(self, path):
@@ -49,12 +50,6 @@ class PreprocessBridge:
         """
         Main entry point for data reshaping.
         """
-        # Example: Reshaping 4D Time-Frequency for EEGNet
-        if target_model == "eeg_net" and analysis_type == "time_frequency":
-            # TF is (Samples, Channels, Freq, Time)
-            # EEGNet expects (Samples, 1, Channels, Time)
-            # We might average across a specific frequency band or treat Freq as filters
-            return data.mean(axis=2).reshape(data.shape[0], 1, data.shape[1], -1)
 
         # Example: Reshaping ERP for CNN-LSTM
         if target_model == "cnn_lstm" and analysis_type == "erp":
