@@ -14,6 +14,11 @@ from parser.matlab_parameter_parser import (
     create_ui_component,
 )
 
+# Add parent directory to path for imports
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(project_root, 'features', 'classification', 'python', 'core'))
+from preprocess_bridge import PreprocessBridge
+
 
 # Function to get the resource path (works for both development and PyInstaller)
 def resource_path(relative_path):
@@ -140,6 +145,9 @@ class MatlabExecutor(QObject):
             "processing_page.qml",
         )
         self._option_store = DropdownOptionStore()
+        
+        # Initialize PreprocessBridge for classification data loading
+        self._preprocess_bridge = PreprocessBridge(data_folder=self._current_data_dir or "data/")
 
     def _update_dropdown_state_in_qml(self, dropdown_id: str, new_state: str) -> bool:
         """Update the dropdownState property for a specific dropdown in the QML file."""
@@ -880,6 +888,12 @@ class MatlabExecutor(QObject):
                 file.write(new_content)
 
             self._current_data_dir = normalized
+            
+            # Update PreprocessBridge with the new data path
+            if hasattr(self, '_preprocess_bridge'):
+                self._preprocess_bridge.set_data_path(normalized)
+                print(f"PreprocessBridge data path updated to: {normalized}")
+            
             print(f"Data directory updated to: {log_path}")
 
         except Exception as e:
@@ -4541,3 +4555,29 @@ browse_ICA('{mat_file_path.replace(chr(92), '/')}');
         except Exception as e:
             print(f"Error loading labels: {e}")
             return []
+
+    @pyqtSlot(str, str, result=str)
+    def loadAndTransformData(self, analysis_type, target_model):
+        """
+        Load and transform data from the current data directory for classification.
+        Uses PreprocessBridge with the dynamically updated data path.
+        Returns JSON string with shape info or error message.
+        """
+        try:
+            if not hasattr(self, '_preprocess_bridge'):
+                return json.dumps({"error": "PreprocessBridge not initialized"})
+            
+            # Call the bridge's load_and_transform (uses current data_path set via set_data_path)
+            transformed_data = self._preprocess_bridge.load_and_transform(analysis_type, target_model)
+            
+            return json.dumps({
+                "success": True,
+                "shape": list(transformed_data.shape),
+                "dtype": str(transformed_data.dtype)
+            })
+        except FileNotFoundError as e:
+            return json.dumps({"error": f"File not found: {str(e)}"})
+        except KeyError as e:
+            return json.dumps({"error": f"Invalid analysis type or missing data: {str(e)}"})
+        except Exception as e:
+            return json.dumps({"error": f"Error loading data: {str(e)}"})
