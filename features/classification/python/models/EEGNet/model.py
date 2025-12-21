@@ -1,54 +1,101 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+def EEGNet(nb_classes, Chans = 64, Samples = 128, 
+             dropoutRate = 0.5, kernLength = 64, F1 = 8, 
+             D = 2, F2 = 16, norm_rate = 0.25, dropoutType = 'Dropout'):
+    """ Keras Implementation of EEGNet
+    http://iopscience.iop.org/article/10.1088/1741-2552/aace8c/meta
 
-class EEGNet(nn.Module):
-    """
-    EEGNet: A Compact Convolutional Neural Network for EEG-based Brain-Computer Interfaces.
-    Optimized for ERP data with 12 channels and 500 timepoints.
-    """
-    def __init__(self, num_classes=3, chans=12, samples=500, dropout_rate=0.5, kern_length=64, f1=8, d=2, f2=16):
-        super(EEGNet, self).__init__()
+    Note that this implements the newest version of EEGNet and NOT the earlier
+    version (version v1 and v2 on arxiv). We strongly recommend using this
+    architecture as it performs much better and has nicer properties than
+    our earlier version. For example:
         
-        # Block 1: Temporal & Spatial Convolution
-        # Temporal Convolution (Frequency filters)
-        self.conv1 = nn.Conv2d(1, f1, (1, kern_length), padding=(0, kern_length // 2), bias=False)
-        self.batchnorm1 = nn.BatchNorm2d(f1)
+        1. Depthwise Convolutions to learn spatial filters within a 
+        temporal convolution. The use of the depth_multiplier option maps 
+        exactly to the number of spatial filters learned within a temporal
+        filter. This matches the setup of algorithms like FBCSP which learn 
+        spatial filters within each filter in a filter-bank. This also limits 
+        the number of free parameters to fit when compared to a fully-connected
+        convolution. 
         
-        # Depthwise Convolution (Spatial filters)
-        self.depthwise = nn.Conv2d(f1, f1 * d, (chans, 1), groups=f1, bias=False)
-        self.batchnorm2 = nn.BatchNorm2d(f1 * d)
-        self.pooling1 = nn.AvgPool2d((1, 4))
+        2. Separable Convolutions to learn how to optimally combine spatial
+        filters across temporal bands. Separable Convolutions are Depthwise
+        Convolutions followed by (1x1) Pointwise Convolutions. 
         
-        # Block 2: Separable Convolution
-        self.separable = nn.Conv2d(f1 * d, f2, (1, 16), padding=(0, 8), groups=f2, bias=False)
-        self.batchnorm3 = nn.BatchNorm2d(f2)
-        self.pooling2 = nn.AvgPool2d((1, 8))
+    
+    While the original paper used Dropout, we found that SpatialDropout2D 
+    sometimes produced slightly better results for classification of ERP 
+    signals. However, SpatialDropout2D significantly reduced performance 
+    on the Oscillatory dataset (SMR, BCI-IV Dataset 2A). We recommend using
+    the default Dropout in most cases.
         
-        self.dropout = nn.Dropout(dropout_rate)
-        
-        # Calculate Flatten Feature Size based on input dimensions
-        # Pooling 1 (/4) and Pooling 2 (/8) = total reduction of 32
-        self.feature_size = f2 * (samples // 32)
-        self.classifier = nn.Linear(self.feature_size, num_classes)
+    Assumes the input signal is sampled at 128Hz. If you want to use this model
+    for any other sampling rate you will need to modify the lengths of temporal
+    kernels and average pooling size in blocks 1 and 2 as needed (double the 
+    kernel lengths for double the sampling rate, etc). Note that we haven't 
+    tested the model performance with this rule so this may not work well. 
+    
+    The model with default parameters gives the EEGNet-8,2 model as discussed
+    in the paper. This model should do pretty well in general, although it is
+	advised to do some model searching to get optimal performance on your
+	particular dataset.
 
-    def forward(self, x):
-        # Input shape: (Batch, 1, 12, 500)
-        x = self.conv1(x)
-        x = self.batchnorm1(x)
+    We set F2 = F1 * D (number of input filters = number of output filters) for
+    the SeparableConv2D layer. We haven't extensively tested other values of this
+    parameter (say, F2 < F1 * D for compressed learning, and F2 > F1 * D for
+    overcomplete). We believe the main parameters to focus on are F1 and D. 
+
+    Inputs:
         
-        x = self.depthwise(x)
-        x = self.batchnorm2(x)
-        x = F.elu(x)
-        x = self.pooling1(x)
-        x = self.dropout(x)
+      nb_classes      : int, number of classes to classify
+      Chans, Samples  : number of channels and time points in the EEG data
+      dropoutRate     : dropout fraction
+      kernLength      : length of temporal convolution in first layer. We found
+                        that setting this to be half the sampling rate worked
+                        well in practice. For the SMR dataset in particular
+                        since the data was high-passed at 4Hz we used a kernel
+                        length of 32.     
+      F1, F2          : number of temporal filters (F1) and number of pointwise
+                        filters (F2) to learn. Default: F1 = 8, F2 = F1 * D. 
+      D               : number of spatial filters to learn within each temporal
+                        convolution. Default: D = 2
+      dropoutType     : Either SpatialDropout2D or Dropout, passed as a string.
+
+    """
+    
+    if dropoutType == 'SpatialDropout2D':
+        dropoutType = SpatialDropout2D
+    elif dropoutType == 'Dropout':
+        dropoutType = Dropout
+    else:
+        raise ValueError('dropoutType must be one of SpatialDropout2D '
+                         'or Dropout, passed as a string.')
+    
+    input1   = Input(shape = (Chans, Samples, 1))
+
+    ##################################################################
+    block1       = Conv2D(F1, (1, kernLength), padding = 'same',
+                                   input_shape = (Chans, Samples, 1),
+                                   use_bias = False)(input1)
+    block1       = BatchNormalization()(block1)
+    block1       = DepthwiseConv2D((Chans, 1), use_bias = False, 
+                                   depth_multiplier = D,
+                                   depthwise_constraint = max_norm(1.))(block1)
+    block1       = BatchNormalization()(block1)
+    block1       = Activation('elu')(block1)
+    block1       = AveragePooling2D((1, 4))(block1)
+    block1       = dropoutType(dropoutRate)(block1)
+    
+    block2       = SeparableConv2D(F2, (1, 16),
+                                   use_bias = False, padding = 'same')(block1)
+    block2       = BatchNormalization()(block2)
+    block2       = Activation('elu')(block2)
+    block2       = AveragePooling2D((1, 8))(block2)
+    block2       = dropoutType(dropoutRate)(block2)
         
-        x = self.separable(x)
-        x = self.batchnorm3(x)
-        x = F.elu(x)
-        x = self.pooling2(x)
-        x = self.dropout(x)
-        
-        x = torch.flatten(x, 1)
-        x = self.classifier(x)
-        return x
+    flatten      = Flatten(name = 'flatten')(block2)
+    
+    dense        = Dense(nb_classes, name = 'dense', 
+                         kernel_constraint = max_norm(norm_rate))(flatten)
+    softmax      = Activation('softmax', name = 'softmax')(dense)
+    
+    return Model(inputs=input1, outputs=softmax)

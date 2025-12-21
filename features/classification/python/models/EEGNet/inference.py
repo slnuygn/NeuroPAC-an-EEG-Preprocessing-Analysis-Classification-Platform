@@ -1,74 +1,82 @@
-import torch
 import numpy as np
-import json
-import os
-from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
-# Relative import from the same directory
+from tensorflow.keras import backend as K
 from .model import EEGNet
 
-class ERPInference:
-    """
-    A modular class to handle loading trained weights and performing 
-    predictions or evaluations using EEGNet.
-    """
-    def __init__(self, weight_path="models/eegnet/weights/erp_model.pth", 
-                 config_path="models/eegnet/configs/erp_config.json"):
-        
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
-        # 1. Load Config to get architecture parameters
-        if os.path.exists(config_path):
-            with open(config_path, 'r') as f:
-                self.config = json.load(f)
-        else:
-            self.config = {"dropout": 0.5}
+# Set image data format to channels_last as required by the model
+K.set_image_data_format('channels_last')
 
-        # 2. Initialize Model Architecture
-        # Note: chans and samples are hardcoded to your project defaults (12, 500)
-        # but can be made dynamic if needed.
-        self.model = EEGNet(
-            num_classes=3,
-            chans=12,
-            samples=500,
-            dropout_rate=self.config.get("dropout", 0.5)
-        ).to(self.device)
-
-        # 3. Load Trained Weights
-        if os.path.exists(weight_path):
-            self.model.load_state_dict(torch.load(weight_path, map_location=self.device))
-            print(f"Successfully loaded weights from {weight_path}")
-        else:
-            print(f"Warning: No weights found at {weight_path}. Model is uninitialized.")
-        
-        self.model.eval()
-
-    def predict(self, x_numpy):
+class EEGNetInference:
+    def __init__(self, weights_path, nb_classes=4, Chans=64, Samples=128, 
+                 dropoutRate=0.5, kernLength=64, F1=8, D=2, F2=16, 
+                 norm_rate=0.25, dropoutType='Dropout'):
         """
-        Runs inference on a numpy array.
-        x_numpy shape: (Batch, 1, 12, 500)
-        Returns: predicted_classes, probabilities
+        Initialize the EEGNet model for inference.
+        
+        Args:
+            weights_path (str): Path to the saved model weights (.h5 file)
+            nb_classes (int): Number of classes to classify
+            Chans (int): Number of channels in the EEG data
+            Samples (int): Number of time points in the EEG data
+            dropoutRate (float): Dropout fraction
+            kernLength (int): Length of temporal convolution in first layer
+            F1 (int): Number of temporal filters
+            D (int): Number of spatial filters to learn within each temporal convolution
+            F2 (int): Number of pointwise filters
+            norm_rate (float): Max norm constraint on weights
+            dropoutType (str): 'Dropout' or 'SpatialDropout2D'
         """
-        self.model.eval()
-        with torch.no_grad():
-            x_tensor = torch.from_numpy(x_numpy).float().to(self.device)
-            logits = self.model(x_tensor)
-            probs = torch.softmax(logits, dim=1)
-            preds = torch.argmax(probs, dim=1)
+        self.model = EEGNet(nb_classes=nb_classes, Chans=Chans, Samples=Samples, 
+                            dropoutRate=dropoutRate, kernLength=kernLength, 
+                            F1=F1, D=D, F2=F2, norm_rate=norm_rate, 
+                            dropoutType=dropoutType)
+        
+        try:
+            self.model.load_weights(weights_path)
+            print(f"Successfully loaded weights from {weights_path}")
+        except Exception as e:
+            print(f"Error loading weights from {weights_path}: {e}")
+            raise
+
+    def preprocess(self, X, scale_factor=1.0):
+        """
+        Preprocess data to match model input requirements.
+        
+        Args:
+            X (numpy.ndarray): Input data of shape (trials, channels, samples) or (channels, samples)
+            scale_factor (float): Factor to scale the input data (e.g. 1000 to convert V to uV if needed)
             
-        return preds.cpu().numpy(), probs.cpu().numpy()
+        Returns:
+            numpy.ndarray: Processed data ready for inference (trials, channels, samples, 1)
+        """
+        # Scale data
+        X = X * scale_factor
 
-    def evaluate(self, X_test, y_test):
-        """
-        Replaces your legacy 'evaluate' function with modern metrics.
-        Returns a dictionary of results.
-        """
-        preds, probs = self.predict(X_test)
+        # Handle single trial case (channels, samples) -> (1, channels, samples)
+        if X.ndim == 2:
+            X = X[np.newaxis, ...]
+            
+        # Reshape to (trials, channels, samples, kernels)
+        # Assuming kernels = 1 as in the standard EEGNet implementation
+        if X.ndim == 3:
+            trials, channels, samples = X.shape
+            X = X.reshape(trials, channels, samples, 1)
         
-        results = {
-            "accuracy": accuracy_score(y_test, preds),
-            "precision": precision_score(y_test, preds, average='weighted'),
-            "recall": recall_score(y_test, preds, average='weighted'),
-            "f1_measure": f1_score(y_test, preds, average='weighted')
-        }
+        return X
+
+    def predict(self, X, scale_factor=1.0):
+        """
+        Perform inference on input data.
         
-        return results
+        Args:
+            X (numpy.ndarray): Input EEG data
+            scale_factor (float): Scaling factor to apply to data before prediction
+            
+        Returns:
+            tuple: (predictions, probabilities)
+                predictions: Class indices
+                probabilities: Class probabilities
+        """
+        X_processed = self.preprocess(X, scale_factor)
+        probs = self.model.predict(X_processed)
+        preds = probs.argmax(axis=-1)
+        return preds, probs

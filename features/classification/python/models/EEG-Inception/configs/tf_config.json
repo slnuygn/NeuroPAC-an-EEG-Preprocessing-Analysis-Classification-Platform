@@ -1,0 +1,12 @@
+{
+  "model_params": {
+    "input_channels": 64,
+    "input_samples": 500,
+    "dropout": 0.5,
+    "learning_rate": 0.001
+  },
+  "data_params": {
+    "analysis_type": "time_frequency",
+    "shape_logic": "2D_image_slice"
+  }
+}

@@ -1,7 +1,12 @@
 import os
 import sys
+import json
 import numpy as np
 from sklearn.model_selection import train_test_split
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import backend as K
 
 # -----------------------------------------------------------------------------
 # Path Setup
@@ -24,39 +29,41 @@ except ImportError as e:
     print(f"Ensure that '{python_root}' is in your PYTHONPATH.")
     sys.exit(1)
 
-# Import training function
-# Note: train.py uses relative imports (from .model import EEGNet).
-# This script should ideally be run as a module: python -m models.EEGNet.main
 try:
-    from .train import train_eegnet
+    from .model import EEGNet
 except ImportError:
-    try:
-        # Fallback if running as script, though train.py's relative import might still fail
-        import train
-        train_eegnet = train.train_eegnet
-    except ImportError as e:
-        if "attempted relative import" in str(e):
-            print("\nCRITICAL ERROR: Import failed due to relative imports in train.py.")
-            print("Please run this script as a module from the 'features/classification/python' directory:")
-            print("  python -m models.EEGNet.main")
-            sys.exit(1)
-        else:
-            raise e
+    # Fallback for running script directly
+    from model import EEGNet
+
+# Set image data format to channels_last
+K.set_image_data_format('channels_last')
+
+def load_config(config_path):
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            return json.load(f)
+    return {}
 
 def main():
     # -------------------------------------------------------------------------
     # 1. Configuration
     # -------------------------------------------------------------------------
-    # Define where your .mat files are located. 
-    # Assuming a 'data' folder in the python root or passed explicitly.
-    data_folder = os.path.join(python_root, "data") 
+    data_folder = os.path.join(python_root, "data")
+    config_path = os.path.join(current_dir, "configs", "erp_config.json")
     
-    # Check if data folder exists
-    if not os.path.exists(data_folder):
-        print(f"Warning: Data folder not found at {data_folder}.")
-        print("Please ensure your .mat files (erp_output.mat, etc.) are in the correct location.")
-        # You can override this path if your data is elsewhere:
-        # data_folder = "C:/Path/To/Your/Data"
+    # Load hyperparameters
+    config = load_config(config_path)
+    
+    # Defaults
+    nb_classes = config.get('num_classes', 3)
+    batch_size = config.get('batch_size', 16)
+    epochs = config.get('epochs', 50)
+    lr = config.get('lr', 0.001)
+    dropout_rate = config.get('dropout', 0.5)
+    kern_length = config.get('kern_length', 64)
+    f1 = config.get('f1', 8)
+    d = config.get('d', 2)
+    f2 = config.get('f2', 16)
 
     # -------------------------------------------------------------------------
     # 2. Load Data using Bridge
@@ -66,8 +73,7 @@ def main():
     
     print("Loading ERP data for EEGNet...")
     try:
-        # We use 'erp' analysis and 'eeg_net' model target as per bridge code
-        # This ensures the data is reshaped to (Batch, 1, Channels, Time)
+        # Bridge returns (Batch, 1, Channels, Time) for 'eeg_net'
         X, y = bridge.load_and_transform("erp", "eeg_net")
     except FileNotFoundError as e:
         print(f"Error loading data: {e}")
@@ -76,8 +82,16 @@ def main():
         print(f"An unexpected error occurred during data loading: {e}")
         return
 
-    print(f"Data Loaded Successfully. X shape: {X.shape}")
+    print(f"Data Loaded. Original Shape: {X.shape}")
     
+    # Transpose to (Batch, Channels, Time, 1) for Keras channels_last
+    # Input is (Batch, 1, Channels, Time) -> (Batch, Channels, Time, 1)
+    X = np.transpose(X, (0, 2, 3, 1))
+    print(f"Transposed Shape for Keras: {X.shape}")
+
+    # Extract dimensions
+    _, chans, samples, _ = X.shape
+
     # y is a dictionary: {'condition': ..., 'group': ..., 'subject_id': ...}
     conditions = y['condition']
     subject_ids = y['subject_id']
@@ -85,47 +99,68 @@ def main():
     # -------------------------------------------------------------------------
     # 3. Subject-Wise Split
     # -------------------------------------------------------------------------
-    # CRITICAL: We must split by Subject ID, not by trial.
-    # This prevents the model from memorizing subject-specific features (Data Leakage).
-    # If we just used train_test_split on X, we might get Subject 1's trials in both sets.
-    
     unique_subjects = np.unique(subject_ids)
     print(f"Total unique subjects found: {len(unique_subjects)}")
     
-    # Split subjects into Train and Validation sets
     train_subs, val_subs = train_test_split(unique_subjects, test_size=0.2, random_state=42)
     
-    print(f"Training Subjects ({len(train_subs)}): {train_subs}")
-    print(f"Validation Subjects ({len(val_subs)}): {val_subs}")
+    print(f"Training Subjects: {len(train_subs)}")
+    print(f"Validation Subjects: {len(val_subs)}")
     
-    # Create boolean masks for indexing the full dataset
     train_mask = np.isin(subject_ids, train_subs)
     val_mask = np.isin(subject_ids, val_subs)
     
-    # Apply masks to get the actual data subsets
     X_train = X[train_mask]
-    y_train = conditions[train_mask] # We train on 'condition' labels (0, 1, 2)
+    y_train = conditions[train_mask]
     
     X_val = X[val_mask]
     y_val = conditions[val_mask]
     
+    # One-hot encode labels
+    y_train_cat = to_categorical(y_train, num_classes=nb_classes)
+    y_val_cat = to_categorical(y_val, num_classes=nb_classes)
+
     print("-" * 30)
     print(f"Training Set:   {X_train.shape} samples")
     print(f"Validation Set: {X_val.shape} samples")
     print("-" * 30)
     
     # -------------------------------------------------------------------------
-    # 4. Run Training
+    # 4. Model Initialization & Training
     # -------------------------------------------------------------------------
-    print("Starting Training Process...")
+    print("Initializing EEGNet Model...")
+    model = EEGNet(nb_classes=nb_classes, 
+                   Chans=chans, 
+                   Samples=samples, 
+                   dropoutRate=dropout_rate, 
+                   kernLength=kern_length, 
+                   F1=f1, 
+                   D=d, 
+                   F2=f2, 
+                   dropoutType='Dropout')
+
+    optimizer = Adam(learning_rate=lr)
+    model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    model.summary()
+
+    # Checkpoint to save best model
+    checkpoint_path = os.path.join(current_dir, "weights", "best_model.h5")
+    os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
     
-    # Config path relative to this script
-    config_path = os.path.join(current_dir, "configs", "erp_config.json")
+    checkpointer = ModelCheckpoint(filepath=checkpoint_path, 
+                                   verbose=1, 
+                                   save_best_only=True,
+                                   monitor='val_accuracy')
+
+    print("Starting Training...")
+    history = model.fit(X_train, y_train_cat, 
+                        batch_size=batch_size, 
+                        epochs=epochs, 
+                        verbose=2, 
+                        validation_data=(X_val, y_val_cat),
+                        callbacks=[checkpointer])
     
-    # Call the training function from train.py
-    model = train_eegnet(X_train, y_train, X_val, y_val, config_path=config_path)
-    
-    print("Main process complete.")
+    print(f"Training complete. Best model saved to {checkpoint_path}")
 
 if __name__ == "__main__":
     main()
