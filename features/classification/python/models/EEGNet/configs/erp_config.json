@@ -1,0 +1,11 @@
+{
+"num_classes": 3,
+"batch_size": 16,
+"epochs": 50,
+"lr": 0.001,
+"dropout": 0.5,
+"f1": 8,
+"d": 2,
+"f2": 16,
+"kern_length": 64
+}

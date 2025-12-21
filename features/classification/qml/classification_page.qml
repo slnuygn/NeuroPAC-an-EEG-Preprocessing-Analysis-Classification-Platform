@@ -23,6 +23,16 @@ Item {
     signal openFolderDialog()
     signal refreshFileExplorer()
     
+    Connections {
+        target: classificationController
+        function onLogReceived(message) {
+            console.log("Controller Log: " + message)
+        }
+        function onTrainingFinished() {
+            console.log("Training finished signal received.")
+        }
+    }
+
     // File Explorer Rectangle - Left side
     FileBrowserUI {
         id: fileExplorerRect
@@ -59,6 +69,10 @@ Item {
 
                 ClassifierTemplate {
                     displayText: "EEGNet Classifier"
+                    onClassifyClicked: {
+                        console.log("Requesting EEGNet training...")
+                        classificationController.startEEGNetTraining()
+                    }
                 }
 
                 ClassifierTemplate {

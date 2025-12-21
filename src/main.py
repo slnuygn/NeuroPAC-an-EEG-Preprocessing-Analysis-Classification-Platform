@@ -21,6 +21,7 @@ import features
 from file_browser import FileBrowser
 # from features.classification.python.config_manager import ClassificationConfig
 from matlab_executor import MatlabExecutor
+from features.classification.python.classification_controller import ClassificationController
 
 # Function to get the resource path (works for both development and PyInstaller)
 def resource_path(relative_path):
@@ -42,6 +43,7 @@ qmlRegisterType(FileBrowser, "FileBrowser", 1, 0, "FileBrowser")
 # Create instances
 matlab_executor = MatlabExecutor()
 file_browser = FileBrowser()
+classification_controller = ClassificationController()
 # classification_config = ClassificationConfig()
 
 # Keep MATLAB data_dir in sync whenever the file browser loads a folder
@@ -58,6 +60,7 @@ engine.addImportPath(os.path.join(project_root, "ui"))
 # Make instances available to QML
 engine.rootContext().setContextProperty("matlabExecutor", matlab_executor)
 engine.rootContext().setContextProperty("fileBrowser", file_browser)
+engine.rootContext().setContextProperty("classificationController", classification_controller)
 # engine.rootContext().setContextProperty("classificationConfig", classification_config)
 
 engine.load(QUrl.fromLocalFile(os.path.join(project_root, 'ui', 'main.qml')))
