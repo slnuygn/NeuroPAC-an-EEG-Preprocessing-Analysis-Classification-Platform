@@ -39,9 +39,13 @@ except ImportError:
 K.set_image_data_format('channels_last')
 
 def load_config(config_path):
+    """Load configuration from JSON file."""
     if os.path.exists(config_path):
         with open(config_path, 'r') as f:
-            return json.load(f)
+            content = f.read().strip()
+            if not content:
+                return {}
+            return json.loads(content)
     return {}
 
 def main():
@@ -49,9 +53,22 @@ def main():
     # 1. Configuration
     # -------------------------------------------------------------------------
     data_folder = os.path.join(python_root, "data")
-    config_path = os.path.join(current_dir, "configs", "erp_config.json")
     
-    # Load hyperparameters
+    # Determine which analysis type to use
+    # Options: 'erp' (currently only ERP is supported for EEGNet)
+    analysis_mode = 'erp'
+    if len(sys.argv) > 1:
+        analysis_mode = sys.argv[1]
+    
+    config_file = f"{analysis_mode}_config.json"
+    config_path = os.path.join(current_dir, "configs", config_file)
+    
+    if not os.path.exists(config_path):
+        print(f"Error: Config file {config_path} not found.")
+        print(f"Note: EEGNet currently only supports 'erp' analysis.")
+        return
+    
+    print(f"Using configuration: {config_file}")
     config = load_config(config_path)
     
     # Defaults
@@ -64,6 +81,9 @@ def main():
     f1 = config.get('f1', 8)
     d = config.get('d', 2)
     f2 = config.get('f2', 16)
+    
+    # Analysis type mapping (EEGNet uses same key for bridge)
+    analysis_type = analysis_mode  # 'erp' -> 'erp'
 
     # -------------------------------------------------------------------------
     # 2. Load Data using Bridge
@@ -71,10 +91,10 @@ def main():
     print("Initializing PreprocessBridge...")
     bridge = PreprocessBridge(data_folder=data_folder)
     
-    print("Loading ERP data for EEGNet...")
+    print(f"Loading {analysis_type} data for EEGNet...")
     try:
         # Bridge returns (Batch, 1, Channels, Time) for 'eeg_net'
-        X, y = bridge.load_and_transform("erp", "eeg_net")
+        X, y = bridge.load_and_transform(analysis_type, "eeg_net")
     except FileNotFoundError as e:
         print(f"Error loading data: {e}")
         return

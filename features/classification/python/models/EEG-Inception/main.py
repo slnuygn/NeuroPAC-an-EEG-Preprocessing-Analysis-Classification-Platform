@@ -34,9 +34,13 @@ except ImportError:
 K.set_image_data_format('channels_last')
 
 def load_config(config_path):
+    """Load configuration from JSON file."""
     if os.path.exists(config_path):
         with open(config_path, 'r') as f:
-            return json.load(f)
+            content = f.read().strip()
+            if not content:
+                return {}
+            return json.loads(content)
     return {}
 
 def main():
