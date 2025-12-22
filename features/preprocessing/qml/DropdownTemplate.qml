@@ -247,10 +247,15 @@ Item {
                 Text {
                     anchors.left: parent.left
                     anchors.leftMargin: 10
+                    anchors.right: parent.right
+                    anchors.rightMargin: 35
                     anchors.verticalCenter: parent.verticalCenter
                     text: comboBox.currentText || "Select option..."
                     font.pixelSize: 12
                     color: "#333"
+                    elide: Text.ElideRight
+                    clip: true
+                    width: parent.width - 45
                 }
 
                 Text {
@@ -547,10 +552,15 @@ Item {
             Text {
                 anchors.left: parent.left
                 anchors.leftMargin: 10
+                anchors.right: parent.right
+                anchors.rightMargin: 35
                 anchors.verticalCenter: parent.verticalCenter
                 text: getMultiSelectText()
                 font.pixelSize: 12
                 color: "#333"
+                elide: Text.ElideRight
+                clip: true
+                width: parent.width - 45
             }
 
             Text {

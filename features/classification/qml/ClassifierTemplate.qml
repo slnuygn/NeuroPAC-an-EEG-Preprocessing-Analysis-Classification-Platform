@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
+import "../../preprocessing/qml"
 
 Item {
     id: classifierTemplate
@@ -12,12 +13,47 @@ Item {
     property bool expanded: false
     property alias errorText: errorTextItem.text
     default property alias expandedContent: contentContainer.data
+    property string classifierName: ""  // e.g., "EEGNet", "EEG-Inception", "Riemannian"
+    property var configParameters: ({})  // Store parsed config parameters
+    property var availableAnalyses: []  // Store available analyses
+    property string selectedAnalysis: ""  // Store selected analysis
     
-    signal classifyClicked()
+    signal classifyClicked(string classifierName, string analysisName)
 
-    MouseArea {
-        anchors.fill: parent
-        onClicked: expanded = !expanded
+    // Load configuration when classifier name is set
+    onClassifierNameChanged: {
+        if (classifierName && classifierName !== "") {
+            loadAvailableAnalyses()
+            configParameters = {}  // Clear parameters until analysis is selected
+        }
+    }
+
+    function loadConfigurationForAnalysis(analysisName) {
+        if (!classifierName || !analysisName) return;
+        
+        try {
+            var jsonStr = classificationController.getParamsForAnalysis(classifierName, analysisName);
+            var params = JSON.parse(jsonStr);
+            configParameters = params;
+            console.log("Loaded config for " + classifierName + " - " + analysisName + ":", Object.keys(configParameters).length, "parameters");
+        } catch (e) {
+            console.error("Failed to parse config for " + classifierName + " - " + analysisName + ":", e);
+            configParameters = {};
+        }
+    }
+
+    function loadAvailableAnalyses() {
+        if (!classifierName) return;
+        
+        try {
+            var jsonStr = classificationController.getAvailableAnalyses(classifierName);
+            var analyses = JSON.parse(jsonStr);
+            availableAnalyses = analyses;
+            console.log("Available analyses for " + classifierName + ":", availableAnalyses);
+        } catch (e) {
+            console.error("Failed to load available analyses for " + classifierName + ":", e);
+            availableAnalyses = [];
+        }
     }
 
     Rectangle {
@@ -31,6 +67,11 @@ Item {
         border.color: "#ccc"
         border.width: 1
         radius: 3
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: expanded = !expanded
+        }
 
         Text {
             id: text
@@ -72,6 +113,61 @@ Item {
             anchors.margins: 10
             anchors.bottomMargin: 50
             spacing: 10
+
+            // Analysis Selection Dropdown
+            DropdownTemplate {
+                width: contentContainer.width / 3
+                label: "Select Analysis"
+                matlabProperty: "analysis"
+                model: availableAnalyses
+                currentIndex: -1  // Start with no selection
+                
+                onSelectionChanged: function(value, index) {
+                    selectedAnalysis = value
+                    console.log("Selected analysis:", selectedAnalysis)
+                    loadConfigurationForAnalysis(selectedAnalysis)
+                }
+            }
+
+            // Dynamic parameters from config files
+            Repeater {
+                model: Object.keys(configParameters)
+                delegate: InputBoxTemplate {
+                    width: contentContainer.width / 3
+                    label: modelData
+                    matlabProperty: modelData
+                    text: {
+                        var value = configParameters[modelData];
+                        if (typeof value === "object") {
+                            return JSON.stringify(value);
+                        }
+                        return String(value);
+                    }
+                    isNumeric: typeof configParameters[modelData] === "number"
+                    placeholderText: "Enter " + modelData
+                    
+                    onValueChanged: function(newValue) {
+                        // Update the config parameter when value changes
+                        try {
+                            // Try to parse as number first if it was originally numeric
+                            if (isNumeric) {
+                                configParameters[modelData] = parseFloat(newValue);
+                            } else {
+                                // Try to parse as JSON for objects/arrays
+                                try {
+                                    configParameters[modelData] = JSON.parse(newValue);
+                                } catch (e) {
+                                    // If not valid JSON, treat as string
+                                    configParameters[modelData] = newValue;
+                                }
+                            }
+                            console.log("Updated " + modelData + " to:", configParameters[modelData]);
+                        } catch (e) {
+                            console.error("Error updating parameter:", e);
+                        }
+                    }
+                }
+            }
         }
 
 
@@ -91,20 +187,42 @@ Item {
                 anchors.right: parent.right
             }
 
-            Button {
+            // Floating Action Button - anchored to contentContainer bottom right
+            Rectangle {
                 id: classifyButton
-                text: "Classify"
+                width: 150
+                height: 40
+                color: "#2196f3"
+                radius: 5
+                
                 anchors.right: parent.right
-                flat: true
-                padding: 10
-                background: Rectangle {
-                    color: "#2196f3"
-                    radius: 4
+                
+                MouseArea {
                     anchors.fill: parent
-                }
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    
+                    Rectangle {
+                        anchors.fill: parent
+                        color: parent.pressed ? "#1565c0" : (parent.containsMouse ? "#2196f3" : "transparent")
+                        radius: 5
+                    }
 
-                onClicked: {
-                    classifierTemplate.classifyClicked()
+                    Text {
+                        text: "Classify"
+                        color: "white"
+                        font.pixelSize: 14
+                        anchors.centerIn: parent
+                    }
+                    
+                    onClicked: {
+                        if (selectedAnalysis === "") {
+                            errorTextItem.text = "Please select an analysis type first"
+                            return
+                        }
+                        errorTextItem.text = ""
+                        classifierTemplate.classifyClicked(classifierName, selectedAnalysis)
+                    }
                 }
             }
         }

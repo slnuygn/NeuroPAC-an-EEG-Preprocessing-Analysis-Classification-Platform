@@ -2,7 +2,7 @@ import os
 import scipy.io as sio
 import numpy as np
 # Importing the group labels from your common folder
-from common.labels import labels as group_list
+from features.classification.python.core.labels import labels as group_list
 
 class PreprocessBridge:
     def __init__(self, data_folder="data/"):

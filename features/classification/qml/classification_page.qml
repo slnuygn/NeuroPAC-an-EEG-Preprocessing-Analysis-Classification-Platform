@@ -69,22 +69,29 @@ Item {
 
                 ClassifierTemplate {
                     displayText: "EEGNet Classifier"
-                    onClassifyClicked: {
-                        console.log("Requesting EEGNet training...")
-                        classificationController.startEEGNetTraining()
+                    classifierName: "EEGNet"
+                    onClassifyClicked: function(classifier, analysis) {
+                        console.log("Requesting " + classifier + " classification with " + analysis)
+                        classificationController.startClassification(classifier, analysis)
                     }
                 }
 
                 ClassifierTemplate {
                     displayText: "EEG-Inception Classifier"
-                }
-
-                ClassifierTemplate {
-                    displayText: "CNN-LSTM Classifier"
+                    classifierName: "EEG-Inception"
+                    onClassifyClicked: function(classifier, analysis) {
+                        console.log("Requesting " + classifier + " classification with " + analysis)
+                        classificationController.startClassification(classifier, analysis)
+                    }
                 }
 
                 ClassifierTemplate {
                     displayText: "Riemannian Classifier"
+                    classifierName: "Riemannian"
+                    onClassifyClicked: function(classifier, analysis) {
+                        console.log("Requesting " + classifier + " classification with " + analysis)
+                        classificationController.startClassification(classifier, analysis)
+                    }
                 }
 
             }

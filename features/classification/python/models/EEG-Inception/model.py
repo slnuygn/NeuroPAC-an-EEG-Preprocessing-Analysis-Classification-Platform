@@ -44,7 +44,15 @@ def EEGInception(input_time=1000, fs=128, ncha=8, filters_per_branch=8,
     """
 
     # ============================= CALCULATIONS ============================= #
-    input_samples = int(input_time * fs / 1000)
+    if input_time is not None and fs is not None:
+        input_samples = int(input_time * fs / 1000)
+    # If input_samples is passed directly (e.g. for TF analysis where time is bins)
+    # We assume the caller handles it. But here we only have input_time in signature.
+    # Let's assume if fs is None, input_time IS input_samples.
+    
+    # However, to keep signature clean, let's stick to the calculation but allow
+    # scales_samples to be passed if we want custom kernel sizes.
+    
     scales_samples = [int(s * fs / 1000) for s in scales_time]
 
     # ================================ INPUT ================================= #

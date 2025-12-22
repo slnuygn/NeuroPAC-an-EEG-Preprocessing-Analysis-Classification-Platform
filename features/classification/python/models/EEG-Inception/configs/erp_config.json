@@ -1,0 +1,10 @@
+{
+    "batch_size": 16,
+    "epochs": 100,
+    "learning_rate": 0.001,
+    "dropout_rate": 0.25,
+    "filters_per_branch": 8,
+    "scales_time": [500, 250, 125],
+    "activation": "elu",
+    "fs": 128
+}
