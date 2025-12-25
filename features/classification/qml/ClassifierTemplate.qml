@@ -121,6 +121,7 @@ Item {
                 matlabProperty: "analysis"
                 model: availableAnalyses
                 currentIndex: -1  // Start with no selection
+                showCheckboxes: false  // Hide checkboxes for analysis dropdown
                 
                 onSelectionChanged: function(value, index) {
                     selectedAnalysis = value

@@ -19,6 +19,7 @@ Item {
     property var selectedItems: [] // For multi-select
     property var allItems: [] // For multi-select
     property bool addCheckboxChecked: false // For add item checkbox state
+    property bool showCheckboxes: true // Control whether checkboxes are shown
 
     property string dropdownState: "default"  // "default", "edit", or "add"
     property string matlabPropertyDraft: matlabProperty
@@ -362,6 +363,7 @@ Item {
                                         border.color: "#666"
                                         border.width: 1
                                         color: comboBox.currentIndex === index ? "#2196f3" : "white"
+                                        visible: dropdownTemplate.showCheckboxes
 
                                         Text {
                                             anchors.centerIn: parent
@@ -374,8 +376,8 @@ Item {
 
                                     Text {
                                         id: singleOptionText
-                                        anchors.left: singleOptionCheckbox.right
-                                        anchors.leftMargin: 8
+                                        anchors.left: dropdownTemplate.showCheckboxes ? singleOptionCheckbox.right : parent.left
+                                        anchors.leftMargin: dropdownTemplate.showCheckboxes ? 8 : 0
                                         anchors.right: parent.right
                                         anchors.rightMargin: dropdownTemplate.dropdownState === "edit" ? 25 : 0
                                         anchors.verticalCenter: parent.verticalCenter
@@ -450,12 +452,13 @@ Item {
                                 border.color: "#666"
                                 border.width: 1
                                 color: "white"
+                                visible: dropdownTemplate.showCheckboxes
                             }
 
                             // Display text when not editing
                             Text {
                                 id: singleAddText
-                                anchors.left: singleAddCheckbox.right
+                                anchors.left: dropdownTemplate.showCheckboxes ? singleAddCheckbox.right : parent.left
                                 anchors.leftMargin: 5
                                 anchors.right: parent.right
                                 anchors.rightMargin: 5
@@ -470,7 +473,7 @@ Item {
                             // Input field when editing
                             TextInput {
                                 id: singleAddInput
-                                anchors.left: singleAddCheckbox.right
+                                anchors.left: dropdownTemplate.showCheckboxes ? singleAddCheckbox.right : parent.left
                                 anchors.leftMargin: 5
                                 anchors.right: parent.right
                                 anchors.rightMargin: 5
@@ -691,6 +694,7 @@ Item {
                                     border.color: "#666"
                                     border.width: 1
                                     color: selectedItems.indexOf(modelData) !== -1 ? "#2196f3" : "white"
+                                    visible: dropdownTemplate.showCheckboxes
 
                                     Text {
                                         anchors.centerIn: parent
@@ -703,8 +707,8 @@ Item {
 
                                 Text {
                                     id: optionText
-                                    anchors.left: optionCheckbox.right
-                                    anchors.leftMargin: 8
+                                    anchors.left: dropdownTemplate.showCheckboxes ? optionCheckbox.right : parent.left
+                                    anchors.leftMargin: dropdownTemplate.showCheckboxes ? 8 : 0
                                     anchors.right: parent.right
                                     anchors.rightMargin: dropdownTemplate.dropdownState === "edit" ? 25 : 0
                                     anchors.verticalCenter: parent.verticalCenter
@@ -798,6 +802,7 @@ Item {
                             border.color: "#666"
                             border.width: 1
                             color: addCheckboxChecked ? "#2196f3" : "white"
+                            visible: dropdownTemplate.showCheckboxes
 
                             Text {
                                 anchors.centerIn: parent
@@ -818,7 +823,7 @@ Item {
                         // Display text when not editing
                         Text {
                             id: addText
-                            anchors.left: addCheckbox.right
+                            anchors.left: dropdownTemplate.showCheckboxes ? addCheckbox.right : parent.left
                             anchors.leftMargin: 5
                             anchors.right: parent.right
                             anchors.rightMargin: 5
@@ -833,7 +838,7 @@ Item {
                         // Input field when editing
                         TextInput {
                             id: addInput
-                            anchors.left: addCheckbox.right
+                            anchors.left: dropdownTemplate.showCheckboxes ? addCheckbox.right : parent.left
                             anchors.leftMargin: 5
                             anchors.right: parent.right
                             anchors.rightMargin: 5

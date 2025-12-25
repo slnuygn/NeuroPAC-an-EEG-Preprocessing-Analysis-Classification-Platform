@@ -1,0 +1,4 @@
+labels = [
+    "HC",
+    "Parkinson's",
+]

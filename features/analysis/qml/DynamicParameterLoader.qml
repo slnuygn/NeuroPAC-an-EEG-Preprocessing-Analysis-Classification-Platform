@@ -183,6 +183,7 @@ Item {
             allItems: parameterConfig.all_items !== undefined ? parameterConfig.all_items : (parameterConfig.model || [])
             selectedItems: parameterConfig.selected_items || []
             dropdownState: editModeEnabled ? "edit" : "default"
+            showCheckboxes: parameterConfig.is_multi_select || false  // Hide checkboxes for single-select dropdowns
 
             onSelectionChanged: function(value, index) {
                 if (isMultiSelect) {

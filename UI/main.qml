@@ -124,29 +124,30 @@ ApplicationWindow {
 
 
 
-    // Top Menu Bar
+    // Top Menu Bar (commented out - not currently needed)
+    /*
     TopMenu {
         id: topMenuBar
         width: parent.width
-        
+
         onFieldtripDialogRequested: {
             fileBrowserComponent.fieldtripDialog.open()
         }
-        
+
         onFolderDialogRequested: {
             fileBrowserComponent.folderDialog.open()
         }
-        
+
         onCreateFunctionRequested: {
             console.log("Create function requested")
             // TODO: Implement function creation
         }
-        
+
         onCreateScriptRequested: {
             console.log("Create script requested")
             // TODO: Implement script creation
         }
-        
+
         onEditModeToggled: function(checked) {
             console.log("Edit mode toggled:", checked)
             // Forward to preprocessing page
@@ -170,19 +171,20 @@ ApplicationWindow {
             }
         }
     }
+    */
 
     // MouseArea to close menus when clicking outside
     MouseArea {
         anchors.fill: parent
-        anchors.topMargin: topMenuBar.height
+        anchors.topMargin: 0  // Changed from topMenuBar.height since menu bar is commented out
         z: -10
         onClicked: {
-            topMenuBar.closeMenus()
+            // topMenuBar.closeMenus()  // Commented out since menu bar is not active
         }
-        
+
         // Allow scroll events to pass through to underlying ScrollView
         propagateComposedEvents: true
-        
+
         onWheel: function(wheel) {
             wheel.accepted = false  // Let the ScrollView handle wheel events
         }
@@ -191,7 +193,7 @@ ApplicationWindow {
     // Tab bar at the top
     Rectangle {
         id: tabBar
-        anchors.top: topMenuBar.bottom
+        anchors.top: parent.top  // Changed from topMenuBar.bottom since menu bar is commented out
         width: parent.width
         height: 40
         color: "#e0e0e0"
