@@ -26,7 +26,7 @@ data.current_subject = 1;
 if isempty(data.channel_labels)
     error('timefreq_visualizer:InvalidInput', 'No channel labels found in time-frequency data.');
 end
-data.selected_channel_indices = 1:numel(data.channel_labels);
+data.selected_channel_indices = [];
 
 % Store state and build UI
 guidata(fig, data);
@@ -186,13 +186,9 @@ data.selected_channel_indices = selected_channels;
 
 % Clear axes only
 delete(findall(fig, 'Type', 'axes'));
-% Clear any lingering "no channels" label
-delete(findobj(fig, 'Tag', 'noChannelsLabel'));
 
 num_selected = numel(selected_channels);
 if num_selected == 0
-    uicontrol('Style', 'text', 'String', 'No channels selected', ...
-        'Position', [200, 200, 200, 40], 'Tag', 'noChannelsLabel');
     guidata(fig, data);
     return;
 end
@@ -267,10 +263,6 @@ data.prev_btn = uicontrol('Style', 'pushbutton', 'String', '← Previous', ...
 data.next_btn = uicontrol('Style', 'pushbutton', 'String', 'Next →', ...
     'Position', [130, 20, 100, 30], ...
     'Callback', @(src, evt) navigate_subject(fig, 1));
-
-uicontrol('Style', 'pushbutton', 'String', 'ITPC Preview', ...
-    'Position', [240, 20, 120, 30], ...
-    'Callback', @(src, evt) plot_itpc_preview(fig));
 
 uicontrol('Style', 'text', 'String', 'xlim  min:', ...
     'Position', [20, 130, 55, 15], 'HorizontalAlignment', 'left');

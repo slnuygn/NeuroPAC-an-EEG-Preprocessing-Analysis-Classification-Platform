@@ -22,7 +22,7 @@ data.current_subject = 1;
 if isempty(data.pair_labels)
     error('channelwise_visualizer:InvalidInput', 'No channel pairs found in coherence data.');
 end
-data.selected_pair_index = 1;
+data.selected_pair_indices = []; % default to no pairs selected
 
 data.xlim_override = [];
 data.ylim_override = [];
@@ -121,55 +121,58 @@ end
 function plot_subject(fig)
 data = guidata(fig);
 
-pairIdx = data.selected_pair_index;
+selected_pairs = data.selected_pair_indices;
+num_pairs = numel(selected_pairs);
 
 cond_target = data.coherence_records(data.current_subject,1);
 cond_standard = data.coherence_records(data.current_subject,2);
 cond_novelty = data.coherence_records(data.current_subject,3);
-
-pairLabel = data.pair_labels{pairIdx};
 
 % Clear axes
 delete(findall(fig, 'Type', 'axes'));
 
 titles = {'Target','Standard','Novelty'};
 conds = {cond_target, cond_standard, cond_novelty};
-for c = 1:3
-    subplot(1,3,c);
-    tfr = extract_pair_tfr(conds{c}, pairIdx, data.pair_labels, data.pair_indices);
-    if isempty(tfr)
-        text(0.5,0.5,'No data','HorizontalAlignment','center');
-    else
-        cfg = [];
-        cfg.channel = tfr.label;
-        cfg.colorbar = 'no';
-        cfg.zlim = [0 1];
-        cfg.figure = gca;
-        cfg.interactive = 'no';
-        cfg.title = '';
-        cfg.comment = 'no';
-        if ~isempty(data.ylim_override), cfg.ylim = data.ylim_override; end
-        if ~isempty(data.xlim_override), cfg.xlim = data.xlim_override; end
-        try
-            ft_singleplotTFR(cfg, tfr);
-            colormap('jet');
-            title(titles{c});
-        catch plotErr
-            text(0.5,0.5,sprintf('Plot error: %s', plotErr.message),'HorizontalAlignment','center');
+
+% Create grid of subplots for selected pairs x 3 conditions
+for idx = 1:num_pairs
+    pairIdx = selected_pairs(idx);
+    pairLabel = data.pair_labels{pairIdx};
+    
+    for c = 1:3
+        subplot(num_pairs, 3, (idx-1)*3 + c);
+        
+        tfr = extract_pair_tfr(conds{c}, pairIdx, data.pair_labels, data.pair_indices);
+        if isempty(tfr)
+            text(0.5,0.5,'No data','HorizontalAlignment','center');
+        else
+            cfg = [];
+            cfg.channel = tfr.label;
+            cfg.colorbar = 'no';
+            cfg.zlim = [0 1];
+            cfg.figure = gca;
+            cfg.interactive = 'no';
+            cfg.title = '';
+            cfg.comment = 'no';
+            if ~isempty(data.ylim_override), cfg.ylim = data.ylim_override; end
+            if ~isempty(data.xlim_override), cfg.xlim = data.xlim_override; end
+            try
+                ft_singleplotTFR(cfg, tfr);
+                colormap('jet');
+                if idx == 1
+                    title(titles{c});
+                end
+            catch plotErr
+                text(0.5,0.5,sprintf('Plot error: %s', plotErr.message),'HorizontalAlignment','center');
+            end
+        end
+        if c == 1
+            ylabel(pairLabel);
+        end
+        if idx == num_pairs
+            xlabel('Time (s)');
         end
     end
-    ylabel(pairLabel);
-end
-
-% Compress subplot height (50%) to reduce plot length
-axes_list = findall(fig, 'Type', 'axes');
-for ax = axes_list.'
-    pos = get(ax, 'Position');
-    new_h = pos(4) * 0.5;
-    delta = (pos(4) - new_h) / 2;
-    pos(2) = pos(2) + delta;
-    pos(4) = new_h;
-    set(ax, 'Position', pos);
 end
 
 sgtitle(sprintf('Channel-Wise Coherence - Subject %d/%d', data.current_subject, data.num_subjects));
@@ -224,8 +227,7 @@ tfr.dimord = 'chan_freq_time';
 end
 
 function create_ui_controls(fig, data)
-% navigation
-% Axis limit controls (stacked: x on top of y)
+% Axis limit controls (moved closer to navigation buttons)
 uicontrol('Style','text','String','xlim min:', ...
     'Position',[20 90 55 15],'HorizontalAlignment','left');
 edit_xmin = uicontrol('Style','edit','String','', ...
@@ -259,21 +261,76 @@ uicontrol('Style','pushbutton','String','Next →', ...
     'Position',[130 20 100 30], ...
     'Callback',@(src,evt) navigate_subject(fig,1));
 
-% Pair dropdown (single select)
-uicontrol('Style','text','String','Channel pair:', ...
-    'Position',[260 35 80 20],'HorizontalAlignment','left');
+% Channel pair toggle button
+pair_toggle_btn = uicontrol('Style','pushbutton','String','Channel pairs', ...
+    'Position',[250 20 140 30], ...
+    'Callback',@(src,evt) toggle_pair_panel(fig));
 
-drop = uicontrol('Style','popupmenu','String',data.pair_labels, ...
-    'Position',[340 30 220 25], ...
-    'Callback',@(src,evt) select_pair(fig, src));
+% Create checkbox panel for pairs
+num_pairs = numel(data.pair_labels);
+pairs_per_column = ceil(num_pairs / 2);  % Split into two columns
 
-% Store handles for axis edits
+% Calculate panel width based on text content
+max_label_length = max(cellfun(@length, data.pair_labels));
+estimated_char_width = 7;  % Approximate pixels per character
+column_padding = 20;  % Padding for each column
+min_column_width = 120;  % Minimum width per column
+calculated_column_width = max(min_column_width, max_label_length * estimated_char_width + 30);
+panel_width = calculated_column_width * 2 + column_padding;  % Two columns plus padding
+
+panel_height = 20 + pairs_per_column * 18;  % Height based on pairs per column
+
+panel = uipanel('Parent', fig, 'Units', 'pixels', ...
+    'Position', [250, 50, panel_width, panel_height], ...
+    'BorderType', 'etchedin', ...
+    'Visible', 'off');
+
+all_selected = numel(data.selected_pair_indices) == num_pairs;
+all_cb = uicontrol('Parent', panel, 'Style', 'checkbox', ...
+    'String', 'All Pairs', ...
+    'Value', all_selected, ...
+    'Position', [10, panel_height - 20, panel_width - 20, 20], ...
+    'Callback', []); % assign after pair checkboxes exist
+
+pair_cbs = cell(1, num_pairs);
+column_width = calculated_column_width;  % Use calculated width for each column
+for i = 1:num_pairs
+    % Determine column (1 or 2) and row within column
+    if i <= pairs_per_column
+        col = 1;
+        row_in_col = i;
+        x_pos = 10;
+    else
+        col = 2;
+        row_in_col = i - pairs_per_column;
+        x_pos = 10 + column_width + 10;
+    end
+    
+    y = panel_height - 20 - (row_in_col * 18);
+    pair_cbs{i} = uicontrol('Parent', panel, 'Style', 'checkbox', ...
+        'String', data.pair_labels{i}, ...
+        'Value', ismember(i, data.selected_pair_indices), ...
+        'Position', [x_pos, y, column_width - 10, 20], ...
+        'Callback', []); % assign after creation
+end
+
+% Now wire callbacks with full handle visibility
+set(all_cb, 'Callback', @(src, evt) handle_all_pairs_checkbox(fig, src, pair_cbs));
+for i = 1:num_pairs
+    set(pair_cbs{i}, 'Callback', @(src, evt) handle_pair_checkbox(fig, all_cb, pair_cbs, i));
+end
+
+% Store handles
 s = guidata(fig);
 s.xlim_min_edit = edit_xmin;
 s.xlim_max_edit = edit_xmax;
 s.ylim_min_edit = edit_ymin;
 s.ylim_max_edit = edit_ymax;
-s.pair_dropdown = drop;
+s.pair_toggle_btn = pair_toggle_btn;
+s.pair_panel = panel;
+s.pair_checkboxes = pair_cbs;
+s.pair_all_checkbox = all_cb;
+s.pair_panel_visible = false;
 guidata(fig, s);
 end
 
@@ -288,14 +345,57 @@ if new_subject ~= data.current_subject
 end
 end
 
-function select_pair(fig, src)
-data = guidata(fig);
-val = get(src, 'Value');
-if val >= 1 && val <= numel(data.pair_labels)
-    data.selected_pair_index = val;
-    guidata(fig, data);
-    plot_subject(fig);
+function handle_all_pairs_checkbox(fig, all_cb, pair_cbs)
+value = get(all_cb, 'Value');
+for i = 1:numel(pair_cbs)
+    set(pair_cbs{i}, 'Value', value);
 end
+if value == 1
+    set_selected_pairs(fig, 1:numel(pair_cbs));
+else
+    set_selected_pairs(fig, []);
+end
+end
+
+function handle_pair_checkbox(fig, all_cb, pair_cbs, idx)
+unused = idx; %#ok<NASGU> Intentionally unused but keeps signature clear
+vals = cellfun(@(cb) logical(get(cb, 'Value')), pair_cbs);
+if all(vals)
+    set(all_cb, 'Value', 1);
+else
+    set(all_cb, 'Value', 0);
+end
+
+selected = find(vals);
+set_selected_pairs(fig, selected);
+end
+
+function set_selected_pairs(fig, selected_indices)
+data = guidata(fig);
+num_pairs = numel(data.pair_labels);
+
+selected_indices = selected_indices(selected_indices >= 1 & selected_indices <= num_pairs);
+
+data.selected_pair_indices = selected_indices;
+guidata(fig, data);
+plot_subject(fig);
+end
+
+function toggle_pair_panel(fig)
+data = guidata(fig);
+
+is_visible = strcmp(get(data.pair_panel, 'Visible'), 'on');
+if is_visible
+    set(data.pair_panel, 'Visible', 'off');
+    set(data.pair_toggle_btn, 'String', 'Channel pairs');
+    data.pair_panel_visible = false;
+else
+    set(data.pair_panel, 'Visible', 'on');
+    set(data.pair_toggle_btn, 'String', 'Channel pairs (open)');
+    data.pair_panel_visible = true;
+end
+
+guidata(fig, data);
 end
 
 function update_axis_limits(fig, axis_type)

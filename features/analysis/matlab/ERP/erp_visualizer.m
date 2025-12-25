@@ -32,7 +32,7 @@ data.erp_records = erp_records;
 data.num_subjects = num_subjects;
 data.current_subject = 1;
 data.channel_labels = get_channel_labels(erp_records);
-data.selected_channel_indices = 1:numel(data.channel_labels); % default to all channels
+data.selected_channel_indices = [];
 
 % Store data in figure, build UI once
 guidata(fig, data);

@@ -21,7 +21,7 @@ data.current_subject = 1;
 if isempty(data.channel_labels)
     error('spectral_visualizer:InvalidInput', 'No channel labels found in spectral data.');
 end
-data.selected_channel_indices = 1:numel(data.channel_labels);
+data.selected_channel_indices = [];
 
 guidata(fig, data);
 create_ui_controls(fig, data);
@@ -117,8 +117,6 @@ delete(findall(fig, 'Type', 'axes'));
 
 num_selected = numel(selected_channels);
 if num_selected == 0
-    uicontrol('Style', 'text', 'String', 'No channels selected', ...
-        'Position', [200, 200, 200, 40]);
     guidata(fig, data);
     return;
 end

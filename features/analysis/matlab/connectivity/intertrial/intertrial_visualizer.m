@@ -19,7 +19,7 @@ data.itc_records = itc_records;
 data.num_subjects = num_subjects;
 data.current_subject = 1;
 data.channel_labels = get_channel_labels(itc_records);
-data.selected_channel_indices = 1:numel(data.channel_labels);
+data.selected_channel_indices = [];
 data.xlim_override = [];
 data.ylim_override = [];
 data.coherence_mode = 'phase'; % 'phase' (ITPC) or 'linear' (ITLC)
@@ -112,8 +112,6 @@ delete(findall(fig, 'Type', 'axes'));
 
 num_selected = numel(selected_channels);
 if num_selected == 0
-    uicontrol('Style','text','String','No channels selected', ...
-        'Position',[200 200 200 40]);
     guidata(fig, data);
     return;
 end
@@ -194,7 +192,7 @@ uicontrol('Style','pushbutton','String','Next →', ...
     'Callback',@(src,evt) navigate_subject(fig,1));
 
 uicontrol('Style','text','String','Coherence:', ...
-    'Position',[250 25 70 20],'HorizontalAlignment','left');
+    'Position',[250 20 70 20],'HorizontalAlignment','left');
 uicontrol('Style','popupmenu','String',{'Phase','Linear'}, ...
     'Value',1, ...
     'Position',[320 20 80 30], ...
