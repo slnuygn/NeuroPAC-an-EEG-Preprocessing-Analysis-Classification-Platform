@@ -2,11 +2,17 @@ import os
 import sys
 import json
 import numpy as np
+import warnings
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import backend as K
+
+# Suppress TensorFlow and NumPy warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', message='.*oneDNN custom operations.*')
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress TensorFlow logging
 
 # -----------------------------------------------------------------------------
 # Path Setup
@@ -14,20 +20,26 @@ from tensorflow.keras import backend as K
 # We need to import from 'core' which is two levels up.
 current_dir = os.path.dirname(os.path.abspath(__file__))
 python_root = os.path.abspath(os.path.join(current_dir, "../../"))
+capstone_root = os.path.abspath(os.path.join(current_dir, "../../../../.."))
 
-# Add python_root to sys.path to allow imports from 'core'
+# Add paths to sys.path to allow imports from 'core' and 'features'
 if python_root not in sys.path:
-    sys.path.append(python_root)
+    sys.path.insert(0, python_root)
+if capstone_root not in sys.path:
+    sys.path.insert(0, capstone_root)
 
 # -----------------------------------------------------------------------------
 # Imports
 # -----------------------------------------------------------------------------
 try:
-    from core.preprocess_bridge import PreprocessBridge
+    from features.classification.python.core.preprocess_bridge import PreprocessBridge
 except ImportError as e:
-    print(f"Error importing PreprocessBridge: {e}")
-    print(f"Ensure that '{python_root}' is in your PYTHONPATH.")
-    sys.exit(1)
+    try:
+        from core.preprocess_bridge import PreprocessBridge
+    except ImportError as e2:
+        print(f"Error importing PreprocessBridge: {e2}")
+        print(f"Ensure that '{python_root}' is in your PYTHONPATH.")
+        sys.exit(1)
 
 try:
     from .model import EEGNet
@@ -52,6 +64,7 @@ def main():
     # -------------------------------------------------------------------------
     # 1. Configuration
     # -------------------------------------------------------------------------
+    # Default data folder
     data_folder = os.path.join(python_root, "data")
     
     # Determine which analysis type to use
@@ -59,6 +72,11 @@ def main():
     analysis_mode = 'erp'
     if len(sys.argv) > 1:
         analysis_mode = sys.argv[1]
+    
+    # Override data folder if provided as command line argument
+    if len(sys.argv) > 2:
+        data_folder = sys.argv[2]
+        print(f"Using data folder from argument: {data_folder}")
     
     config_file = f"{analysis_mode}_config.json"
     config_path = os.path.join(current_dir, "configs", config_file)
@@ -163,9 +181,10 @@ def main():
     model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
     model.summary()
 
-    # Checkpoint to save best model
-    checkpoint_path = os.path.join(current_dir, "weights", "best_model.h5")
-    os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+    # Checkpoint to save best model in data folder with naming: EEGNet_{analysis}_weights_best.h5
+    weights_filename = f"EEGNet_{analysis_mode}_weights_best.h5"
+    checkpoint_path = os.path.join(data_folder, weights_filename)
+    os.makedirs(data_folder, exist_ok=True)
     
     checkpointer = ModelCheckpoint(filepath=checkpoint_path, 
                                    verbose=1, 

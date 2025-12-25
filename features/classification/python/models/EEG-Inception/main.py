@@ -1,6 +1,14 @@
 import os
 import sys
 import json
+import warnings
+
+# Suppress TensorFlow and NumPy warnings BEFORE importing TensorFlow
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow logging (3 = ERROR only)
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN custom operations
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
 import numpy as np
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
@@ -12,18 +20,24 @@ from tensorflow.keras import backend as K
 # -----------------------------------------------------------------------------
 current_dir = os.path.dirname(os.path.abspath(__file__))
 python_root = os.path.abspath(os.path.join(current_dir, "../../"))
+capstone_root = os.path.abspath(os.path.join(current_dir, "../../../../.."))
 
 if python_root not in sys.path:
-    sys.path.append(python_root)
+    sys.path.insert(0, python_root)
+if capstone_root not in sys.path:
+    sys.path.insert(0, capstone_root)
 
 # -----------------------------------------------------------------------------
 # Imports
 # -----------------------------------------------------------------------------
 try:
-    from core.preprocess_bridge import PreprocessBridge
+    from features.classification.python.core.preprocess_bridge import PreprocessBridge
 except ImportError as e:
-    print(f"Error importing PreprocessBridge: {e}")
-    sys.exit(1)
+    try:
+        from core.preprocess_bridge import PreprocessBridge
+    except ImportError as e2:
+        print(f"Error importing PreprocessBridge: {e2}")
+        sys.exit(1)
 
 try:
     from .model import EEGInception
@@ -47,6 +61,7 @@ def main():
     # -------------------------------------------------------------------------
     # 1. Configuration
     # -------------------------------------------------------------------------
+    # Default data folder
     data_folder = os.path.join(python_root, "data")
     
     # Determine which config to use. 
@@ -55,6 +70,11 @@ def main():
     analysis_mode = 'erp' 
     if len(sys.argv) > 1:
         analysis_mode = sys.argv[1]
+    
+    # Override data folder if provided as command line argument
+    if len(sys.argv) > 2:
+        data_folder = sys.argv[2]
+        print(f"Using data folder from argument: {data_folder}")
 
     config_file = f"{analysis_mode}_config.json"
     config_path = os.path.join(current_dir, "configs", config_file)
@@ -114,28 +134,52 @@ def main():
     # EEG-Inception expects: (Batch, Time, Channels, 1)
     
     if analysis_type == 'erp':
-        # Input: (Batch, 1, Channels, Time)
-        # Transpose to (Batch, Time, Channels, 1)
-        # Axis mapping: 0->0, 3->1, 2->2, 1->3
-        X = np.transpose(X, (0, 3, 2, 1))
+        # Handle different input shapes from bridge
+        if X.ndim == 4:
+            # Input: (Batch, 1, Channels, Time) -> (Batch, Time, Channels, 1)
+            X = np.transpose(X, (0, 3, 2, 1))
+        elif X.ndim == 3:
+            # Input: (Batch, Channels, Time) -> (Batch, Time, Channels, 1)
+            X = np.transpose(X, (0, 2, 1))  # (Batch, Time, Channels)
+            X = X[..., np.newaxis]  # Add final dimension
+        
+        # Ensure 4th dimension exists
+        if X.ndim == 3:
+            X = X[..., np.newaxis]
+        
+        print(f"ERP reshaped to: {X.shape}")
         
     elif analysis_type in ['time_frequency', 'intertrial_coherence']:
         # Input: (Batch, Channels, Freq, Time)
         # We need to map this to (Batch, Time, NewChannels, 1)
         # Strategy: Flatten Channels and Freq into one dimension -> NewChannels
         
-        b, c, f, t = X.shape
-        # Reshape to (Batch, C*F, Time)
-        X = X.reshape(b, c * f, t)
+        print(f"TF/ITC input shape: {X.shape}, ndim: {X.ndim}")
         
-        # Now we have (Batch, NewChannels, Time)
-        # Transpose to (Batch, Time, NewChannels)
-        X = np.transpose(X, (0, 2, 1))
+        if X.ndim == 4:
+            b, c, f, t = X.shape
+            # Reshape to (Batch, C*F, Time)
+            X = X.reshape(b, c * f, t)
+            
+            # Now we have (Batch, NewChannels, Time)
+            # Transpose to (Batch, Time, NewChannels)
+            X = np.transpose(X, (0, 2, 1))
+            
+            print(f"Reshaped TF/ITC data. Merged {c} channels * {f} freqs -> {c*f} input features.")
+        elif X.ndim == 3:
+            # If data is (Batch, Channels, Time), transpose to (Batch, Time, Channels)
+            X = np.transpose(X, (0, 2, 1))
+            print(f"Transposed 3D TF/ITC data to: {X.shape}")
         
-        # Add the last dimension -> (Batch, Time, NewChannels, 1)
+        # Always ensure 4th dimension exists for TF/ITC
+        if X.ndim == 3:
+            X = X[..., np.newaxis]
+            print(f"Added channel dimension: {X.shape}")
+
+    # Final safety check - ensure 4D tensor
+    if X.ndim == 3:
         X = X[..., np.newaxis]
-        
-        print(f"Reshaped TF/ITC data. Merged {c} channels * {f} freqs -> {c*f} input features.")
+        print(f"Final safety: Added 4th dimension: {X.shape}")
 
     print(f"Final Shape for Keras: {X.shape}")
 
@@ -172,6 +216,18 @@ def main():
     X_val = X[val_mask]
     y_val = conditions[val_mask]
     
+    # Debug: Check shapes after split
+    print(f"X_train shape after split: {X_train.shape}, ndim: {X_train.ndim}")
+    print(f"X_val shape after split: {X_val.shape}, ndim: {X_val.ndim}")
+    
+    # Ensure 4D after split (safety check)
+    if X_train.ndim == 3:
+        X_train = X_train[..., np.newaxis]
+        print(f"Added dimension to X_train: {X_train.shape}")
+    if X_val.ndim == 3:
+        X_val = X_val[..., np.newaxis]
+        print(f"Added dimension to X_val: {X_val.shape}")
+    
     y_train_cat = to_categorical(y_train, num_classes=nb_classes)
     y_val_cat = to_categorical(y_val, num_classes=nb_classes)
 
@@ -196,8 +252,10 @@ def main():
 
     model.summary()
 
-    checkpoint_path = os.path.join(current_dir, "weights", "best_model.h5")
-    os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+    # Checkpoint to save best model in data folder with naming: EEG-Inception_{analysis}_weights_best.h5
+    weights_filename = f"EEG-Inception_{analysis_mode}_weights_best.h5"
+    checkpoint_path = os.path.join(data_folder, weights_filename)
+    os.makedirs(data_folder, exist_ok=True)
     
     callbacks = [
         ModelCheckpoint(filepath=checkpoint_path, 
@@ -212,6 +270,20 @@ def main():
     ]
 
     print("Starting Training...")
+    
+    # Final shape check right before training
+    print(f"PRE-TRAINING CHECK - X_train.shape: {X_train.shape}, X_val.shape: {X_val.shape}")
+    
+    # Force reshape to 4D if needed
+    if X_train.ndim == 3:
+        X_train = np.expand_dims(X_train, axis=-1)
+        print(f"FORCED X_train to 4D: {X_train.shape}")
+    if X_val.ndim == 3:
+        X_val = np.expand_dims(X_val, axis=-1)
+        print(f"FORCED X_val to 4D: {X_val.shape}")
+    
+    print(f"FINAL - X_train.shape: {X_train.shape}, X_val.shape: {X_val.shape}")
+    
     history = model.fit(X_train, y_train_cat, 
                         batch_size=batch_size, 
                         epochs=epochs, 

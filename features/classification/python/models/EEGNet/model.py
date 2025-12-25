@@ -1,3 +1,14 @@
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Dense, Activation, Permute, Dropout
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, AveragePooling2D
+from tensorflow.keras.layers import SeparableConv2D, DepthwiseConv2D
+from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras.layers import SpatialDropout2D
+from tensorflow.keras.regularizers import l1_l2
+from tensorflow.keras.layers import Input, Flatten
+from tensorflow.keras.constraints import max_norm
+
+
 def EEGNet(nb_classes, Chans = 64, Samples = 128, 
              dropoutRate = 0.5, kernLength = 64, F1 = 8, 
              D = 2, F2 = 16, norm_rate = 0.25, dropoutType = 'Dropout'):

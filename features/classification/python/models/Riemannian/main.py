@@ -3,25 +3,35 @@ import sys
 import json
 import numpy as np
 import joblib
+import warnings
 from sklearn.model_selection import train_test_split
+
+# Suppress warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
 
 # -----------------------------------------------------------------------------
 # Path Setup
 # -----------------------------------------------------------------------------
 current_dir = os.path.dirname(os.path.abspath(__file__))
 python_root = os.path.abspath(os.path.join(current_dir, "../../"))
+capstone_root = os.path.abspath(os.path.join(current_dir, "../../../../.."))
 
 if python_root not in sys.path:
-    sys.path.append(python_root)
+    sys.path.insert(0, python_root)
+if capstone_root not in sys.path:
+    sys.path.insert(0, capstone_root)
 
 # -----------------------------------------------------------------------------
 # Imports
 # -----------------------------------------------------------------------------
 try:
-    from core.preprocess_bridge import PreprocessBridge
+    from features.classification.python.core.preprocess_bridge import PreprocessBridge
 except ImportError as e:
-    print(f"Error importing PreprocessBridge: {e}")
-    sys.exit(1)
+    try:
+        from core.preprocess_bridge import PreprocessBridge
+    except ImportError as e2:
+        print(f"Error importing PreprocessBridge: {e2}")
+        sys.exit(1)
 
 try:
     from .model import create_riemannian_pipeline, get_default_config
@@ -44,6 +54,7 @@ def main():
     # -------------------------------------------------------------------------
     # 1. Configuration
     # -------------------------------------------------------------------------
+    # Default data folder
     data_folder = os.path.join(python_root, "data")
     
     # Determine which analysis type to use
@@ -51,6 +62,11 @@ def main():
     analysis_type = 'spectral'
     if len(sys.argv) > 1:
         analysis_type = sys.argv[1]
+    
+    # Override data folder if provided as command line argument
+    if len(sys.argv) > 2:
+        data_folder = sys.argv[2]
+        print(f"Using data folder from argument: {data_folder}")
     
     # Map analysis types for config files
     # spectral -> spectral_config.json
@@ -154,10 +170,11 @@ def main():
     print(f"Test Accuracy:     {test_accuracy * 100:.2f}%")
     
     # -------------------------------------------------------------------------
-    # 5. Save the Pipeline
+    # 5. Save the Pipeline in data folder with naming: Riemannian_{analysis}_weights_best.pkl
     # -------------------------------------------------------------------------
-    os.makedirs(os.path.join(current_dir, "weights"), exist_ok=True)
-    weight_path = os.path.join(current_dir, "weights", f"riemann_{analysis_type}.pkl")
+    os.makedirs(data_folder, exist_ok=True)
+    weights_filename = f"Riemannian_{analysis_type}_weights_best.pkl"
+    weight_path = os.path.join(data_folder, weights_filename)
     joblib.dump(clf, weight_path)
     print(f"\nModel saved to: {weight_path}")
 

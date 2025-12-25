@@ -14,7 +14,7 @@ class PreprocessBridge:
             "time_frequency": "timefreq_output.mat",
             "spectral": "spectral_output.mat",
             "connectivity": "channelwise_coherence_output.mat",
-            "intertrial_coherence": "itc_output.mat"
+            "intertrial_coherence": "intertrial_coherence_output.mat"
         }
         
         # Define the fields expected in your MATLAB struct

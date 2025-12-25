@@ -48,6 +48,7 @@ classification_controller = ClassificationController()
 
 # Keep MATLAB data_dir in sync whenever the file browser loads a folder
 file_browser.folderLoaded.connect(matlab_executor.updateDataDirectory)
+file_browser.folderLoaded.connect(classification_controller.setDataFolder)
 
 engine = QQmlApplicationEngine()
 engine.quit.connect(app.quit)

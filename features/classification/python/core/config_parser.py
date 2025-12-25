@@ -37,7 +37,6 @@ class ConfigParser:
             "EEG-Inception": {
                 "display_text": "EEG-Inception Classifier",
                 "configs": [
-                    "EEG-Inception/configs/erp_config.json",
                     "EEG-Inception/configs/it_config.json",
                     "EEG-Inception/configs/tf_config.json"
                 ]

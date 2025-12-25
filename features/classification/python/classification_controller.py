@@ -126,10 +126,19 @@ class ClassificationController(QObject):
         self.thread = None
         self.worker = None
         self.config_parser = ConfigParser()
+        self.data_folder = ""  # Track current data folder
 
     # Signal to send logs to QML
     logReceived = pyqtSignal(str, arguments=['message'])
     trainingFinished = pyqtSignal()
+    
+    @pyqtSlot(str)
+    def setDataFolder(self, folder_path):
+        """Update the data folder path"""
+        # Normalize the path and remove file:/// prefix if present
+        normalized = folder_path.replace('file:///', '').replace('file://', '').replace('/', '\\')
+        self.data_folder = normalized
+        self.logReceived.emit(f"Data folder updated to: {self.data_folder}")
 
     @pyqtSlot(str, result=str)
     def getClassifierConfigs(self, classifierName):
@@ -190,10 +199,16 @@ class ClassificationController(QObject):
             self.logReceived.emit(f"Error: Unknown analysis type '{analysisDisplayName}'")
             return
         
+        # Check if data folder is set
+        if not self.data_folder:
+            self.logReceived.emit("Error: No data folder selected. Please select a folder first.")
+            return
+        
         self.logReceived.emit(f"Starting {classifierName} with {analysisDisplayName} (key: {analysis_key})...")
+        self.logReceived.emit(f"Using data folder: {self.data_folder}")
         
         self.thread = QThread()
-        self.worker = TrainingWorker(model_name=classifierName, analysis_key=analysis_key)
+        self.worker = TrainingWorker(model_name=classifierName, analysis_key=analysis_key, data_path=self.data_folder)
         self.worker.moveToThread(self.thread)
         
         # Connect signals

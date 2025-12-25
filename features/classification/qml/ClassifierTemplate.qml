@@ -17,6 +17,8 @@ Item {
     property var configParameters: ({})  // Store parsed config parameters
     property var availableAnalyses: []  // Store available analyses
     property string selectedAnalysis: ""  // Store selected analysis
+    property bool classifyExecuted: false  // Track if classify has been executed
+    property var classifyLogs: []  // Store logs from classify operations
     
     signal classifyClicked(string classifierName, string analysisName)
 
@@ -53,6 +55,19 @@ Item {
         } catch (e) {
             console.error("Failed to load available analyses for " + classifierName + ":", e);
             availableAnalyses = [];
+        }
+    }
+
+    // Connection to capture logs from classification controller
+    Connections {
+        target: classificationController
+        function onLogReceived(message) {
+            if (classifyExecuted) {
+                var timestamp = "[" + new Date().toLocaleTimeString() + "] ";
+                classifyLogs.push(timestamp + message);
+                // Trigger console update
+                classifyLogs = classifyLogs.slice();  // Force array update
+            }
         }
     }
 
@@ -188,6 +203,46 @@ Item {
                 anchors.right: parent.right
             }
 
+            // Open Console Button
+            Rectangle {
+                id: openConsoleButton
+                visible: classifyExecuted  // Only visible after classify is executed
+                width: 150
+                height: 40
+                color: "white"
+                border.color: "#2196f3"
+                border.width: 1
+                radius: 5
+                
+                anchors.right: parent.right
+                
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    
+                    onClicked: {
+                        consoleWindow.show()
+                        consoleWindow.raise()
+                    }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1  // Keep inside the border
+                    color: parent.parent.pressed ? "#e3f2fd" : (parent.parent.containsMouse ? "#dcdbdbff" : "transparent")
+                    radius: 4
+                    z: -1  // Place behind the text
+                }
+
+                Text {
+                    text: "Open Console"
+                    color: "#2196f3"
+                    font.pixelSize: 14
+                    anchors.centerIn: parent
+                }
+            }
+
             // Floating Action Button - anchored to contentContainer bottom right
             Rectangle {
                 id: classifyButton
@@ -222,8 +277,73 @@ Item {
                             return
                         }
                         errorTextItem.text = ""
+                        
+                        // Clear previous logs and mark as executed
+                        classifyLogs = []
+                        classifyExecuted = true
+                        
+                        // Add initial log
+                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Starting classification...")
+                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Classifier: " + classifierName)
+                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Analysis: " + selectedAnalysis)
+                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Parameters: " + JSON.stringify(configParameters))
+                        
                         classifierTemplate.classifyClicked(classifierName, selectedAnalysis)
+                        
+                        // Add completion log (you can update this based on actual results)
+                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Classification request sent")
                     }
+                }
+            }
+        }
+    }
+    
+    // Update console text when logs change and auto-scroll
+    onClassifyLogsChanged: {
+        if (consoleText) {
+            consoleText.text = classifyLogs.join("\n")
+            // Defer scrolling so layout/contentHeight is updated
+            Qt.callLater(function() {
+                if (consoleScrollView && consoleScrollView.ScrollBar.vertical) {
+                    consoleScrollView.ScrollBar.vertical.position = 1.0 - consoleScrollView.ScrollBar.vertical.size
+                }
+            })
+        }
+    }
+
+    // Console Window
+    Window {
+        id: consoleWindow
+        title: "Classification Console - " + classifierName
+        width: 600
+        height: 400
+        minimumWidth: 400
+        minimumHeight: 300
+
+        Rectangle {
+            anchors.fill: parent
+            color: "#1e1e1e"
+
+            ScrollView {
+                id: consoleScrollView
+                anchors.fill: parent
+                anchors.margins: 10
+                clip: true
+
+                ScrollBar.horizontal: ScrollBar {
+                    policy: ScrollBar.AlwaysOff
+                }
+
+                Text {
+                    id: consoleText
+                    text: classifyLogs.join("\n")
+                    color: "#d4d4d4"
+                    font.family: "Consolas, Monaco, monospace"
+                    font.pixelSize: 12
+                    wrapMode: Text.Wrap
+                    horizontalAlignment: Text.AlignLeft
+                    verticalAlignment: Text.AlignTop
+                    width: consoleScrollView.availableWidth
                 }
             }
         }
