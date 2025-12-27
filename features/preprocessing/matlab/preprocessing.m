@@ -3,7 +3,7 @@ addpath('C:/FIELDTRIP');  % Replace with your FieldTrip path
 ft_defaults;
 
 % Set the directory containing the .set files
-data_dir = 'C:/Users/mamam/Desktop/data_frekans';  % Will be updated by the GUI file browser when folder is selected
+data_dir = 'C:/Users/mamam/Desktop/data';  % Will be updated by the GUI file browser when folder is selected
 
 % Get the preprocessing script directory and add to path
 preprocessing_dir = fileparts(mfilename('fullpath'));

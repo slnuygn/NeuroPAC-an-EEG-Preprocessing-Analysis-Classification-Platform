@@ -1,5 +1,6 @@
 import sys
 import os
+import json
 from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QThread
 
 # Ensure the current directory is in sys.path so we can import from 'models'
@@ -9,6 +10,12 @@ if current_dir not in sys.path:
 
 # Import the config parser
 from core.config_parser import ConfigParser
+
+# Import diagnosis labels
+try:
+    from core.labels import labels as diagnosis_labels
+except Exception:
+    diagnosis_labels = []
 
 # Import the main function from the EEGNet script
 try:
@@ -149,6 +156,31 @@ class ClassificationController(QObject):
     def getAvailableAnalyses(self, classifierName):
         """Get available analyses for a specific classifier as JSON array"""
         return self.config_parser.get_available_analyses_as_json(classifierName)
+
+    @pyqtSlot(result=str)
+    def getDiagnosisLabels(self):
+        """Return diagnosis labels (e.g., HC/Parkinson's) as JSON array."""
+        return json.dumps(diagnosis_labels)
+
+    @pyqtSlot(result=int)
+    def getDiagnosisLabelCount(self):
+        """Return count of diagnosis labels."""
+        return len(diagnosis_labels)
+
+    @pyqtSlot(result=str)
+    def getConditionLabels(self):
+        """Return condition labels (target/standard/novelty) as JSON array."""
+        return json.dumps(["target", "standard", "novelty"])
+
+    @pyqtSlot(result=int)
+    def getConditionLabelCount(self):
+        """Return count of condition labels."""
+        return 3
+
+    @pyqtSlot(str, result=str)
+    def getAnalysisKey(self, analysisDisplayName: str) -> str:
+        """Map an analysis display name to its key (e.g., 'ERP Analysis' -> 'erp')."""
+        return self.config_parser.get_analysis_key(analysisDisplayName) or ""
     
     @pyqtSlot(str, str, result=str)
     def getParamsForAnalysis(self, classifierName, analysisName):
@@ -230,3 +262,66 @@ class ClassificationController(QObject):
         self.worker = None
         self.trainingFinished.emit()
         self.logReceived.emit("Training thread cleaned up.")
+
+    @pyqtSlot(str, str, str, str, result=str)
+    def testErpSubject(self, classifierName: str, analysisDisplayName: str, subjectName: str, weightsPath: str) -> str:
+        """Stub ERP testing for a subject. Returns JSON with actual/predicted/accuracy.
+
+        Replace this stub with real testing logic as needed.
+        """
+        import json
+
+        # Basic validations
+        if not classifierName:
+            return json.dumps({"error": "classifierName is required"})
+        if not analysisDisplayName:
+            return json.dumps({"error": "analysisDisplayName is required"})
+        if not subjectName:
+            return json.dumps({"error": "subjectName is required"})
+        if not weightsPath:
+            return json.dumps({"error": "weightsPath is required"})
+
+        # Placeholder logic: echo subject and perfect accuracy
+        result = {
+            "subject": subjectName,
+            "actual": "(stub) actual label for " + subjectName,
+            "predicted": "(stub) predicted label for " + subjectName,
+            "accuracy": 1.0
+        }
+        return json.dumps(result)
+
+    @pyqtSlot(str, str, str)
+    def testClassifier(self, classifierName, analysisDisplayName, weightsPath):
+        """Test a trained classifier using the provided weights file.
+
+        This is a stub implementation that validates inputs and logs actions.
+        Hook into model-specific test scripts here if available.
+        """
+        # Validate inputs
+        if not classifierName:
+            self.logReceived.emit("Error: Classifier name is required for testing.")
+            return
+        if not analysisDisplayName:
+            self.logReceived.emit("Error: Analysis name is required for testing.")
+            return
+        if not weightsPath or not os.path.exists(weightsPath.replace('file:///', '').replace('file://', '')):
+            self.logReceived.emit(f"Error: Weights file not found: {weightsPath}")
+            return
+
+        # Convert display name to analysis key
+        analysis_key = self.config_parser.get_analysis_key(analysisDisplayName)
+        if not analysis_key:
+            self.logReceived.emit(f"Error: Unknown analysis type '{analysisDisplayName}'")
+            return
+
+        # Normalize weights path
+        normalized_weights = weightsPath.replace('file:///', '').replace('file://', '')
+
+        # Log action - extend to actual test execution if available
+        self.logReceived.emit(
+            f"Testing {classifierName} with analysis '{analysisDisplayName}' (key: {analysis_key}) using weights: {normalized_weights}"
+        )
+
+        # Placeholder: If there is a test script, run it here similar to training.
+        # For now, just emit a success message.
+        self.logReceived.emit("Test invocation complete (stub). Implement model-specific testing as needed.")

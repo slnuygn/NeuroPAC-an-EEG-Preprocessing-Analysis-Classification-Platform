@@ -4525,9 +4525,9 @@ browse_ICA('{mat_file_path.replace(chr(92), '/')}');
 
     @pyqtSlot(list)
     def saveLabels(self, labels_list):
-        """Save the list of labels to labels.py"""
+        """Save the list of labels to labels.py in the core folder"""
         try:
-            labels_file_path = os.path.join(os.path.dirname(__file__), '..', 'features', 'classification', 'python', 'labels.py')
+            labels_file_path = os.path.join(os.path.dirname(__file__), '..', 'features', 'classification', 'python', 'core', 'labels.py')
             with open(labels_file_path, 'w', encoding='utf-8') as f:
                 f.write('labels = [\n')
                 for label in labels_list:
@@ -4539,9 +4539,9 @@ browse_ICA('{mat_file_path.replace(chr(92), '/')}');
 
     @pyqtSlot(result=list)
     def loadLabels(self):
-        """Load the list of labels from labels.py"""
+        """Load the list of labels from labels.py in the core folder"""
         try:
-            labels_file_path = os.path.join(os.path.dirname(__file__), '..', 'features', 'classification', 'python', 'labels.py')
+            labels_file_path = os.path.join(os.path.dirname(__file__), '..', 'features', 'classification', 'python', 'core', 'labels.py')
             if os.path.exists(labels_file_path):
                 with open(labels_file_path, 'r', encoding='utf-8') as f:
                     content = f.read()

@@ -44,6 +44,17 @@ Item {
         isLoadingLabels: globalIsLoadingLabels
     }
 
+    // Sync selected folder from FileBrowser to controller
+    Connections {
+        target: fileExplorerRect
+        function onDataDirectoryUpdateRequested(path) {
+            classificationController.setDataFolder(path)
+        }
+        function onFolderChanged(folder) {
+            classificationController.setDataFolder(folder)
+        }
+    }
+
     // Right side - Classifiers Area with Scrolling
     Rectangle {
         anchors.left: fileExplorerRect.right
@@ -69,27 +80,48 @@ Item {
                 ClassifierTemplate {
                     displayText: "EEGNet Classifier"
                     classifierName: "EEGNet"
+                    currentFolderContents: fileExplorerRect.folderContents
+                    currentFolderPath: fileExplorerRect.currentFolder
+                    subjectListModel: fileExplorerRect.labelListModel
                     onClassifyClicked: function(classifier, analysis) {
                         console.log("Requesting " + classifier + " classification with " + analysis)
                         classificationController.startClassification(classifier, analysis)
+                    }
+                    onTestClassifierClicked: function(classifier, analysis, weightsPath) {
+                        console.log("Testing " + classifier + " with analysis " + analysis + " using weights: " + weightsPath)
+                        classificationController.testClassifier(classifier, analysis, weightsPath)
                     }
                 }
 
                 ClassifierTemplate {
                     displayText: "EEG-Inception Classifier"
                     classifierName: "EEG-Inception"
+                    currentFolderContents: fileExplorerRect.folderContents
+                    currentFolderPath: fileExplorerRect.currentFolder
+                    subjectListModel: fileExplorerRect.labelListModel
                     onClassifyClicked: function(classifier, analysis) {
                         console.log("Requesting " + classifier + " classification with " + analysis)
                         classificationController.startClassification(classifier, analysis)
+                    }
+                    onTestClassifierClicked: function(classifier, analysis, weightsPath) {
+                        console.log("Testing " + classifier + " with analysis " + analysis + " using weights: " + weightsPath)
+                        classificationController.testClassifier(classifier, analysis, weightsPath)
                     }
                 }
 
                 ClassifierTemplate {
                     displayText: "Riemannian Classifier"
                     classifierName: "Riemannian"
+                    currentFolderContents: fileExplorerRect.folderContents
+                    currentFolderPath: fileExplorerRect.currentFolder
+                    subjectListModel: fileExplorerRect.labelListModel
                     onClassifyClicked: function(classifier, analysis) {
                         console.log("Requesting " + classifier + " classification with " + analysis)
                         classificationController.startClassification(classifier, analysis)
+                    }
+                    onTestClassifierClicked: function(classifier, analysis, weightsPath) {
+                        console.log("Testing " + classifier + " with analysis " + analysis + " using weights: " + weightsPath)
+                        classificationController.testClassifier(classifier, analysis, weightsPath)
                     }
                 }
 

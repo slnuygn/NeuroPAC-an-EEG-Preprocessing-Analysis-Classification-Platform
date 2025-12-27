@@ -19,8 +19,107 @@ Item {
     property string selectedAnalysis: ""  // Store selected analysis
     property bool classifyExecuted: false  // Track if classify has been executed
     property var classifyLogs: []  // Store logs from classify operations
+    property var currentFolderContents: []  // Track files in current directory
+    property string currentFolderPath: ""  // Track current folder path
+    property bool weightsFileExists: false  // Track if weights file exists for current classifier/analysis
+    property var subjectListModel: null  // Optional: subjects/patients list from FileBrowser labels
     
     signal classifyClicked(string classifierName, string analysisName)
+    signal testClassifierClicked(string classifierName, string analysisName, string weightsPath)
+    
+    // Function to check if weights file exists for current classifier and analysis
+    function checkWeightsFileExists() {
+        if (!classifierName || !selectedAnalysis || !currentFolderContents) {
+            weightsFileExists = false
+            return
+        }
+        
+        // Convert analysis display name to key (e.g., "ERP Analysis" -> "erp")
+        var analysisKey = ""
+        try {
+            analysisKey = classificationController.getAnalysisKey(selectedAnalysis)
+        } catch (e) {
+            analysisKey = ""
+        }
+        if (!analysisKey || analysisKey.length === 0) {
+            // Fallback to a sanitized version if mapping is unavailable
+            analysisKey = selectedAnalysis.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_\-]/g, '')
+        }
+
+        // Build expected filename pattern: ClassifierName_<key>_weights_best.h5
+        var expectedFileName = (classifierName + "_" + analysisKey + "_weights_best.h5").toLowerCase()
+        
+        for (var i = 0; i < currentFolderContents.length; i++) {
+            var fileName = currentFolderContents[i]
+            // Remove any leading emoji/symbols for comparison
+            var cleanFileName = fileName.replace(/^[^\w]+/, '').toLowerCase()
+            
+            if (cleanFileName === expectedFileName) {
+                weightsFileExists = true
+                console.log("Weights file found:", fileName)
+                return
+            }
+        }
+        weightsFileExists = false
+    }
+
+    // Try to auto-select an analysis based on weights in the folder
+    function tryAutoSelectAnalysisFromWeights() {
+        if (!classifierName || !currentFolderContents || !availableAnalyses || availableAnalyses.length === 0) return
+        // If user already selected an analysis, don't override
+        if (selectedAnalysis && selectedAnalysis.length > 0) return
+
+        for (var a = 0; a < availableAnalyses.length; a++) {
+            var display = availableAnalyses[a]
+            var key = ""
+            try {
+                key = classificationController.getAnalysisKey(display)
+            } catch (e) {
+                key = ""
+            }
+            if (!key || key.length === 0) continue
+
+            var expected = (classifierName + "_" + key + "_weights_best.h5").toLowerCase()
+            for (var i = 0; i < currentFolderContents.length; i++) {
+                var fileName = currentFolderContents[i]
+                var cleanFileName = fileName.replace(/^[^\w]+/, '').toLowerCase()
+                if (cleanFileName === expected) {
+                    selectedAnalysis = display
+                    console.log("Auto-selected analysis based on weights:", selectedAnalysis)
+                    loadConfigurationForAnalysis(selectedAnalysis)
+                    expanded = true
+                    checkWeightsFileExists()
+                    return
+                }
+            }
+        }
+    }
+    
+    // Function to get the full path of the weights file
+    function getWeightsFilePath() {
+        if (!currentFolderPath) return ""
+        
+        // Convert analysis display name to key (e.g., "ERP Analysis" -> "erp")
+        var analysisKey = ""
+        try {
+            analysisKey = classificationController.getAnalysisKey(selectedAnalysis)
+        } catch (e) {
+            analysisKey = ""
+        }
+        if (!analysisKey || analysisKey.length === 0) {
+            // Fallback to a sanitized version if mapping is unavailable
+            analysisKey = selectedAnalysis.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_\-]/g, '')
+        }
+        
+        var expectedFileName = classifierName + "_" + analysisKey + "_weights_best.h5"
+        return currentFolderPath + "/" + expectedFileName
+    }
+    
+    // Re-check weights when folder contents change
+    onCurrentFolderContentsChanged: {
+        checkWeightsFileExists()
+    }
+    onSelectedAnalysisChanged: checkWeightsFileExists()
 
     // Load configuration when classifier name is set
     onClassifierNameChanged: {
@@ -28,6 +127,8 @@ Item {
             loadAvailableAnalyses()
             configParameters = {}  // Clear parameters until analysis is selected
         }
+        // Also re-check for weights file when classifier changes
+        checkWeightsFileExists()
     }
 
     function loadConfigurationForAnalysis(analysisName) {
@@ -203,6 +304,66 @@ Item {
                 anchors.right: parent.right
             }
 
+            // Test Classifier Button - Only visible when weights file exists
+            Rectangle {
+                id: testClassifierButton
+                visible: weightsFileExists && selectedAnalysis !== ""
+                enabled: weightsFileExists && selectedAnalysis !== ""
+                width: 150
+                height: 40
+                color: "white"
+                border.color: "#2196f3"
+                border.width: 1
+                radius: 5
+                
+                anchors.right: parent.right
+                
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: parent.parent.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    enabled: parent.parent.enabled
+                    
+                    onClicked: {
+                        if (!testClassifierButton.enabled) return
+                        
+                        var weightsPath = getWeightsFilePath()
+                        console.log("Testing classifier with weights:", weightsPath)
+                        
+                        // Add log entry
+                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Testing classifier...")
+                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Weights file: " + weightsPath)
+                        classifyLogs = classifyLogs.slice()  // Force array update
+                        
+                        // Open the test classifier window
+                        testClassifierWindow.classifierName = classifierName
+                        testClassifierWindow.selectedAnalysis = selectedAnalysis
+                        testClassifierWindow.weightsPath = weightsPath
+                        testClassifierWindow.show()
+                        testClassifierWindow.raise()
+                        
+                        classifierTemplate.testClassifierClicked(classifierName, selectedAnalysis, weightsPath)
+                    }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    color: testClassifierButton.enabled ? 
+                           (parent.parent.pressed ? "#e3f2fd" : (parent.parent.containsMouse ? "#dcdbdbff" : "transparent")) : 
+                           "transparent"
+                    radius: 4
+                    z: -1
+                }
+
+                Text {
+                    text: "Test Classifier"
+                    color: testClassifierButton.enabled ? "#2196f3" : "#cccccc"
+                    font.pixelSize: 14
+                    anchors.centerIn: parent
+                }
+            }
+
             // Open Console Button
             Rectangle {
                 id: openConsoleButton
@@ -344,6 +505,152 @@ Item {
                     horizontalAlignment: Text.AlignLeft
                     verticalAlignment: Text.AlignTop
                     width: consoleScrollView.availableWidth
+                }
+            }
+        }
+    }
+
+    // Test Classifier Window
+    Window {
+        id: testClassifierWindow
+        title: "Test Classifier - " + classifierName + " - " + selectedAnalysis
+        width: 800
+        height: 600
+        minimumWidth: 600
+        minimumHeight: 400
+
+        property string classifierName: ""
+        property string selectedAnalysis: ""
+        property string weightsPath: ""
+        property string selectedSubject: ""
+        property var testResult: ({ actual: "", predicted: "", accuracy: 0 })
+        property var diagnosisLabels: []
+        property var conditionLabels: []
+
+        Rectangle {
+            anchors.fill: parent
+            color: "#f0f0f0"
+
+            // Single unified test component
+            Rectangle {
+                anchors.fill: parent
+                color: "white"
+
+                Component.onCompleted: {
+                    try {
+                        var d = classificationController.getDiagnosisLabels()
+                        testClassifierWindow.diagnosisLabels = JSON.parse(d)
+                    } catch (e) {
+                        testClassifierWindow.diagnosisLabels = []
+                    }
+                    try {
+                        var c = classificationController.getConditionLabels()
+                        testClassifierWindow.conditionLabels = JSON.parse(c)
+                    } catch (e) {
+                        testClassifierWindow.conditionLabels = []
+                    }
+                }
+
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: 16
+                    spacing: 12
+
+                    Text {
+                        text: testClassifierWindow.selectedAnalysis + " Testing"
+                        font.pixelSize: 18
+                        font.bold: true
+                        color: "#333"
+                    }
+
+                    Text {
+                        text: "Classifier: " + testClassifierWindow.classifierName + "\nWeights: " + testClassifierWindow.weightsPath
+                        font.pixelSize: 12
+                        color: "#555"
+                        wrapMode: Text.Wrap
+                    }
+
+                    Text {
+                        text: "Diagnosis labels (" + (testClassifierWindow.diagnosisLabels ? testClassifierWindow.diagnosisLabels.length : 0) + "): " + (testClassifierWindow.diagnosisLabels && testClassifierWindow.diagnosisLabels.length ? testClassifierWindow.diagnosisLabels.join(", ") : "-")
+                        font.pixelSize: 12
+                        color: "#555"
+                        wrapMode: Text.Wrap
+                    }
+
+                    Text {
+                        text: "Condition labels (" + (testClassifierWindow.conditionLabels ? testClassifierWindow.conditionLabels.length : 0) + "): " + (testClassifierWindow.conditionLabels && testClassifierWindow.conditionLabels.length ? testClassifierWindow.conditionLabels.join(", ") : "-")
+                        font.pixelSize: 12
+                        color: "#555"
+                        wrapMode: Text.Wrap
+                    }
+
+                    // Subject dropdown
+                    DropdownTemplate {
+                        width: parent.width * 0.5
+                        label: "Select Subject"
+                        matlabProperty: "test_subject"
+                        model: {
+                            var arr = []
+                            if (subjectListModel) {
+                                for (var i = 0; i < subjectListModel.count; i++) {
+                                    var item = subjectListModel.get(i)
+                                    if (item && item.text) arr.push(item.text)
+                                }
+                            }
+                            return arr
+                        }
+                        currentIndex: -1
+                        showCheckboxes: false
+                        onSelectionChanged: function(value, index) {
+                            testClassifierWindow.selectedSubject = value
+                        }
+                    }
+
+                    Row {
+                        spacing: 10
+                        Button {
+                            text: "Run Test"
+                            enabled: testClassifierWindow.selectedSubject !== ""
+                            onClicked: {
+                                if (!testClassifierWindow.selectedSubject) return
+                                try {
+                                    var resultStr = classificationController.testErpSubject(
+                                        testClassifierWindow.classifierName,
+                                        testClassifierWindow.selectedAnalysis,
+                                        testClassifierWindow.selectedSubject,
+                                        testClassifierWindow.weightsPath
+                                    )
+                                    var res = JSON.parse(resultStr)
+                                    testClassifierWindow.testResult = res
+                                } catch (e) {
+                                    console.log("Test error:", e)
+                                    testClassifierWindow.testResult = { actual: "", predicted: "", accuracy: 0 }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: "#ddd"
+                    }
+
+                    Text {
+                        text: "Actual Label: " + (testClassifierWindow.testResult.actual || "-")
+                        font.pixelSize: 14
+                        color: "#333"
+                    }
+                    Text {
+                        text: "Predicted Label: " + (testClassifierWindow.testResult.predicted || "-")
+                        font.pixelSize: 14
+                        color: "#333"
+                    }
+                    Text {
+                        text: "Accuracy: " + (testClassifierWindow.testResult.accuracy !== undefined ? Math.round(testClassifierWindow.testResult.accuracy * 1000)/10 + "%" : "-")
+                        font.pixelSize: 14
+                        color: "#333"
+                    }
                 }
             }
         }

@@ -1,4 +1,4 @@
 labels = [
-    "ama",
-    "mımı",
+    "HC",
+    "Parkinson's",
 ]
