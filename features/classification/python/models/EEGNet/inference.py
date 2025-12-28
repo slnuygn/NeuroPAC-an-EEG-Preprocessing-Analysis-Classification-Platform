@@ -13,7 +13,7 @@ class EEGNetInference:
         Initialize the EEGNet model for inference.
         
         Args:
-            weights_path (str): Path to the saved model weights (.h5 file)
+            weights_path (str): Path to the saved model (.keras file)
             nb_classes (int): Number of classes to classify
             Chans (int): Number of channels in the EEG data
             Samples (int): Number of time points in the EEG data

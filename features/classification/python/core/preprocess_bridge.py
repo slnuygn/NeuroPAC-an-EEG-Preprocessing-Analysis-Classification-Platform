@@ -21,8 +21,21 @@ class PreprocessBridge:
         # Updated order: target (0), standard (1), novelty (2)
         self.conditions = ["target", "standard", "novelty"]
         
-        # Map text labels to numeric values for the model
-        self.group_mapping = {"HC": 0, "P": 1}
+        # Map text labels to numeric values for the model (allow common variants)
+        self.group_mapping = {
+            "HC": 0,
+            "Hc": 0,
+            "hc": 0,
+            "P": 1,
+            "PD": 1,
+            "pd": 1,
+            "Parkinson": 1,
+            "Parkinsons": 1,
+            "Parkinson's": 1,
+            "parkinson": 1,
+            "parkinsons": 1,
+            "parkinson's": 1,
+        }
 
     def set_data_path(self, path):
         self.data_path = path
@@ -85,8 +98,11 @@ class PreprocessBridge:
             try:
                 raw_group_label = group_list[i]
                 group_val = self.group_mapping.get(raw_group_label, -1)
+                if group_val == -1:
+                    print(f"Warning: Unmapped group label '{raw_group_label}' for subject index {i}; assigning -1")
             except IndexError:
                 group_val = -1
+                print(f"Warning: No group label provided for subject index {i}; assigning -1")
 
             for label_idx, cond in enumerate(self.conditions):
                 try:

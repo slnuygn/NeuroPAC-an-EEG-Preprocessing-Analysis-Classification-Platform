@@ -202,13 +202,23 @@ def main():
     print(f"Number of classes: {nb_classes}")
 
     # -------------------------------------------------------------------------
-    # 3. Subject-Wise Split
+    # 3. Subject-Wise Split (Train/Validation/Test)
     # -------------------------------------------------------------------------
     unique_subjects = np.unique(subject_ids)
-    train_subs, val_subs = train_test_split(unique_subjects, test_size=0.2, random_state=42)
+    print(f"Total unique subjects found: {len(unique_subjects)}")
+    
+    # First split: 60% train, 40% temp (which will be split into val and test)
+    train_subs, temp_subs = train_test_split(unique_subjects, test_size=0.4, random_state=42)
+    # Second split: 20% validation, 20% test (50/50 split of the 40%)
+    val_subs, test_subs = train_test_split(temp_subs, test_size=0.5, random_state=42)
+    
+    print(f"Training Subjects:   {len(train_subs)} ({len(train_subs)/len(unique_subjects)*100:.1f}%)")
+    print(f"Validation Subjects: {len(val_subs)} ({len(val_subs)/len(unique_subjects)*100:.1f}%)")
+    print(f"Test Subjects:       {len(test_subs)} ({len(test_subs)/len(unique_subjects)*100:.1f}%)")
     
     train_mask = np.isin(subject_ids, train_subs)
     val_mask = np.isin(subject_ids, val_subs)
+    test_mask = np.isin(subject_ids, test_subs)
     
     X_train = X[train_mask]
     y_train = conditions[train_mask]
@@ -216,9 +226,13 @@ def main():
     X_val = X[val_mask]
     y_val = conditions[val_mask]
     
+    X_test = X[test_mask]
+    y_test = conditions[test_mask]
+    
     # Debug: Check shapes after split
     print(f"X_train shape after split: {X_train.shape}, ndim: {X_train.ndim}")
     print(f"X_val shape after split: {X_val.shape}, ndim: {X_val.ndim}")
+    print(f"X_test shape after split: {X_test.shape}, ndim: {X_test.ndim}")
     
     # Ensure 4D after split (safety check)
     if X_train.ndim == 3:
@@ -227,13 +241,18 @@ def main():
     if X_val.ndim == 3:
         X_val = X_val[..., np.newaxis]
         print(f"Added dimension to X_val: {X_val.shape}")
+    if X_test.ndim == 3:
+        X_test = X_test[..., np.newaxis]
+        print(f"Added dimension to X_test: {X_test.shape}")
     
     y_train_cat = to_categorical(y_train, num_classes=nb_classes)
     y_val_cat = to_categorical(y_val, num_classes=nb_classes)
+    y_test_cat = to_categorical(y_test, num_classes=nb_classes)
 
     print("-" * 30)
     print(f"Training Set:   {X_train.shape} samples")
     print(f"Validation Set: {X_val.shape} samples")
+    print(f"Test Set:       {X_test.shape} samples")
     print("-" * 30)
     
     # -------------------------------------------------------------------------
@@ -252,8 +271,8 @@ def main():
 
     model.summary()
 
-    # Checkpoint to save best model in data folder with naming: EEG-Inception_{analysis}_weights_best.h5
-    weights_filename = f"EEG-Inception_{analysis_mode}_weights_best.h5"
+    # Checkpoint to save best model in data folder with naming: EEG-Inception_{analysis}_weights_best.keras
+    weights_filename = f"EEG-Inception_{analysis_mode}_weights_best.keras"
     checkpoint_path = os.path.join(data_folder, weights_filename)
     os.makedirs(data_folder, exist_ok=True)
     
@@ -292,6 +311,27 @@ def main():
                         callbacks=callbacks)
     
     print(f"Training complete. Best model saved to {checkpoint_path}")
+    
+    # -------------------------------------------------------------------------
+    # 5. Final Evaluation on Test Set
+    # -------------------------------------------------------------------------
+    print("\n" + "="*50)
+    print("FINAL EVALUATION ON HELD-OUT TEST SET")
+    print("="*50)
+    
+    # Model already has best weights restored by EarlyStopping callback
+    train_loss, train_accuracy = model.evaluate(X_train, y_train_cat, verbose=0)
+    val_loss, val_accuracy = model.evaluate(X_val, y_val_cat, verbose=0)
+    test_loss, test_accuracy = model.evaluate(X_test, y_test_cat, verbose=0)
+    
+    print(f"Training Accuracy:   {train_accuracy * 100:.2f}%")
+    print(f"Validation Accuracy: {val_accuracy * 100:.2f}%")
+    print(f"Test Accuracy:       {test_accuracy * 100:.2f}%")
+    print(f"")
+    print(f"Training Loss:       {train_loss:.4f}")
+    print(f"Validation Loss:     {val_loss:.4f}")
+    print(f"Test Loss:           {test_loss:.4f}")
+    print("="*50)
 
 if __name__ == "__main__":
     main()

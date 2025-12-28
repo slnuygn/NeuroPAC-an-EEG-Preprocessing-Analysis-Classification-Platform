@@ -148,37 +148,89 @@ The ultimate goal is to deliver a practical product that enhances the efficiency
 \chapter{Methodology}
 
 \section{Research Design and Procedures}
-(Content...)
 
 \section{System Design and Modules}
 
 \subsection{Preprocessing Module}
-(Content...)
+
+\subsubsection{Overview}
+
+\subsubsection{Preprocessing}
+Preprocessing is the very first step of the EEG analysis pipeline. It includes adjusting the raw EEG data to make it suitable for further analysis. To analyze a dataset, we must first initialize a cfg data structure from the FieldTrip toolbox, which serves as our data container and provides numerous configurable properties. The preprocessing module of NeuroPAC streamlines this process by allowing users to set cfg structure properties directly through the GUI, automating the workflow without requiring manual code configuration. The preprocessing steps currently implemented in NeuroPAC as base preprocessing components are as follows: 
+\begin{itemize}
+  \item \verb|cfg.trialfun = 'ft_trialfun_general'| : Defines trials based on specified events and time windows.
+  \item \verb|cfg.trialdef.eventtype = 'stimulus'|: Specifies the type of event to use for trial definition.
+  \item \verb|cfg.trialdef.eventvalue = {'S200', 'S201', 'S202'}| : Sets the specific event value to identify trials (conditions). 
+  \item \verb|cfg.channel = 'all'| : Selects all available EEG channels for analysis.
+  \item \verb|cfg.demean = 'yes'| : Removes the mean value from each channel.
+  \item \verb|cfg.baselinewindow = [-0.2 0]| : Defines the time window for baseline correction.
+  \item \verb|cfg.dftfilter = 'yes'| : Enables the use of a notch filter to remove line noise.
+  \item \verb|cfg.dftfreq = [50 60]| : Specifies the frequencies to be removed by the notch filter (e.g., 50 Hz and its harmonics).
+ \end{itemize}
+These steps can be deleted, modified, or new ones can be added from the top menu as needed. These are individual lines that get converted from simple MATLAB script lines to specific QML template items by the parameter parser, you can read further about the parameter parser and template items themselves on sections 3.3.2 and 3.3.3.
+Before moving on to running preprocessing, the user has to make sure that:
+\begin{itemize}
+\item Their fieldtrip path is correctly set from the top menu,
+\item and the file browser is pointing to the correct directory where the raw EEG data is located.
+\end{itemize}
+After these configurations are set, the user can run the "Preprocess and Run ICA" button, which executes a Fieldtrip function called \verb|ft_preprocessing| that applies the defined preprocessing steps to the raw EEG data. This operation will require to run on MATLAB, therefore the MATLAB will open to ensure a smooth execution and will provide any warnings from its console that the user might need to be aware of. After the preprocessing is done, the preprocessed data will be saved in a fix named "data.mat" file in the same directory as the raw data. After preprocessing is done, the button will fulfill its second purpose, which is to run ICA on the preprocessed data. ICA is a computational dimension reduction method used to separate a multivariate signal into additive, independent components. In the context of EEG data, ICA is commonly employed to identify and remove artifacts (unwanted signals) such as eye blinks, muscle activity, and other noise sources that can contaminate the EEG recordings. In our case ICA is chosen as \verb|fast_ica| algorithm provided by Fieldtrip, and in this study's case only the eye artifacts were considered and removed. After running ICA, the resulting components will be saved in a file named \verb|data_ICApplied.mat| in the same directory as the raw data for further inspection and artifact removal.
+The user, if ready to proceed, can then move on to the artifact removal step by clicking the "data_ICApplied.mat" file from the file browser, which will open a matlab window displaying a slightly modified version of ft_databrowser which now contains a "Reject ICA" button on the right of the browser window. the independent components obtained from ICA, that will iterate for every subject. The user can then visually inspect these components and select the ones corresponding to artifacts (e.g., eye blinks) for removal. Once the user selects the components to be removed and confirms their choice, the system will reconstruct the EEG data without the selected artifact components and save the cleaned data in a file named \verb|data_cleaned.mat| in the same directory. This cleaned data is now ready for further analysis in subsequent modules.
+
+\subsubsection{Independent Component Analysis (ICA) \& Artifact Removal}
+  
+\subsubsection{Event/Condition Decomposition}
 
 \subsection{Analysis Module}
-(Content...)
+
+\subsubsection{Overview}
+
+\subsubsection{ERP Analysis}
+
+\subsubsection{Time-Frequency Analysis}
+
+\subsubsection{Spectral Analysis}
+
+\subsubsection{Channel-Wise Connectivity Analysis}
+
+\subsubsection{Inter-Trial Coherence Analysis}
 
 \subsection{Classification Module}
-(Content...)
 
-\section{Data Description \& Analysis Procedures}
+\subsubsection{Overview}
+
+\subsubsection{EEGNet Classifier}
+
+\subsubsection{EEG-Inception Classifier}
+
+\subsubsection{Riemann Classifier}
+
+\section{Other Application Components}
+
+\subsection{Matlab Executor}
+
+\subsection{Template Items}
+
+\subsection{Matlab Parameter Parser}
+
+\subsection{File Browser Window}
+
+\subsection{Top Menu}
+
+\subsubsection{Parameter Adding \& Editing}
+
+\subsubsection{Changing File Browser Directory \& Fieldtrip Path}
+
+\section{Data Description}
 
 \subsection{Parkinson's}
-(Content...)
 
 \subsection{mTBI}
-(Content...)
 
 \section{Instrumentation}
-(Content...)
-
-
 
 \section{Limitations}
-(Content...)
 
 \section{Summary}
-(Content...)
 
 % Chapter IV
 \chapter{Results}

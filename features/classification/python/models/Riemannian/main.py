@@ -118,28 +118,39 @@ def main():
     subject_ids = y_meta['subject_id']
     
     # -------------------------------------------------------------------------
-    # 3. Subject-Wise Split
+    # 3. Subject-Wise Split (Train/Validation/Test)
     # -------------------------------------------------------------------------
     unique_subjects = np.unique(subject_ids)
     print(f"Total unique subjects found: {len(unique_subjects)}")
     
-    train_subs, test_subs = train_test_split(
+    # First split: 60% train, 40% temp (which will be split into val and test)
+    train_subs, temp_subs = train_test_split(
         unique_subjects, 
-        test_size=test_size, 
+        test_size=0.4, 
+        random_state=random_state
+    )
+    # Second split: 20% validation, 20% test (50/50 split of the 40%)
+    val_subs, test_subs = train_test_split(
+        temp_subs, 
+        test_size=0.5, 
         random_state=random_state
     )
     
-    print(f"Training Subjects: {len(train_subs)}")
-    print(f"Test Subjects: {len(test_subs)}")
+    print(f"Training Subjects:   {len(train_subs)} ({len(train_subs)/len(unique_subjects)*100:.1f}%)")
+    print(f"Validation Subjects: {len(val_subs)} ({len(val_subs)/len(unique_subjects)*100:.1f}%)")
+    print(f"Test Subjects:       {len(test_subs)} ({len(test_subs)/len(unique_subjects)*100:.1f}%)")
     
     train_mask = np.isin(subject_ids, train_subs)
+    val_mask = np.isin(subject_ids, val_subs)
     test_mask = np.isin(subject_ids, test_subs)
     
     X_train, y_train = X[train_mask], y[train_mask]
+    X_val, y_val = X[val_mask], y[val_mask]
     X_test, y_test = X[test_mask], y[test_mask]
     
     print("-" * 30)
     print(f"Training Set:   {X_train.shape} samples")
+    print(f"Validation Set: {X_val.shape} samples")
     print(f"Test Set:       {X_test.shape} samples")
     print("-" * 30)
     
@@ -162,12 +173,19 @@ def main():
     print("\nStarting Training...")
     clf.fit(X_train, y_train)
     
-    # Evaluate
+    # Evaluate on all three sets
+    print("\n" + "="*50)
+    print("FINAL EVALUATION ON HELD-OUT TEST SET")
+    print("="*50)
+    
     train_accuracy = clf.score(X_train, y_train)
+    val_accuracy = clf.score(X_val, y_val)
     test_accuracy = clf.score(X_test, y_test)
     
-    print(f"Training Accuracy: {train_accuracy * 100:.2f}%")
-    print(f"Test Accuracy:     {test_accuracy * 100:.2f}%")
+    print(f"Training Accuracy:   {train_accuracy * 100:.2f}%")
+    print(f"Validation Accuracy: {val_accuracy * 100:.2f}%")
+    print(f"Test Accuracy:       {test_accuracy * 100:.2f}%")
+    print("="*50)
     
     # -------------------------------------------------------------------------
     # 5. Save the Pipeline in data folder with naming: Riemannian_{analysis}_weights_best.pkl
