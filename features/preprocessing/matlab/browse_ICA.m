@@ -160,39 +160,109 @@ try
     end
     
     try
-        fprintf('\nApplying reject_components to produce cleaned data...\n');
+        % Define batch size
+        batch_size = 5;
+        
+        % Apply reject_components in batches
+        fprintf('\nApplying reject_components to produce cleaned data in batches...\n');
         sensor_space_data = derive_sensor_space_data(raw_data, ICA_data);
         ICApplied = ICA_data;
-        clean_data = reject_components(sensor_space_data, ICApplied, rejected_ICs_array);
+        
+        num_subjects = length(sensor_space_data);
+        clean_filename = 'data_ICApplied_clean.mat';
+        clean_fullpath = fullfile(mat_folder, clean_filename);
+        
+        % Load existing clean data if available for resuming
+        if exist(clean_fullpath, 'file')
+            load(clean_fullpath, 'clean_data');
+            total_cleaned = length(clean_data);
+            fprintf('Loaded existing clean data with %d subjects. Resuming from subject %d...\n', total_cleaned, total_cleaned + 1);
+        else
+            clean_data = [];
+        end
+        
+        % Process remaining subjects in batches
+        for i = length(clean_data) + 1:num_subjects
+            fprintf('Cleaning subject %d/%d...\n', i, num_subjects);
+            
+            % Get current subject data
+            if iscell(sensor_space_data)
+                current_sensor = sensor_space_data{i};
+            else
+                current_sensor = sensor_space_data(i);
+            end
+            
+            if iscell(ICApplied)
+                current_ica = ICApplied{i};
+            else
+                current_ica = ICApplied(i);
+            end
+            
+            % Reject components for single subject
+            single_rejected = rejected_ICs_array{i};
+            cleaned_subject = reject_components(current_sensor, current_ica, {single_rejected});
+            
+            % Append to clean_data
+            if iscell(cleaned_subject)
+                clean_data = [clean_data; cleaned_subject{1}];
+            else
+                clean_data = [clean_data; cleaned_subject];
+            end
+            
+            % Save batch every 5 subjects
+            if mod(i, batch_size) == 0 || i == num_subjects
+                save(clean_fullpath, 'clean_data', '-v7.3');
+                fprintf('Clean data batch saved! Progress: %d/%d subjects cleaned.\n', i, num_subjects);
+            end
+        end
+        
         assignin('base', 'clean_data', clean_data);
-        fprintf('Cleaned data assigned to workspace as ''clean_data''.\n');
+        fprintf('All cleaned data assigned to workspace as ''clean_data''.\n');
         
-        % Decompose data
-        fprintf('Decomposing cleaned data...\n');
-        num_subjects = length(clean_data);
-        clean_data_decomposed = struct( ...
-            'target_data', cell(1, num_subjects), ...
-            'standard_data', cell(1, num_subjects), ...
-            'novelty_data', cell(1, num_subjects));
+        % Decompose data in batches
+        fprintf('Decomposing cleaned data in batches...\n');
+        decomposed_filename = 'data_ICApplied_clean_decomposed.mat';
+        decomposed_fullpath = fullfile(mat_folder, decomposed_filename);
         
+        % Load existing decomposed data if available for resuming
+        if exist(decomposed_fullpath, 'file')
+            load(decomposed_fullpath, 'clean_data_decomposed');
+            total_decomposed = length(clean_data_decomposed);
+            fprintf('Loaded existing decomposed data with %d subjects. Resuming from subject %d...\n', total_decomposed, total_decomposed + 1);
+        else
+            clean_data_decomposed = struct( ...
+                'target_data', cell(1, num_subjects), ...
+                'standard_data', cell(1, num_subjects), ...
+                'novelty_data', cell(1, num_subjects));
+        end
+        
+        % Decompose remaining subjects in batches
         for i = 1:num_subjects
+            % Skip already decomposed subjects
+            if ~isempty(clean_data_decomposed(i).target_data)
+                continue;
+            end
+            
             fprintf('Decomposing subject %d/%d\n', i, num_subjects);
             if iscell(clean_data)
                 current_clean = clean_data{i};
             else
                 current_clean = clean_data(i);
             end
+            
             [clean_data_decomposed(i).target_data, ...
                 clean_data_decomposed(i).standard_data, ...
                 clean_data_decomposed(i).novelty_data] = decompose(current_clean);
+            
+            % Save batch every 5 subjects
+            if mod(i, batch_size) == 0 || i == num_subjects
+                save(decomposed_fullpath, 'clean_data_decomposed', '-v7.3');
+                fprintf('Decomposed data batch saved! Progress: %d/%d subjects decomposed.\n', i, num_subjects);
+            end
         end
         
         assignin('base', 'clean_data_decomposed', clean_data_decomposed);
-        
-        clean_filename = 'data_ICApplied_clean_decomposed.mat';
-        clean_fullpath = fullfile(mat_folder, clean_filename);
-        save(clean_fullpath, 'clean_data_decomposed');
-        fprintf('Decomposed cleaned data saved to %s\n', clean_fullpath);
+        fprintf('Decomposed cleaned data saved to %s\n', decomposed_fullpath);
         fprintf('Rejected component indices stored inside each clean_data entry (field ''rejected_components'').\n');
     catch rejectionME
         fprintf('Warning: Failed to apply reject_components within browse_ICA (%s).\n', rejectionME.message);

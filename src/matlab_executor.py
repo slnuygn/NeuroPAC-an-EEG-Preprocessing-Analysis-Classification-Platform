@@ -2344,7 +2344,14 @@ class MatlabExecutor(QObject):
                                 names.append(str(ds))
                         except Exception:
                             continue
-                    return list(set(names))
+                    # Deduplicate while preserving original order
+                    seen = set()
+                    ordered_names = []
+                    for n in names:
+                        if n not in seen:
+                            seen.add(n)
+                            ordered_names.append(n)
+                    return ordered_names
             except Exception:
                 # Fallback to h5py for v7.3
                 import h5py
@@ -2393,7 +2400,13 @@ class MatlabExecutor(QObject):
                                                 else:
                                                     names.append(str(ds_value))
                                 elif isinstance(cfg, h5py.Group):
-                                    for key in sorted(cfg.keys()):
+                                    # Iterate keys in natural sorted numeric order if digits, else insertion order
+                                    keys = list(cfg.keys())
+                                    try:
+                                        keys.sort(key=lambda k: int(k) if k.isdigit() else k)
+                                    except Exception:
+                                        pass
+                                    for key in keys:
                                         if key.isdigit():
                                             elem = cfg[key]
                                             if isinstance(elem, h5py.Group) and 'dataset' in elem:
@@ -2414,7 +2427,14 @@ class MatlabExecutor(QObject):
                                                     names.append(name)
                                                 else:
                                                     names.append(str(ds_value))
-                        return list(set(names))
+                        # Deduplicate while preserving order from file
+                        seen = set()
+                        ordered_names = []
+                        for n in names:
+                            if n not in seen:
+                                seen.add(n)
+                                ordered_names.append(n)
+                        return ordered_names
         except Exception:
             return []
     
