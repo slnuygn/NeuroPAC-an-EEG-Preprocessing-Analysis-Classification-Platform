@@ -25,6 +25,20 @@ Item {
     property bool weightsFileExists: false  // Track if weights file exists for current classifier/analysis
     property var subjectListModel: null  // Optional: subjects/patients list from FileBrowser labels
     
+    // Time window properties
+    property real timeWindowStart: -0.2
+    property real timeWindowEnd: 1.0
+    property real timeWindowMin: -1.0  // Dynamic minimum based on analysis
+    property real timeWindowMax: 2.0   // Dynamic maximum based on analysis
+    
+    // Format: [defaultStart, defaultEnd, minBound, maxBound]
+    property var analysisTimeRanges: ({
+        "ERP Analysis": [-0.2, 1.0, -1.0, 2.0],
+        "Spectral Analysis": [0, 1.0, -0.5, 3.0],
+        "Time-Frequency Analysis": [-0.2, 1.0, -2.0, 2.0],
+        "Intertrial Analysis": [-0.2, 1.0, -1.0, 2.0]
+    })
+    
     signal classifyClicked(string classifierName, string analysisName)
     signal testClassifierClicked(string classifierName, string analysisName, string weightsPath)
     
@@ -139,6 +153,15 @@ Item {
             var jsonStr = classificationController.getParamsForAnalysis(classifierName, analysisName);
             var params = JSON.parse(jsonStr);
             configParameters = params;
+            
+            // Set time window defaults based on analysis type
+            if (analysisTimeRanges[analysisName]) {
+                timeWindowStart = analysisTimeRanges[analysisName][0];
+                timeWindowEnd = analysisTimeRanges[analysisName][1];
+                timeWindowMin = analysisTimeRanges[analysisName][2];
+                timeWindowMax = analysisTimeRanges[analysisName][3];
+            }
+            
             console.log("Loaded config for " + classifierName + " - " + analysisName + ":", Object.keys(configParameters).length, "parameters");
         } catch (e) {
             console.error("Failed to parse config for " + classifierName + " - " + analysisName + ":", e);
@@ -247,6 +270,34 @@ Item {
                 }
             }
 
+            // Time Window Range Slider - visible when analysis is selected
+            RangeSliderTemplate {
+                visible: selectedAnalysis !== ""
+                width: contentContainer.width / 3
+                label: "Time Window"
+                matlabProperty: "cfg.time_window"
+                from: timeWindowMin
+                to: timeWindowMax
+                firstValue: timeWindowStart
+                secondValue: timeWindowEnd
+                stepSize: 0.01
+                unit: "s"
+                enabled: true
+                backgroundColor: "#ffffff"
+                
+                onRangeChanged: function(firstVal, secondVal) {
+                    timeWindowStart = firstVal
+                    timeWindowEnd = secondVal
+                    console.log("Time window changed:", firstVal, "to", secondVal)
+                }
+                
+                onBoundsChanged: function(minVal, maxVal) {
+                    timeWindowMin = minVal
+                    timeWindowMax = maxVal
+                    console.log("Time window bounds changed:", minVal, "to", maxVal)
+                }
+            }
+
             // Dynamic parameters from config files
             Repeater {
                 model: Object.keys(configParameters)
@@ -265,17 +316,13 @@ Item {
                     placeholderText: "Enter " + modelData
                     
                     onValueChanged: function(newValue) {
-                        // Update the config parameter when value changes
                         try {
-                            // Try to parse as number first if it was originally numeric
                             if (isNumeric) {
                                 configParameters[modelData] = parseFloat(newValue);
                             } else {
-                                // Try to parse as JSON for objects/arrays
                                 try {
                                     configParameters[modelData] = JSON.parse(newValue);
                                 } catch (e) {
-                                    // If not valid JSON, treat as string
                                     configParameters[modelData] = newValue;
                                 }
                             }

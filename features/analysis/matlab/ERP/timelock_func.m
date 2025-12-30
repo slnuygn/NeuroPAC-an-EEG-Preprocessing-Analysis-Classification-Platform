@@ -1,5 +1,8 @@
 function ERP_data = timelock_func(inputPath)
-% timelock analysis for decomposed cleaned ICA data stored as data_ICApplied_clean_decomposed.mat
+% Timelock (ERP) analysis with batch processing for memory efficiency
+
+% Batch size to process (10 subjects at a time)
+batchSize = 10;
 
 if nargin < 1 || isempty(inputPath)
     error('timelock_func requires a folder path containing data_ICApplied_clean_decomposed.mat.');
@@ -161,40 +164,50 @@ else
     fprintf('FieldTrip already initialized\n');
 end
 
-% time lock analysis
-fprintf('Starting timelock analysis...\n');
+% time lock analysis with batch processing
+fprintf('Starting timelock analysis (batch size: %d)...\n', batchSize);
 ERP_data = struct( ...
     'target', cell(1, numTrials), ...
     'standard', cell(1, numTrials), ...
     'novelty', cell(1, numTrials));
 
-for i = 1:numTrials
-    fprintf('Timelock analysis for subject %d/%d\n', i, numTrials);
+% Batch processing loop - process 10 subjects at a time to manage memory
+for batchStart = 1:batchSize:numTrials
+    batchEnd = min(batchStart + batchSize - 1, numTrials);
+    batchNum = ceil(batchStart / batchSize);
+    fprintf('\n--- Processing Batch %d (subjects %d-%d) ---\n', batchNum, batchStart, batchEnd);
     
-    if isfield(data_decomposed(i), 'target_data') && ~isempty(data_decomposed(i).target_data)
-        fprintf('  Processing target_data...\n');
-        ERP_data(i).target = ft_timelockanalysis(cfg, data_decomposed(i).target_data);
-    else
-        fprintf('  Skipping target_data (missing or empty)\n');
+    % Process this batch of subjects
+    for i = batchStart:batchEnd
+        fprintf('  Timelock analysis for subject %d/%d\n', i, numTrials);
+        
+        if isfield(data_decomposed(i), 'target_data') && ~isempty(data_decomposed(i).target_data)
+            fprintf('    Processing target_data...\n');
+            ERP_data(i).target = ft_timelockanalysis(cfg, data_decomposed(i).target_data);
+        else
+            fprintf('    Skipping target_data (missing or empty)\n');
+        end
+        
+        if isfield(data_decomposed(i), 'standard_data') && ~isempty(data_decomposed(i).standard_data)
+            fprintf('    Processing standard_data...\n');
+            ERP_data(i).standard = ft_timelockanalysis(cfg, data_decomposed(i).standard_data);
+        else
+            fprintf('    Skipping standard_data (missing or empty)\n');
+        end
+        
+        if isfield(data_decomposed(i), 'novelty_data') && ~isempty(data_decomposed(i).novelty_data)
+            fprintf('    Processing novelty_data...\n');
+            ERP_data(i).novelty = ft_timelockanalysis(cfg, data_decomposed(i).novelty_data);
+        else
+            fprintf('    Skipping novelty_data (missing or empty)\n');
+        end
     end
-    
-    if isfield(data_decomposed(i), 'standard_data') && ~isempty(data_decomposed(i).standard_data)
-        fprintf('  Processing standard_data...\n');
-        ERP_data(i).standard = ft_timelockanalysis(cfg, data_decomposed(i).standard_data);
-    else
-        fprintf('  Skipping standard_data (missing or empty)\n');
-    end
-    
-    if isfield(data_decomposed(i), 'novelty_data') && ~isempty(data_decomposed(i).novelty_data)
-        fprintf('  Processing novelty_data...\n');
-        ERP_data(i).novelty = ft_timelockanalysis(cfg, data_decomposed(i).novelty_data);
-    else
-        fprintf('  Skipping novelty_data (missing or empty)\n');
-    end
+    fprintf('--- Batch %d complete ---\n', batchNum);
 end
 fprintf('Timelock analysis completed\n');
 
 % Apply baseline correction to timelocked ERPs (matching timefreq baseline approach)
+fprintf('Applying baseline correction...\n');
 cfg.baseline     = [-0.2 0];   % seconds relative to stimulus
 cfg.baselinetype = 'absolute'; % subtract mean in baseline window
 
@@ -227,6 +240,7 @@ for i = 1:numTrials
     end
 end
 
+% Save results cumulatively to final output file
 outputPath = fullfile(dataFolder, 'erp_output.mat');
 save(outputPath, 'ERP_data', 'erp_records');
 fprintf('ERP analysis results saved to %s\n', outputPath);

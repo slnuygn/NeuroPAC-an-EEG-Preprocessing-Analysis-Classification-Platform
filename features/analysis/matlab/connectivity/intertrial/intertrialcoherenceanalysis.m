@@ -1,5 +1,8 @@
 function itc_data = intertrialcoherenceanalysis(inputPath)
-% Inter-trial coherence analysis for decomposed cleaned ICA data stored as data_ICApplied_clean_decomposed.mat
+% Inter-trial coherence analysis with batch processing for memory efficiency
+
+% Batch size to process (10 subjects at a time)
+batchSize = 10;
 
 if nargin < 1 || isempty(inputPath)
     error('intertrialcoherenceanalysis requires a folder path containing data_ICApplied_clean_decomposed.mat.');
@@ -155,7 +158,7 @@ cfg = [];
 cfg.method = 'wavelet';
 cfg.output = 'fourier';
 cfg.foi = 1:0.5:15;
-cfg.toi = -2:0.01:2;
+cfg.toi = 0:0.01:1;
 cfg.width = 3;
 cfg.pad = 8;
 
@@ -163,24 +166,33 @@ cfg.pad = 8;
 itc_data = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
 itc_records = cell(numSubjects, 3);  % use cell to avoid field-mismatch issues across conditions
 
-fprintf('Starting inter-trial coherence analysis...\n');
-for s = 1:numSubjects
-    fprintf('Inter-trial coherence analysis for subject %d/%d\n', s, numSubjects);
-    for c = 1:3
-        condName = conditionNames{c};
-        condData = subjectData(s).(condName);
-        if ~isempty(condData)
-            cfg.trials = 1:length(condData.trial);
-            freq_out = ft_freqanalysis(cfg, condData);
-            itc_out = compute_itc(freq_out);
-            itc_data(s).(condName) = itc_out;
-            itc_records{s, c} = itc_out;
+% Batch processing loop - process 10 subjects at a time to manage memory
+fprintf('Starting inter-trial coherence analysis (batch size: %d)...\n', batchSize);
+for batchStart = 1:batchSize:numSubjects
+    batchEnd = min(batchStart + batchSize - 1, numSubjects);
+    batchNum = ceil(batchStart / batchSize);
+    fprintf('\n--- Processing Batch %d (subjects %d-%d) ---\n', batchNum, batchStart, batchEnd);
+    
+    % Process this batch of subjects
+    for s = batchStart:batchEnd
+        fprintf('  Inter-trial coherence analysis for subject %d/%d\n', s, numSubjects);
+        for c = 1:3
+            condName = conditionNames{c};
+            condData = subjectData(s).(condName);
+            if ~isempty(condData)
+                cfg.trials = 1:length(condData.trial);
+                freq_out = ft_freqanalysis(cfg, condData);
+                itc_out = compute_itc(freq_out);
+                itc_data(s).(condName) = itc_out;
+                itc_records{s, c} = itc_out;
+            end
         end
     end
+    fprintf('--- Batch %d complete ---\n', batchNum);
 end
 fprintf('Inter-trial coherence analysis completed\n');
 
-% Save results
+% Save results cumulatively to final output file
 outputPath = fullfile(dataFolder, 'intertrial_coherence_output.mat');
 save(outputPath, 'itc_data', 'itc_records');
 fprintf('Inter-trial coherence analysis results saved to %s\n', outputPath);

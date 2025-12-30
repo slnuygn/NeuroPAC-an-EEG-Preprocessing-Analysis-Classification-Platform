@@ -1,5 +1,8 @@
 function timefreq_data = timefreqanalysis(inputPath)
-% Time-frequency analysis for decomposed cleaned ICA data stored as data_ICApplied_clean_decomposed.mat
+% Time-frequency analysis with batch processing for memory efficiency
+
+% Batch size to process (10 subjects at a time)
+batchSize = 10;
 
 if nargin < 1 || isempty(inputPath)
     error('timefreqanalysis requires a folder path containing data_ICApplied_clean_decomposed.mat.');
@@ -157,7 +160,7 @@ fprintf('Number of subjects: %d\n', numSubjects);
 cfg = [];
 cfg.output = 'pow';
 cfg.method = 'wavelet';
-cfg.toi = -2:0.01:2;
+cfg.toi = 0:0.01:1;
 cfg.foi = 1:0.5:15;
 cfg.pad = 8;
 cfg.width = 3;
@@ -165,17 +168,26 @@ cfg.width = 3;
 % Initialize output structure
 timefreq_data = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
 
-fprintf('Starting time-frequency analysis...\n');
-for s = 1:numSubjects
-    fprintf('Time-frequency analysis for subject %d/%d\n', s, numSubjects);
-    for c = 1:3
-        condName = conditionNames{c};
-        condData = subjectData(s).(condName);
-        if ~isempty(condData)
-            freq_out = ft_freqanalysis(cfg, condData);
-            timefreq_data(s).(condName) = freq_out;
+% Batch processing loop - process 10 subjects at a time to manage memory
+fprintf('Starting time-frequency analysis (batch size: %d)...\n', batchSize);
+for batchStart = 1:batchSize:numSubjects
+    batchEnd = min(batchStart + batchSize - 1, numSubjects);
+    batchNum = ceil(batchStart / batchSize);
+    fprintf('\n--- Processing Batch %d (subjects %d-%d) ---\n', batchNum, batchStart, batchEnd);
+    
+    % Process this batch of subjects
+    for s = batchStart:batchEnd
+        fprintf('  Time-frequency analysis for subject %d/%d\n', s, numSubjects);
+        for c = 1:3
+            condName = conditionNames{c};
+            condData = subjectData(s).(condName);
+            if ~isempty(condData)
+                freq_out = ft_freqanalysis(cfg, condData);
+                timefreq_data(s).(condName) = freq_out;
+            end
         end
     end
+    fprintf('--- Batch %d complete ---\n', batchNum);
 end
 fprintf('Time-frequency analysis completed\n');
 
@@ -196,7 +208,7 @@ for s = 1:numSubjects
 end
 fprintf('Baseline correction completed\n');
 
-% Save results (only the subject/condition struct)
+% Save results cumulatively to final output file
 outputPath = fullfile(dataFolder, 'timefreq_output.mat');
 save(outputPath, 'timefreq_data');
 fprintf('Time-frequency analysis results saved to %s\n', outputPath);

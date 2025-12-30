@@ -1,5 +1,8 @@
 function spectral_data = spectralanalysis(inputPath)
-% Spectral analysis for decomposed cleaned ICA data stored as data_ICApplied_clean_decomposed.mat
+% Spectral analysis with batch processing for memory efficiency
+
+% Batch size to process (10 subjects at a time)
+batchSize = 10;
 
 if nargin < 1 || isempty(inputPath)
     error('spectralanalysis requires a folder path containing data_ICApplied_clean_decomposed.mat.');
@@ -160,21 +163,30 @@ cfg.foi = 1:0.5:15;
 % Initialize output structure
 spectral_data = repmat(struct('target', [], 'standard', [], 'novelty', []), 1, numSubjects);
 
-fprintf('Starting spectral analysis...\n');
-for s = 1:numSubjects
-    fprintf('Spectral analysis for subject %d/%d\n', s, numSubjects);
-    for c = 1:3
-        condName = conditionNames{c};
-        condData = subjectData(s).(condName);
-        if ~isempty(condData)
-            spectr_out = ft_freqanalysis(cfg, condData);
-            spectral_data(s).(condName) = spectr_out;
+% Batch processing loop - process 10 subjects at a time to manage memory
+fprintf('Starting spectral analysis (batch size: %d)...\n', batchSize);
+for batchStart = 1:batchSize:numSubjects
+    batchEnd = min(batchStart + batchSize - 1, numSubjects);
+    batchNum = ceil(batchStart / batchSize);
+    fprintf('\n--- Processing Batch %d (subjects %d-%d) ---\n', batchNum, batchStart, batchEnd);
+    
+    % Process this batch of subjects
+    for s = batchStart:batchEnd
+        fprintf('  Spectral analysis for subject %d/%d\n', s, numSubjects);
+        for c = 1:3
+            condName = conditionNames{c};
+            condData = subjectData(s).(condName);
+            if ~isempty(condData)
+                spectr_out = ft_freqanalysis(cfg, condData);
+                spectral_data(s).(condName) = spectr_out;
+            end
         end
     end
+    fprintf('--- Batch %d complete ---\n', batchNum);
 end
 fprintf('Spectral analysis completed\n');
 
-% Save results (only the subject/condition struct)
+% Save results cumulatively to final output file
 outputPath = fullfile(dataFolder, 'spectral_output.mat');
 save(outputPath, 'spectral_data');
 fprintf('Spectral analysis results saved to %s\n', outputPath);
