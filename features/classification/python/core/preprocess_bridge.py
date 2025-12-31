@@ -77,7 +77,8 @@ class PreprocessBridge:
         all_samples = []
         condition_labels = [] 
         group_labels = []     
-        subject_ids = []      
+        subject_ids = []
+        dataset_names = []  # Track dataset names for each sample
 
         # Handle MATLAB 1xN or Nx1 struct arrays
         if raw_records.ndim > 1:
@@ -94,6 +95,22 @@ class PreprocessBridge:
                 else: record = raw_records[i, 0]
             else:
                 record = raw_records[i]
+            
+            # Extract dataset name from cfg if available
+            dataset_name = "S" + str(i).zfill(3)  # Default: S001, S002, etc.
+            try:
+                if hasattr(record, 'dtype') and 'cfg' in record.dtype.names:
+                    cfg = record['cfg']
+                    if hasattr(cfg, 'dtype') and 'dataset' in cfg.dtype.names:
+                        ds = cfg['dataset']
+                        if isinstance(ds, str):
+                            dataset_name = os.path.splitext(os.path.basename(ds))[0]
+                        elif hasattr(ds, '__len__') and len(ds) > 0:
+                            ds_val = ds.flat[0] if hasattr(ds, 'flat') else ds[0]
+                            if isinstance(ds_val, str):
+                                dataset_name = os.path.splitext(os.path.basename(ds_val))[0]
+            except (AttributeError, IndexError, KeyError):
+                pass  # Use default dataset_name
             
             try:
                 raw_group_label = group_list[i]
@@ -125,6 +142,7 @@ class PreprocessBridge:
                     condition_labels.append(label_idx)
                     group_labels.append(group_val)
                     subject_ids.append(i)
+                    dataset_names.append(dataset_name)  # Track dataset name for each sample
                 except (KeyError, ValueError, IndexError) as e:
                     print(f"Warning: Failed to extract {cond}.{data_field} for subject {i}: {e}")
 
@@ -133,7 +151,8 @@ class PreprocessBridge:
         y = {
             "condition": np.array(condition_labels),
             "group": np.array(group_labels),
-            "subject_id": np.array(subject_ids)
+            "subject_id": np.array(subject_ids),
+            "dataset_name": dataset_names  # Include dataset names
         }
         
         X_transformed = self._apply_transform(X, analysis_type, target_model)

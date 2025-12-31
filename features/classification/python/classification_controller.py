@@ -4,6 +4,7 @@ import json
 import subprocess
 import traceback
 import importlib
+from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QThread
 
 # Ensure the current directory is in sys.path so we can import from 'models'
@@ -233,6 +234,7 @@ class ClassificationController(QObject):
         self.worker = None
         self.config_parser = ConfigParser()
         self.data_folder = ""  # Track current data folder
+        self.time_window_file = Path(__file__).resolve().parents[3] / "config" / "time_window_selections.json"
 
     # Signal to send logs to QML
     logReceived = pyqtSignal(str, arguments=['message'])
@@ -453,3 +455,57 @@ class ClassificationController(QObject):
         self.thread.finished.connect(self.on_training_finished)
         
         self.thread.start()
+
+    def _ensure_time_window_file(self):
+        try:
+            self.time_window_file.parent.mkdir(parents=True, exist_ok=True)
+            if not self.time_window_file.exists():
+                self.time_window_file.write_text("{}", encoding="utf-8")
+        except Exception as e:
+            print(f"Error preparing time window file: {e}")
+
+    @pyqtSlot(result=str)
+    def loadTimeWindowSelections(self) -> str:
+        """Return persisted time window selections as JSON string."""
+        try:
+            self._ensure_time_window_file()
+            content = self.time_window_file.read_text(encoding="utf-8").strip()
+            if not content:
+                return "{}"
+            # Validate JSON
+            json.loads(content)
+            return content
+        except Exception as e:
+            print(f"Error loading time window selections: {e}")
+            return "{}"
+
+    @pyqtSlot(str)
+    def saveTimeWindowSelections(self, selections_json: str):
+        """Persist time window selections JSON to config file."""
+        try:
+            self._ensure_time_window_file()
+            incoming = json.loads(selections_json) if selections_json else {}
+
+            # Merge with existing on-disk selections to avoid clobbering other instances
+            existing = {}
+            try:
+                content = self.time_window_file.read_text(encoding="utf-8").strip()
+                if content:
+                    existing = json.loads(content)
+            except Exception:
+                existing = {}
+
+            if not isinstance(existing, dict):
+                existing = {}
+            if not isinstance(incoming, dict):
+                incoming = {}
+
+            merged = {**existing, **incoming}
+            self.time_window_file.write_text(json.dumps(merged, indent=2), encoding="utf-8")
+        except Exception as e:
+            msg = f"Error saving time window selections: {e}"
+            print(msg)
+            try:
+                self.logReceived.emit(msg)
+            except Exception:
+                pass

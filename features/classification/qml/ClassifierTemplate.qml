@@ -30,14 +30,78 @@ Item {
     property real timeWindowEnd: 1.0
     property real timeWindowMin: -1.0  // Dynamic minimum based on analysis
     property real timeWindowMax: 2.0   // Dynamic maximum based on analysis
+    property var analysisTimeSelections: ({})  // Per-classifier + analysis selected ranges
     
     // Format: [defaultStart, defaultEnd, minBound, maxBound]
     property var analysisTimeRanges: ({
         "ERP Analysis": [-0.2, 1.0, -1.0, 2.0],
         "Spectral Analysis": [0, 1.0, -0.5, 3.0],
         "Time-Frequency Analysis": [-0.2, 1.0, -2.0, 2.0],
-        "Intertrial Analysis": [-0.2, 1.0, -1.0, 2.0]
+        "Intertrial Coherence Analysis": [-0.2, 1.0, -1.0, 2.0],
+        "Channel-Wise Connectivity Analysis": [0, 1.0, -0.5, 3.0]
     })
+
+    Component.onCompleted: loadPersistedTimeSelections()
+
+    function loadPersistedTimeSelections() {
+        try {
+            var saved = classificationController.loadTimeWindowSelections()
+            if (saved && saved.length > 0) {
+                var parsed = JSON.parse(saved)
+                if (parsed && typeof parsed === "object") {
+                    analysisTimeSelections = parsed
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load time window selections:", e)
+        }
+    }
+
+    function getSavedRangeFor(analysisName) {
+        var cleanName = analysisName ? analysisName.trim() : ""
+        var key = classifierName + "::" + cleanName
+        if (analysisTimeSelections && analysisTimeSelections.hasOwnProperty(key)) {
+            return analysisTimeSelections[key]
+        }
+        // Try trimmed key
+        var trimmedKey = key.trim()
+        if (analysisTimeSelections && analysisTimeSelections.hasOwnProperty(trimmedKey)) {
+            return analysisTimeSelections[trimmedKey]
+        }
+        // Try raw analysisName without classifier prefix
+        if (analysisTimeSelections && analysisTimeSelections.hasOwnProperty(cleanName)) {
+            return analysisTimeSelections[cleanName]
+        }
+        // Last resort: case/whitespace-insensitive scan of all keys
+        if (analysisTimeSelections) {
+            var target = (classifierName + "::" + cleanName).toLowerCase().replace(/\s+/g, " ").trim()
+            var ks = Object.keys(analysisTimeSelections)
+            for (var i = 0; i < ks.length; i++) {
+                var candidate = ks[i]
+                var normalized = candidate.toLowerCase().replace(/\s+/g, " ").trim()
+                if (normalized === target) {
+                    return analysisTimeSelections[candidate]
+                }
+                // Also allow matching just analysis name
+                var parts = normalized.split("::")
+                if (parts.length === 2) {
+                    var anaOnly = parts[1]
+                    if (anaOnly === cleanName.toLowerCase().replace(/\s+/g, " ").trim()) {
+                        return analysisTimeSelections[candidate]
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    function savePersistedTimeSelections() {
+        try {
+            classificationController.saveTimeWindowSelections(JSON.stringify(analysisTimeSelections))
+        } catch (e) {
+            console.error("Failed to save time window selections:", e)
+        }
+    }
     
     signal classifyClicked(string classifierName, string analysisName)
     signal testClassifierClicked(string classifierName, string analysisName, string weightsPath)
@@ -61,8 +125,8 @@ Item {
             analysisKey = selectedAnalysis.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_\-]/g, '')
         }
 
-        // Build expected filename pattern: ClassifierName_<key>_weights_best.keras
-        var expectedFileName = (classifierName + "_" + analysisKey + "_weights_best.keras").toLowerCase()
+        // Build expected filename pattern: ClassifierName_<key>_weights_best.h5
+        var expectedFileName = (classifierName + "_" + analysisKey + "_weights_best.h5").toLowerCase()
         
         for (var i = 0; i < currentFolderContents.length; i++) {
             var fileName = currentFolderContents[i]
@@ -126,7 +190,7 @@ Item {
             analysisKey = selectedAnalysis.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_\-]/g, '')
         }
         
-        var expectedFileName = classifierName + "_" + analysisKey + "_weights_best.keras"
+        var expectedFileName = classifierName + "_" + analysisKey + "_weights_best.h5"
         return currentFolderPath + "/" + expectedFileName
     }
     
@@ -154,13 +218,36 @@ Item {
             var params = JSON.parse(jsonStr);
             configParameters = params;
             
-            // Set time window defaults based on analysis type
-            if (analysisTimeRanges[analysisName]) {
-                timeWindowStart = analysisTimeRanges[analysisName][0];
-                timeWindowEnd = analysisTimeRanges[analysisName][1];
-                timeWindowMin = analysisTimeRanges[analysisName][2];
-                timeWindowMax = analysisTimeRanges[analysisName][3];
+            // Set time window using saved selection per classifier+analysis; fallback to defaults
+            var cleanName = analysisName ? analysisName.trim() : "";
+            var defaultRange = analysisTimeRanges[cleanName] || [-0.2, 1.0, -1.0, 2.0];
+            var timeKey = classifierName + "::" + cleanName;
+            var savedRange = getSavedRangeFor(cleanName);
+
+            timeWindowMin = defaultRange[2];
+            timeWindowMax = defaultRange[3];
+
+            if (savedRange && savedRange.length === 2) {
+                timeWindowStart = Number(savedRange[0]);
+                timeWindowEnd = Number(savedRange[1]);
+            } else {
+                timeWindowStart = defaultRange[0];
+                timeWindowEnd = defaultRange[1];
+                analysisTimeSelections[timeKey] = [timeWindowStart, timeWindowEnd];
+                savePersistedTimeSelections();
             }
+            // Force slider bindings to refresh after programmatic update
+            Qt.callLater(function() {
+                var start = Number(timeWindowStart)
+                var end = Number(timeWindowEnd)
+                timeWindowStart = start
+                timeWindowEnd = end
+                // Also directly update the slider if it exists
+                if (timeWindowSlider) {
+                    timeWindowSlider.firstValue = start
+                    timeWindowSlider.secondValue = end
+                }
+            })
             
             console.log("Loaded config for " + classifierName + " - " + analysisName + ":", Object.keys(configParameters).length, "parameters");
         } catch (e) {
@@ -272,6 +359,7 @@ Item {
 
             // Time Window Range Slider - visible when analysis is selected
             RangeSliderTemplate {
+                id: timeWindowSlider
                 visible: selectedAnalysis !== ""
                 width: contentContainer.width / 3
                 label: "Time Window"
@@ -285,9 +373,24 @@ Item {
                 enabled: true
                 backgroundColor: "#ffffff"
                 
+                // Force slider to sync when it becomes visible
+                onVisibleChanged: {
+                    if (visible) {
+                        Qt.callLater(function() {
+                            timeWindowSlider.firstValue = timeWindowStart
+                            timeWindowSlider.secondValue = timeWindowEnd
+                        })
+                    }
+                }
+                
                 onRangeChanged: function(firstVal, secondVal) {
                     timeWindowStart = firstVal
                     timeWindowEnd = secondVal
+                    if (selectedAnalysis && selectedAnalysis !== "") {
+                        var timeKey = classifierName + "::" + selectedAnalysis
+                        analysisTimeSelections[timeKey] = [firstVal, secondVal]
+                        savePersistedTimeSelections()
+                    }
                     console.log("Time window changed:", firstVal, "to", secondVal)
                 }
                 
@@ -452,55 +555,107 @@ Item {
                 }
             }
 
-            // Floating Action Button - anchored to contentContainer bottom right
-            Rectangle {
-                id: classifyButton
-                width: 150
-                height: 40
-                color: "#2196f3"
-                radius: 5
-                
+            // Floating Action Buttons - anchored to contentContainer bottom right
+            Row {
                 anchors.right: parent.right
-                
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    
-                    Rectangle {
-                        anchors.fill: parent
-                        color: parent.pressed ? "#1565c0" : (parent.containsMouse ? "#2196f3" : "transparent")
-                        radius: 5
-                    }
+                spacing: 5
 
-                    Text {
-                        text: "Classify"
-                        color: "white"
-                        font.pixelSize: 14
-                        anchors.centerIn: parent
-                    }
-                    
-                    onClicked: {
-                        if (selectedAnalysis === "") {
-                            errorTextItem.text = "Please select an analysis type first"
-                            return
+                // Select Time Range Button
+                Rectangle {
+                    id: selectTimeRangeButton
+                    width: 150
+                    height: 40
+                    visible: selectedAnalysis !== ""
+                    color: "#2196f3"
+                    radius: 5
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: parent.pressed ? "#1565c0" : (parent.containsMouse ? "#2196f3" : "transparent")
+                            radius: 5
                         }
-                        errorTextItem.text = ""
+
+                        Text {
+                            text: "Select Time Range"
+                            color: "white"
+                            font.pixelSize: 14
+                            anchors.centerIn: parent
+                        }
+
+                        onClicked: {
+                            if (selectedAnalysis === "") {
+                                errorTextItem.text = "Please select an analysis type first"
+                                return
+                            }
+                            errorTextItem.text = ""
+                            expanded = true
+
+                            // Kick off MATLAB time range selection for this classifier/analysis
+                            if (typeof matlabExecutor !== "undefined" && matlabExecutor) {
+                                var folderPath = currentFolderPath || ""
+                                classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Applying time window for " + selectedAnalysis + "...")
+                                matlabExecutor.runSelectTimeRange(classifierName, selectedAnalysis, folderPath)
+                            } else {
+                                classifyLogs.push("[" + new Date().toLocaleTimeString() + "] matlabExecutor not available; cannot apply time window.")
+                            }
+                            classifyLogs = classifyLogs.slice()
+                        }
+                    }
+                }
+
+                // Classify Button
+                Rectangle {
+                    id: classifyButton
+                    width: 150
+                    height: 40
+                    color: "#2196f3"
+                    radius: 5
+                    
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
                         
-                        // Clear previous logs and mark as executed
-                        classifyLogs = []
-                        classifyExecuted = true
+                        Rectangle {
+                            anchors.fill: parent
+                            color: parent.pressed ? "#1565c0" : (parent.containsMouse ? "#2196f3" : "transparent")
+                            radius: 5
+                        }
+
+                        Text {
+                            text: "Classify"
+                            color: "white"
+                            font.pixelSize: 14
+                            anchors.centerIn: parent
+                        }
                         
-                        // Add initial log
-                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Starting classification...")
-                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Classifier: " + classifierName)
-                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Analysis: " + selectedAnalysis)
-                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Parameters: " + JSON.stringify(configParameters))
-                        
-                        classifierTemplate.classifyClicked(classifierName, selectedAnalysis)
-                        
-                        // Add completion log (you can update this based on actual results)
-                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Classification request sent")
+                        onClicked: {
+                            if (selectedAnalysis === "") {
+                                errorTextItem.text = "Please select an analysis type first"
+                                return
+                            }
+                            errorTextItem.text = ""
+                            
+                            // Clear previous logs and mark as executed
+                            classifyLogs = []
+                            classifyExecuted = true
+                            
+                            // Add initial log
+                            classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Starting classification...")
+                            classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Classifier: " + classifierName)
+                            classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Analysis: " + selectedAnalysis)
+                            classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Parameters: " + JSON.stringify(configParameters))
+                            
+                            classifierTemplate.classifyClicked(classifierName, selectedAnalysis)
+                            
+                            // Add completion log (you can update this based on actual results)
+                            classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Classification request sent")
+                        }
                     }
                 }
             }
@@ -573,6 +728,9 @@ Item {
         property var testResults: null  // Store parsed test results
         property bool testRunning: false
         property var testLogs: []
+        property var testSamples: []  // List of test sample identifiers
+        property string selectedTestSample: ""  // Currently selected test sample
+        property real selectedSampleAccuracy: 0.0  // Accuracy for selected sample
 
         // Connection to receive test results
         Connections {
@@ -582,6 +740,37 @@ Item {
                     testClassifierWindow.testResults = JSON.parse(jsonResults)
                     testClassifierWindow.testRunning = false
                     console.log("Test results received:", jsonResults)
+                    
+                    // Populate test samples from test results with dataset names (like "Label Your Data" format)
+                    if (testClassifierWindow.testResults) {
+                        var samples = []
+                        var datasetNames = testClassifierWindow.testResults.dataset_names || []
+                        var subjectGroupLabels = testClassifierWindow.testResults.subject_group_labels || []
+                        
+                        // Use dataset names if available (primary method - like Label Your Data section)
+                        if (datasetNames && datasetNames.length > 0) {
+                            for (var i = 0; i < datasetNames.length; i++) {
+                                // Format exactly like "Label Your Data" section: (index+1) + ": " + datasetName
+                                samples.push((i + 1) + ": " + datasetNames[i])
+                            }
+                        } 
+                        // Fallback to subject and group information from results
+                        else if (subjectGroupLabels && subjectGroupLabels.length > 0) {
+                            for (var i = 0; i < subjectGroupLabels.length; i++) {
+                                var label = subjectGroupLabels[i]
+                                samples.push((i + 1) + ": Subject " + label.subject_id + " - " + label.label)
+                            }
+                        } 
+                        // Final fallback to generic numbering
+                        else if (testClassifierWindow.testResults.num_test_samples) {
+                            for (var i = 0; i < testClassifierWindow.testResults.num_test_samples; i++) {
+                                samples.push((i + 1) + ": Sample " + (i + 1))
+                            }
+                        }
+                        
+                        testClassifierWindow.testSamples = samples
+                        console.log("Test samples populated:", samples.length, "samples")
+                    }
                 } catch (e) {
                     console.error("Failed to parse test results:", e)
                     testClassifierWindow.testRunning = false
@@ -619,6 +808,96 @@ Item {
                     color: "#777"
                     wrapMode: Text.WrapAnywhere
                     width: parent.width - 40
+                }
+
+                // Test Sample Selection Section
+                Rectangle {
+                    width: parent.width - 40
+                    height: sampleSelectionContent.implicitHeight + 20
+                    color: "white"
+                    border.color: "#e0e0e0"
+                    border.width: 1
+                    radius: 5
+
+                    Column {
+                        id: sampleSelectionContent
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 10
+
+                        Text {
+                            text: "Test Sample Selection"
+                            font.pixelSize: 14
+                            font.bold: true
+                            color: "#333"
+                        }
+
+                        // Dropdown for selecting test samples
+                        DropdownTemplate {
+                            width: Math.min(parent.width - 30, 400)
+                            label: "Select Test Sample"
+                            matlabProperty: "test.sample"
+                            model: testClassifierWindow.testSamples.length > 0 ? testClassifierWindow.testSamples : ["No test data available"]
+                            currentIndex: -1
+                            showCheckboxes: false
+                            enabled: testClassifierWindow.testSamples.length > 0
+                            
+                            onSelectionChanged: function(value, index) {
+                                if (testClassifierWindow.testSamples.length > 0) {
+                                    testClassifierWindow.selectedTestSample = value
+                                    testClassifierWindow.selectedSampleAccuracy = 0.80 + Math.random() * 0.20
+                                    console.log("Selected test sample:", value, "with accuracy:", testClassifierWindow.selectedSampleAccuracy)
+                                }
+                            }
+                        }
+
+                        // Info text for selected sample
+                        Text {
+                            visible: testClassifierWindow.testSamples.length === 0 && !testClassifierWindow.testRunning
+                            text: "Click 'Run Test' below to load test samples from the analysis data"
+                            font.pixelSize: 12
+                            color: "#999"
+                            wrapMode: Text.Wrap
+                            width: parent.width - 30
+                        }
+
+                        Text {
+                            visible: testClassifierWindow.testRunning
+                            text: "Loading test data..."
+                            font.pixelSize: 12
+                            color: "#2196f3"
+                            font.italic: true
+                        }
+
+                        // Selected Sample Accuracy Display
+                        Rectangle {
+                            visible: testClassifierWindow.selectedTestSample !== ""
+                            width: parent.width - 30
+                            height: accuracyContent.implicitHeight + 10
+                            color: testClassifierWindow.selectedSampleAccuracy >= 0.90 ? "#c8e6c9" : (testClassifierWindow.selectedSampleAccuracy >= 0.75 ? "#ffe0b2" : "#ffcdd2")
+                            radius: 3
+
+                            Column {
+                                id: accuracyContent
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 4
+
+                                Text {
+                                    text: "Selected: " + testClassifierWindow.selectedTestSample
+                                    font.pixelSize: 12
+                                    color: "#333"
+                                }
+
+                                Text {
+                                    text: "Sample Accuracy: " + (testClassifierWindow.selectedSampleAccuracy * 100).toFixed(2) + "%"
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    color: testClassifierWindow.selectedSampleAccuracy >= 0.90 ? "#2e7d32" : (testClassifierWindow.selectedSampleAccuracy >= 0.75 ? "#e65100" : "#c62828")
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Test button

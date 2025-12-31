@@ -117,6 +117,7 @@ def main():
     
     conditions = y['condition']
     subject_ids = y['subject_id']
+    dataset_names = y['dataset_name']  # Extract dataset names
     nb_classes = len(np.unique(conditions))
     
     # -------------------------------------------------------------------------
@@ -130,9 +131,15 @@ def main():
     test_mask = np.isin(subject_ids, test_subs)
     X_test = X[test_mask]
     y_test = conditions[test_mask]
+    test_dataset_names = [dataset_names[i] for i in range(len(test_mask)) if test_mask[i]]  # Extract test dataset names
     
     if X_test.ndim == 3:
         X_test = X_test[..., np.newaxis]
+    
+    # Validate test labels before conversion
+    if np.max(y_test) >= nb_classes or np.min(y_test) < 0:
+        print(f"Error: Invalid test labels. Range: {np.min(y_test)} to {np.max(y_test)}, but nb_classes={nb_classes}")
+        sys.exit(1)
     
     y_test_cat = to_categorical(y_test, num_classes=nb_classes)
     
@@ -178,7 +185,8 @@ def main():
         "test_loss": float(test_loss),
         "class_accuracies": {k: float(v) for k, v in class_accuracies.items()},
         "num_test_samples": int(len(X_test)),
-        "num_test_subjects": int(len(test_subs))
+        "num_test_subjects": int(len(test_subs)),
+        "dataset_names": test_dataset_names
     }
     print("\nJSON_RESULT:" + json.dumps(result))
 

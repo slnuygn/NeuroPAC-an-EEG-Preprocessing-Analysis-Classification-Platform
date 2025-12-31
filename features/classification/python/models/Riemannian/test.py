@@ -77,6 +77,7 @@ def main():
     
     y = y_meta['condition']
     subject_ids = y_meta['subject_id']
+    dataset_names = y_meta['dataset_name']  # Extract dataset names
     nb_classes = len(np.unique(y))
     
     # -------------------------------------------------------------------------
@@ -99,6 +100,8 @@ def main():
     test_mask = np.isin(subject_ids, test_subs)
     X_test = X[test_mask]
     y_test = y[test_mask]
+    test_dataset_names = [dataset_names[i] for i in range(len(dataset_names)) if test_mask[i]]  # Extract test dataset names
+    test_dataset_names = [dataset_names[i] for i in range(len(dataset_names)) if test_mask[i]]  # Extract test dataset names
     
     print(f"\nTest Set: {X_test.shape} samples ({len(test_subs)} subjects)")
     
@@ -139,7 +142,8 @@ def main():
         "test_accuracy": float(test_accuracy),
         "class_accuracies": {k: float(v) for k, v in class_accuracies.items()},
         "num_test_samples": int(len(X_test)),
-        "num_test_subjects": int(len(test_subs))
+        "num_test_subjects": int(len(test_subs)),
+        "dataset_names": test_dataset_names
     }
     print("\nJSON_RESULT:" + json.dumps(result))
 

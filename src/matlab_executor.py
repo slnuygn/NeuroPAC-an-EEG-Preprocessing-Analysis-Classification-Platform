@@ -2124,14 +2124,138 @@ class MatlabExecutor(QObject):
             browser_thread = threading.Thread(target=run_matlab_browser)
             browser_thread.daemon = True
             browser_thread.start()
-            
-            # Immediate feedback to user
-            self.configSaved.emit("Launching ICA component browser in MATLAB...\nThis may take a moment to start.\nEach subject will display in a separate window.\nPress any key in MATLAB to proceed between subjects.")
-            
+
+
+            # MATLAB prefers forward slashes
+            select_dir_unix = select_dir.replace("\\", "/")
+            data_path_unix = normalized.replace("\\", "/")
+            selections_unix = selections_path.replace("\\", "/")
+
+            matlab_command = (
+                "cd('" + select_dir_unix + "'); "
+                "addpath('" + select_dir_unix + "'); "
+                "try, "
+                "select_time_range('" + classifier_name + "','" + analysis_name + "','" + data_path_unix + "','" + selections_unix + "'); "
+                "catch e, disp(getReport(e)); exit(1); end; exit(0);"
+            )
+
+            print(f"Running select_time_range for {classifier_name} / {analysis_name} in {data_path_unix}")
+
+            result = subprocess.run(
+                [matlab_path, "-batch", matlab_command],
+                capture_output=True,
+                text=True,
+                cwd=select_dir,
+                timeout=600
+            )
+
+            stdout = result.stdout or ""
+            stderr = result.stderr or ""
+            print(f"select_time_range returncode={result.returncode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")
+
+            if result.returncode == 0:
+                self.configSaved.emit(f"Time range applied for {analysis_name}. Output written to {data_path_unix}.")
+                # Notify file browser to refresh so new *_timeranged folder appears
+                try:
+                    self.fileExplorerRefresh.emit()
+                except Exception:
+                    pass
+                return True
+            else:
+                msg = f"Time range selection failed (code {result.returncode}).\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+                self.configSaved.emit(msg)
+                return False
+
+        except subprocess.TimeoutExpired:
+            msg = "Time range selection timed out (10 minutes)."
+            print(msg)
+            self.configSaved.emit(msg)
+            return False
         except Exception as e:
-            error_msg = f"Error launching ICA browser: {str(e)}"
-            print(error_msg)
-            self.configSaved.emit(error_msg)
+            msg = f"Error running select_time_range: {str(e)}"
+            print(msg)
+            self.configSaved.emit(msg)
+            return False
+
+    # ------------------------------------------------------------------
+    # Classification: select_time_range helper
+    # ------------------------------------------------------------------
+
+    @pyqtSlot(str, str, str, result=bool)
+    def runSelectTimeRange(self, classifier_name: str, analysis_name: str, data_path: str) -> bool:
+        """Run select_time_range.m for the given classifier/analysis on the specified data folder."""
+        try:
+            if not classifier_name or not analysis_name:
+                self.configSaved.emit("Classifier and analysis are required to select time range.")
+                return False
+
+            # Normalize data path (QML may send file:///)
+            normalized = data_path or self._current_data_dir or ""
+            if normalized.startswith("file:///"):
+                normalized = normalized[8:]
+            elif normalized.startswith("file://"):
+                normalized = normalized[7:]
+            normalized = normalized.strip()
+
+            if not normalized:
+                self.configSaved.emit("No data folder selected. Please choose a folder first.")
+                return False
+
+            matlab_path = r"C:\Program Files\MATLAB\R2023a\bin\matlab.exe"
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            select_dir = os.path.join(project_root, "features", "classification", "matlab")
+            selections_path = os.path.join(project_root, "config", "time_window_selections.json")
+
+            # MATLAB prefers forward slashes
+            select_dir_unix = select_dir.replace("\\", "/")
+            data_path_unix = normalized.replace("\\", "/")
+            selections_unix = selections_path.replace("\\", "/")
+
+            matlab_command = (
+                "cd('" + select_dir_unix + "'); "
+                "addpath('" + select_dir_unix + "'); "
+                "try, "
+                "select_time_range('" + classifier_name + "','" + analysis_name + "','" + data_path_unix + "','" + selections_unix + "'); "
+                "catch e, disp(getReport(e)); exit(1); end; exit(0);"
+            )
+
+            print(f"Running select_time_range for {classifier_name} / {analysis_name} in {data_path_unix}")
+
+            result = subprocess.run(
+                [matlab_path, "-batch", matlab_command],
+                capture_output=True,
+                text=True,
+                cwd=select_dir,
+                timeout=600
+            )
+
+            stdout = result.stdout or ""
+            stderr = result.stderr or ""
+            print(f"select_time_range returncode={result.returncode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")
+
+            if result.returncode == 0:
+                self.configSaved.emit(f"Time range applied for {analysis_name}. Output written to {data_path_unix}.")
+                # Notify file browser to refresh so new *_timeranged folder appears
+                try:
+                    self.fileExplorerRefresh.emit()
+                except Exception:
+                    pass
+                return True
+            else:
+                msg = f"Time range selection failed (code {result.returncode}).\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+                self.configSaved.emit(msg)
+                return False
+
+        except subprocess.TimeoutExpired:
+            msg = "Time range selection timed out (10 minutes)."
+            print(msg)
+            self.configSaved.emit(msg)
+            return False
+        except Exception as e:
+            msg = f"Error running select_time_range: {str(e)}"
+            print(msg)
+            self.configSaved.emit(msg)
+            return False
     
     @pyqtSlot()
     def executeMatlabScript(self):

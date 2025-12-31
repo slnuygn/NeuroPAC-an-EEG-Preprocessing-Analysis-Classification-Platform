@@ -108,11 +108,19 @@ Item {
         if (firstValueInput && !firstValueInput.activeFocus) {
             firstValueInput.text = formatValue(firstValue)
         }
+        // Also update the slider handle position
+        if (rangeSlider && rangeSlider.first.value !== firstValue) {
+            rangeSlider.first.value = firstValue
+        }
     }
 
     onSecondValueChanged: {
         if (secondValueInput && !secondValueInput.activeFocus) {
             secondValueInput.text = formatValue(secondValue)
+        }
+        // Also update the slider handle position
+        if (rangeSlider && rangeSlider.second.value !== secondValue) {
+            rangeSlider.second.value = secondValue
         }
     }
 

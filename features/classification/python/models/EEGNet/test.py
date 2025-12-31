@@ -101,12 +101,29 @@ def main():
     groups = groups[valid_group_mask]
     subject_ids = subject_ids[valid_group_mask]
     X = X[valid_group_mask]
+    # Extract dataset names using direct array indexing with boolean mask
+    dataset_names = [y['dataset_name'][i] for i in range(len(valid_group_mask)) if valid_group_mask[i]]
+
+    # Validate conditions are within expected range (0, 1, 2 for target, standard, novelty)
+    valid_condition_mask = np.isin(conditions, np.arange(3))  # 3 conditions: target, standard, novelty
+    if not np.all(valid_condition_mask):
+        dropped = np.sum(~valid_condition_mask)
+        print(f"Warning: Dropping {dropped} samples with invalid condition ids")
+        conditions = conditions[valid_condition_mask]
+        groups = groups[valid_condition_mask]
+        subject_ids = subject_ids[valid_condition_mask]
+        X = X[valid_condition_mask]
+        dataset_names = [dataset_names[i] for i, valid in enumerate(valid_condition_mask) if valid]
 
     combined_labels = conditions * group_count + groups
     nb_classes = len(np.unique(combined_labels))
     if nb_classes <= 1:
         print("Error: Need at least two combined classes to evaluate.")
         sys.exit(1)
+    
+    # Debug: Print combined labels range
+    print(f"Combined labels range: {np.min(combined_labels)} to {np.max(combined_labels)}")
+    print(f"Expected nb_classes: {nb_classes} (3 conditions × {group_count} groups = {3 * group_count})")
     
     # -------------------------------------------------------------------------
     # 3. Split Data (Same as training - MUST use same random_state!)
@@ -129,7 +146,14 @@ def main():
     test_mask = np.isin(subject_ids, test_subs)
     X_test = X[test_mask]
     y_test_combined = combined_labels[test_mask]
+    
+    # Validate test labels before conversion
+    if np.max(y_test_combined) >= nb_classes or np.min(y_test_combined) < 0:
+        print(f"Error: Invalid test labels. Range: {np.min(y_test_combined)} to {np.max(y_test_combined)}, but nb_classes={nb_classes}")
+        sys.exit(1)
+    
     y_test_cat = to_categorical(y_test_combined, num_classes=nb_classes)
+    test_dataset_names = [dataset_names[i] for i in range(len(test_mask)) if test_mask[i]]  # Extract test dataset names
     test_groups = groups[test_mask]
     group_name_lookup = {idx: name for idx, name in enumerate(group_list)}
     group_counts = {}
@@ -198,7 +222,8 @@ def main():
         "num_test_samples": int(len(X_test)),
         "num_test_subjects": int(len(test_subs)),
         "group_counts": group_counts,
-        "subject_group_labels": subject_group_labels
+        "subject_group_labels": subject_group_labels,
+        "dataset_names": test_dataset_names  # Already a list
     }
     print("\nJSON_RESULT:" + json.dumps(result))
 
