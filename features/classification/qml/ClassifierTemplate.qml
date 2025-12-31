@@ -31,6 +31,7 @@ Item {
     property real timeWindowMin: -1.0  // Dynamic minimum based on analysis
     property real timeWindowMax: 2.0   // Dynamic maximum based on analysis
     property var analysisTimeSelections: ({})  // Per-classifier + analysis selected ranges
+    property bool timeWindowProgrammaticUpdate: false  // Skip persistence while we sync from disk
     
     // Format: [defaultStart, defaultEnd, minBound, maxBound]
     property var analysisTimeRanges: ({
@@ -93,6 +94,41 @@ Item {
             }
         }
         return null
+    }
+
+    function normalizeKey(cls, ana) {
+        var c = cls ? cls.toString() : ""
+        var a = ana ? ana.toString() : ""
+        return (c + "::" + a)
+            .toLowerCase()
+            .replace(/[_\s]+/g, " ")
+            .trim()
+    }
+
+    function findExistingKeyFor(cls, ana) {
+        if (!analysisTimeSelections) return null
+        var target = normalizeKey(cls, ana)
+        var ks = Object.keys(analysisTimeSelections)
+        for (var i = 0; i < ks.length; i++) {
+            var candidate = ks[i]
+            var norm = candidate.toLowerCase().replace(/[_\s]+/g, " ").trim()
+            if (norm === target) {
+                return candidate
+            }
+        }
+        return null
+    }
+
+    function applyTimeWindowRange(start, end) {
+        // Update slider values without persisting back to disk
+        timeWindowProgrammaticUpdate = true
+        timeWindowStart = Number(start)
+        timeWindowEnd = Number(end)
+        if (timeWindowSlider) {
+            timeWindowSlider.firstValue = timeWindowStart
+            timeWindowSlider.secondValue = timeWindowEnd
+        }
+        Qt.callLater(function() { timeWindowProgrammaticUpdate = false })
     }
 
     function savePersistedTimeSelections() {
@@ -213,6 +249,9 @@ Item {
     function loadConfigurationForAnalysis(analysisName) {
         if (!classifierName || !analysisName) return;
         
+        // Reload persisted time selections to get latest values from JSON file
+        loadPersistedTimeSelections();
+        
         try {
             var jsonStr = classificationController.getParamsForAnalysis(classifierName, analysisName);
             var params = JSON.parse(jsonStr);
@@ -221,33 +260,22 @@ Item {
             // Set time window using saved selection per classifier+analysis; fallback to defaults
             var cleanName = analysisName ? analysisName.trim() : "";
             var defaultRange = analysisTimeRanges[cleanName] || [-0.2, 1.0, -1.0, 2.0];
-            var timeKey = classifierName + "::" + cleanName;
+            var existingKey = findExistingKeyFor(classifierName, cleanName)
+            var timeKey = existingKey ? existingKey : (classifierName + "::" + cleanName);
             var savedRange = getSavedRangeFor(cleanName);
 
             timeWindowMin = defaultRange[2];
             timeWindowMax = defaultRange[3];
 
             if (savedRange && savedRange.length === 2) {
-                timeWindowStart = Number(savedRange[0]);
-                timeWindowEnd = Number(savedRange[1]);
+                applyTimeWindowRange(savedRange[0], savedRange[1]);
+                analysisTimeSelections[timeKey] = [Number(savedRange[0]), Number(savedRange[1])];
+                console.log("Loaded persisted time window for " + timeKey + ": [" + timeWindowStart + ", " + timeWindowEnd + "]");
             } else {
-                timeWindowStart = defaultRange[0];
-                timeWindowEnd = defaultRange[1];
-                analysisTimeSelections[timeKey] = [timeWindowStart, timeWindowEnd];
-                savePersistedTimeSelections();
+                applyTimeWindowRange(defaultRange[0], defaultRange[1]);
+                analysisTimeSelections[timeKey] = [Number(defaultRange[0]), Number(defaultRange[1])];
+                console.log("No persisted time window for " + timeKey + ", using defaults (not persisted) : [" + timeWindowStart + ", " + timeWindowEnd + "]");
             }
-            // Force slider bindings to refresh after programmatic update
-            Qt.callLater(function() {
-                var start = Number(timeWindowStart)
-                var end = Number(timeWindowEnd)
-                timeWindowStart = start
-                timeWindowEnd = end
-                // Also directly update the slider if it exists
-                if (timeWindowSlider) {
-                    timeWindowSlider.firstValue = start
-                    timeWindowSlider.secondValue = end
-                }
-            })
             
             console.log("Loaded config for " + classifierName + " - " + analysisName + ":", Object.keys(configParameters).length, "parameters");
         } catch (e) {
@@ -376,18 +404,19 @@ Item {
                 // Force slider to sync when it becomes visible
                 onVisibleChanged: {
                     if (visible) {
-                        Qt.callLater(function() {
-                            timeWindowSlider.firstValue = timeWindowStart
-                            timeWindowSlider.secondValue = timeWindowEnd
-                        })
+                        applyTimeWindowRange(timeWindowStart, timeWindowEnd)
                     }
                 }
                 
                 onRangeChanged: function(firstVal, secondVal) {
                     timeWindowStart = firstVal
                     timeWindowEnd = secondVal
+                    if (timeWindowProgrammaticUpdate) {
+                        return
+                    }
                     if (selectedAnalysis && selectedAnalysis !== "") {
-                        var timeKey = classifierName + "::" + selectedAnalysis
+                        var existing = findExistingKeyFor(classifierName, selectedAnalysis)
+                        var timeKey = existing ? existing : (classifierName + "::" + selectedAnalysis)
                         analysisTimeSelections[timeKey] = [firstVal, secondVal]
                         savePersistedTimeSelections()
                     }
@@ -598,12 +627,14 @@ Item {
                             // Kick off MATLAB time range selection for this classifier/analysis
                             if (typeof matlabExecutor !== "undefined" && matlabExecutor) {
                                 var folderPath = currentFolderPath || ""
-                                classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Applying time window for " + selectedAnalysis + "...")
+                                var startMsg = "[" + new Date().toLocaleTimeString() + "] Applying time window for " + selectedAnalysis + "..."
+                                classifyLogs.push(startMsg)
+                                classifyLogs = classifyLogs.slice()
                                 matlabExecutor.runSelectTimeRange(classifierName, selectedAnalysis, folderPath)
                             } else {
                                 classifyLogs.push("[" + new Date().toLocaleTimeString() + "] matlabExecutor not available; cannot apply time window.")
+                                classifyLogs = classifyLogs.slice()
                             }
-                            classifyLogs = classifyLogs.slice()
                         }
                     }
                 }

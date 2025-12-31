@@ -1,11 +1,11 @@
 {
   "EEG-Inception::Intertrial Coherence Analysis": [
-    -0.2,
+    0,
     0.8000000000000003
   ],
   "EEG-Inception::Time-Frequency Analysis": [
     0,
-    0.8999999999999999
+    0.8
   ],
   "EEGNet::ERP Analysis": [
     0,
@@ -13,10 +13,10 @@
   ],
   "Riemannian::Channel-Wise Connectivity Analysis": [
     0,
-    0.8999999999999999
+    1.0000000000000002
   ],
   "Riemannian::Spectral Analysis": [
     0,
-    0.8999999999999999
+    1
   ]
 }

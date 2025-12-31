@@ -5,6 +5,16 @@ function select_time_range(classifierName, analysisName, dataDir, selectionsPath
 %   latency window stored in SELECTIONSPATH (time_window_selections.json),
 %   and saves the trimmed data to DATADIR/<analysis>_timeranged/<analysis>_output.mat.
 
+% Ensure FieldTrip is on the path (match preprocessing setup)
+if exist('ft_defaults', 'file') ~= 2
+    addpath('C:/FIELDTRIP'); % adjust if your FieldTrip path differs
+end
+if exist('ft_defaults', 'file') == 2
+    ft_defaults;
+else
+    warning('FieldTrip not found on path; ft_selectdata will fail.');
+end
+
 % Defaults for optional arguments
 if nargin < 3 || isempty(dataDir)
     dataDir = pwd;
@@ -19,6 +29,9 @@ end
 % Build the selection key and fallback
 selectionKey = sprintf('%s::%s', classifierName, analysisName);
 defaultWindow = [-0.2, 1.0];
+
+% Map analysis display name to the actual base filename used on disk
+basename = normalize_analysis_name(analysisName);
 
 % Load time window selections
 timeWindow = defaultWindow;
@@ -60,44 +73,45 @@ else
     warning('select_time_range:file', 'Selections file not found: %s', selectionsPath);
 end
 
-% Locate input mat file
-inputMat = fullfile(dataDir, sprintf('%s_output.mat', analysisName));
+% Locate input mat file using normalized basename (handles e.g., timefreq_output.mat)
+inputMat = fullfile(dataDir, sprintf('%s_output.mat', basename));
 if ~exist(inputMat, 'file')
-    error('Input file not found: %s', inputMat);
+    error('Input file not found: %s (expected for analysis "%s")', inputMat, analysisName);
 end
 
-% Discover variable name without loading everything into memory
-varsInfo = whos('-file', inputMat);
-if isempty(varsInfo)
+% Load whole file (v7 files do not support efficient matfile partial load); keep it simple
+S = load(inputMat);
+if isempty(fieldnames(S))
     error('No variables found in %s', inputMat);
 end
-varName = varsInfo(1).name;
 
-% Prepare output folder and matfile for incremental writes
-outDir = fullfile(dataDir, sprintf('%s_timeranged', analysisName));
+% Grab first variable as the analysis data
+vars = fieldnames(S);
+varName = vars{1};
+dataStruct = S.(varName);
+
+if ~isstruct(dataStruct)
+    error('Expected struct data in %s; got %s', inputMat, class(dataStruct));
+end
+
+outDir = fullfile(dataDir, sprintf('%s_timeranged', basename));
 if ~exist(outDir, 'dir')
     mkdir(outDir);
 end
-outputMat = fullfile(outDir, sprintf('%s_output.mat', analysisName));
+outputMat = fullfile(outDir, sprintf('%s_output.mat', basename));
 if exist(outputMat, 'file')
     delete(outputMat);
 end
-
-inMat = matfile(inputMat, 'Writable', false);
-outMat = matfile(outputMat, 'Writable', true);
 
 cfg = [];
 cfg.latency = timeWindow;
 conds = {'target', 'standard', 'novelty'};
 
-% Determine number of entries without loading all data
-dataSize = size(inMat, varName);
-numEntries = prod(dataSize);
+numEntries = numel(dataStruct);
+resultStruct = dataStruct; % preallocate same shape
 
-for i = 1:numEntries
-    % Pull one element at a time to limit memory
-    analysisEntry = inMat.(varName)(i);
-    
+for idx = 1:numEntries
+    analysisEntry = dataStruct(idx);
     if ~isstruct(analysisEntry)
         error('Expected struct data in %s; got %s', inputMat, class(analysisEntry));
     end
@@ -108,15 +122,50 @@ for i = 1:numEntries
             try
                 analysisEntry.(condName) = ft_selectdata(cfg, analysisEntry.(condName));
             catch err
-                warning('select_time_range:ft', 'ft_selectdata failed for %s(%d).%s: %s', analysisName, i, condName, err.message);
+                warning('select_time_range:ft', 'ft_selectdata failed for %s(%d).%s: %s', analysisName, idx, condName, err.message);
             end
         end
     end
     
-    % Incrementally write the processed entry to output
-    outMat.(varName)(i,1) = analysisEntry; %#ok<NASGU>
+    resultStruct(idx) = analysisEntry;
 end
 
+% Save with -v7.3 to support future partial loading if needed
+payload = struct();
+payload.(varName) = resultStruct;  % Preserve original variable name (e.g., timefreq_data)
+save(outputMat, '-struct', 'payload', '-v7.3');
+
 fprintf('Saved time-ranged data to %s with window [%.3f %.3f]\n', outputMat, timeWindow(1), timeWindow(2));
+end
+
+% -------------------------------------------------------------------------
+function basename = normalize_analysis_name(analysisName)
+%NORMALIZE_ANALYSIS_NAME Map display names to file basenames used on disk.
+
+if nargin < 1 || isempty(analysisName)
+    basename = 'analysis';
+    return
+end
+
+key = lower(strtrim(analysisName));
+switch key
+    case {'erp analysis', 'erp'}
+        basename = 'erp';
+    case {'spectral analysis', 'spectral'}
+        basename = 'spectral';
+    case {'time-frequency analysis', 'time frequency analysis', 'time-frequency'}
+        basename = 'timefreq';
+    case {'intertrial coherence analysis', 'inter-trial coherence analysis', 'intertrial analysis', 'inter-trial analysis'}
+        basename = 'intertrial_coherence';
+    case {'channel-wise connectivity analysis', 'channel wise connectivity analysis', 'channel-wise coherence analysis', 'channel wise coherence analysis'}
+        basename = 'channelwise_coherence';
+    otherwise
+        % Fallback: sanitize to a filesystem-friendly token
+        basename = regexprep(key, '\s+', '_');
+        basename = regexprep(basename, '[^a-z0-9_]+', '');
+        if isempty(basename)
+            basename = 'analysis';
+        end
+end
 end
 
