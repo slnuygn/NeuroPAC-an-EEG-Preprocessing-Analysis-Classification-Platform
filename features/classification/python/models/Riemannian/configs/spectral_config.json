@@ -1,9 +1,25 @@
 {
-    "estimator": "scm",
+    "estimator": "oas",
     "metric": "riemann",
     "kernel": "linear",
-    "C": 1.0,
+    "C": 0.05,
     "use_mdm": false,
-    "test_size": 0.3,
-    "random_state": 42
+    "use_deep": true,
+    "enable_grid_search": false,
+    "test_size": 0.8,
+    "val_split": 0.6,
+    "random_state": 42,
+    "hidden_dims": [
+        64,
+        32
+    ],
+    "dropout": 0.65,
+    "input_dropout": 0.2,
+    "lr": 0.0003,
+    "max_epochs": 50,
+    "batch_size": 128,
+    "weight_decay": 0.001,
+    "patience": 7,
+    "train_split": 0.25,
+    "label_smoothing": 0.1
 }

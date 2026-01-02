@@ -8,7 +8,8 @@ from tensorflow import keras
 
 def EEGInception(input_time=1000, fs=128, ncha=8, filters_per_branch=8,
                  scales_time=(500, 250, 125), dropout_rate=0.25,
-                 activation='elu', n_classes=2, learning_rate=0.001):
+                 activation='elu', n_classes=2, learning_rate=0.001,
+                 input_samples=None):
     """Keras implementation of EEG-Inception. All hyperparameters and
     architectural choices are explained in the original article:
 
@@ -35,6 +36,10 @@ def EEGInception(input_time=1000, fs=128, ncha=8, filters_per_branch=8,
         Number of output classes
     learning_rate : float
         Learning rate
+    input_samples : int or None
+        If provided, use this as the number of input samples directly,
+        bypassing the input_time * fs / 1000 calculation. Useful for
+        time-frequency data where the "time" dimension is actually frequency bins.
 
     Returns
     -------
@@ -44,14 +49,12 @@ def EEGInception(input_time=1000, fs=128, ncha=8, filters_per_branch=8,
     """
 
     # ============================= CALCULATIONS ============================= #
-    if input_time is not None and fs is not None:
-        input_samples = int(input_time * fs / 1000)
-    # If input_samples is passed directly (e.g. for TF analysis where time is bins)
-    # We assume the caller handles it. But here we only have input_time in signature.
-    # Let's assume if fs is None, input_time IS input_samples.
-    
-    # However, to keep signature clean, let's stick to the calculation but allow
-    # scales_samples to be passed if we want custom kernel sizes.
+    if input_samples is None:
+        if input_time is not None and fs is not None:
+            input_samples = int(input_time * fs / 1000)
+        else:
+            raise ValueError("Either input_samples or both input_time and fs must be provided")
+    # If input_samples is passed directly, use it as-is
     
     scales_samples = [int(s * fs / 1000) for s in scales_time]
 
@@ -81,13 +84,18 @@ def EEGInception(input_time=1000, fs=128, ncha=8, filters_per_branch=8,
 
     # Concatenation
     b1_out = keras.layers.concatenate(b1_units, axis=3)
-    b1_out = AveragePooling2D((4, 1))(b1_out)
+    
+    # Adaptive pooling - use smaller pool size for short sequences
+    pool1_size = min(4, max(1, input_samples // 8))
+    b1_out = AveragePooling2D((pool1_size, 1))(b1_out)
 
     # ========================== BLOCK 2: INCEPTION ========================== #
     b2_units = list()
     for i in range(len(scales_samples)):
+        # Ensure kernel size is at least 1
+        kernel_size = max(1, int(scales_samples[i]/4))
         unit = Conv2D(filters=filters_per_branch,
-                      kernel_size=(int(scales_samples[i]/4), 1),
+                      kernel_size=(kernel_size, 1),
                       kernel_initializer='he_normal',
                       use_bias=False,
                       padding='same')(b1_out)
@@ -99,27 +107,37 @@ def EEGInception(input_time=1000, fs=128, ncha=8, filters_per_branch=8,
 
     # Concatenate + Average pooling
     b2_out = keras.layers.concatenate(b2_units, axis=3)
-    b2_out = AveragePooling2D((2, 1))(b2_out)
+    pool2_size = min(2, max(1, input_samples // (pool1_size * 4)))
+    b2_out = AveragePooling2D((pool2_size, 1))(b2_out)
 
     # ============================ BLOCK 3: OUTPUT =========================== #
+    # Reduce kernel sizes for short sequences
+    kernel3_1 = min(8, max(1, input_samples // (pool1_size * pool2_size * 2)))
     b3_u1 = Conv2D(filters=int(filters_per_branch*len(scales_samples)/2),
-                   kernel_size=(8, 1),
+                   kernel_size=(kernel3_1, 1),
                    kernel_initializer='he_normal',
                    use_bias=False,
                    padding='same')(b2_out)
     b3_u1 = BatchNormalization()(b3_u1)
     b3_u1 = Activation(activation)(b3_u1)
-    b3_u1 = AveragePooling2D((2, 1))(b3_u1)
+    # Skip pooling if sequence is too short
+    current_size = input_samples // (pool1_size * pool2_size)
+    if current_size > 2:
+        b3_u1 = AveragePooling2D((2, 1))(b3_u1)
+        current_size = current_size // 2
     b3_u1 = Dropout(dropout_rate)(b3_u1)
 
+    kernel3_2 = min(4, max(1, current_size))
     b3_u2 = Conv2D(filters=int(filters_per_branch*len(scales_samples)/4),
-                   kernel_size=(4, 1),
+                   kernel_size=(kernel3_2, 1),
                    kernel_initializer='he_normal',
                    use_bias=False,
                    padding='same')(b3_u1)
     b3_u2 = BatchNormalization()(b3_u2)
     b3_u2 = Activation(activation)(b3_u2)
-    b3_u2 = AveragePooling2D((2, 1))(b3_u2)
+    # Skip pooling if sequence is too short
+    if current_size > 2:
+        b3_u2 = AveragePooling2D((2, 1))(b3_u2)
     b3_out = Dropout(dropout_rate)(b3_u2)
 
     # Output layer

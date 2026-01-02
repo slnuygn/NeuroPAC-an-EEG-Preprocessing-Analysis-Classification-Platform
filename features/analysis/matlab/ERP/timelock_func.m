@@ -181,25 +181,29 @@ for batchStart = 1:batchSize:numTrials
     for i = batchStart:batchEnd
         fprintf('  Timelock analysis for subject %d/%d\n', i, numTrials);
         
-        if isfield(data_decomposed(i), 'target_data') && ~isempty(data_decomposed(i).target_data)
-            fprintf('    Processing target_data...\n');
-            ERP_data(i).target = ft_timelockanalysis(cfg, data_decomposed(i).target_data);
+        target_data = get_condition(data_decomposed(i), 'target');
+        standard_data = get_condition(data_decomposed(i), 'standard');
+        novelty_data = get_condition(data_decomposed(i), 'novelty');
+        
+        if ~isempty(target_data)
+            fprintf('    Processing target...\n');
+            ERP_data(i).target = ft_timelockanalysis(cfg, target_data);
         else
-            fprintf('    Skipping target_data (missing or empty)\n');
+            fprintf('    Skipping target (missing or empty)\n');
         end
         
-        if isfield(data_decomposed(i), 'standard_data') && ~isempty(data_decomposed(i).standard_data)
-            fprintf('    Processing standard_data...\n');
-            ERP_data(i).standard = ft_timelockanalysis(cfg, data_decomposed(i).standard_data);
+        if ~isempty(standard_data)
+            fprintf('    Processing standard...\n');
+            ERP_data(i).standard = ft_timelockanalysis(cfg, standard_data);
         else
-            fprintf('    Skipping standard_data (missing or empty)\n');
+            fprintf('    Skipping standard (missing or empty)\n');
         end
         
-        if isfield(data_decomposed(i), 'novelty_data') && ~isempty(data_decomposed(i).novelty_data)
-            fprintf('    Processing novelty_data...\n');
-            ERP_data(i).novelty = ft_timelockanalysis(cfg, data_decomposed(i).novelty_data);
+        if ~isempty(novelty_data)
+            fprintf('    Processing novelty...\n');
+            ERP_data(i).novelty = ft_timelockanalysis(cfg, novelty_data);
         else
-            fprintf('    Skipping novelty_data (missing or empty)\n');
+            fprintf('    Skipping novelty (missing or empty)\n');
         end
     end
     fprintf('--- Batch %d complete ---\n', batchNum);
@@ -244,6 +248,18 @@ end
 outputPath = fullfile(dataFolder, 'erp_output.mat');
 save(outputPath, 'ERP_data', 'erp_records');
 fprintf('ERP analysis results saved to %s\n', outputPath);
+end
+
+function data = get_condition(rec, base)
+% Returns the condition data for 'target', 'standard', or 'novelty',
+% accepting either *_data field names or plain names used by newer pipelines.
+if isfield(rec, [base '_data']) && ~isempty(rec.([base '_data']))
+    data = rec.([base '_data']);
+elseif isfield(rec, base) && ~isempty(rec.(base))
+    data = rec.(base);
+else
+    data = [];
+end
 end
 
 function out = sanitize_erp_record(src, template)

@@ -49,6 +49,13 @@ except ImportError:
     # Fallback for running script directly
     from model import EEGNet
 
+# Explicitly disable post-run results folder/plots to avoid writing extra files
+create_results_folder = None
+save_metrics_json = None
+generate_confusion_matrix_plot = None
+generate_training_history_plot = None
+generate_class_metrics_plot = None
+
 # Set image data format to channels_last
 K.set_image_data_format('channels_last')
 
@@ -61,6 +68,28 @@ def load_config(config_path):
                 return {}
             return json.loads(content)
     return {}
+
+def extract_unique_groups(selected_classes):
+    """Extract unique group names from selected_classes list.
+    
+    Examples:
+    - ["PD_target", "PD_standard"] -> ["PD"]
+    - ["PD_target", "CTL_standard"] -> ["PD", "CTL"]
+    - None or [] -> None
+    """
+    if not selected_classes or len(selected_classes) == 0:
+        return None
+    
+    unique_groups = set()
+    for class_str in selected_classes:
+        if '_' in class_str:
+            group = class_str.split('_')[0]
+            unique_groups.add(group)
+    
+    if len(unique_groups) == 0:
+        return None
+    
+    return sorted(list(unique_groups))
 
 def main():
     # -------------------------------------------------------------------------
@@ -104,6 +133,16 @@ def main():
     
     # Analysis type mapping (EEGNet uses same key for bridge)
     analysis_type = analysis_mode  # 'erp' -> 'erp'
+    
+    # Parse selected_classes from command line argument
+    selected_classes = None
+    if len(sys.argv) > 3:
+        try:
+            selected_classes = json.loads(sys.argv[3])
+            print(f"Selected classes: {selected_classes}")
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"Warning: Could not parse selected_classes: {e}")
+            selected_classes = None
 
     # -------------------------------------------------------------------------
     # 2. Load Data using Bridge
@@ -123,6 +162,35 @@ def main():
         return
 
     print(f"Data Loaded. Original Shape: {X.shape}")
+    
+    # Apply class filtering if selected classes provided
+    if selected_classes and len(selected_classes) > 0:
+        print(f"Filtering data for selected classes: {selected_classes}")
+        try:
+            # Extract the lists for filtering
+            group_labels = y.get('group', [])
+            condition_labels = y.get('condition', [])
+            
+            # Use the filter method from bridge
+            X_filtered, group_filtered, condition_filtered, kept_indices = bridge.filter_by_selected_classes(
+                X, group_labels, condition_labels, selected_classes
+            )
+            
+            if len(X_filtered) > 0:
+                X = np.array(X_filtered)
+                # Update y dict with filtered values as numpy arrays
+                y['group'] = np.array(group_filtered)
+                y['condition'] = np.array(condition_filtered)
+                # Filter subject_id using kept_indices
+                if 'subject_id' in y and isinstance(y['subject_id'], (list, np.ndarray)):
+                    original_ids = y['subject_id'] if isinstance(y['subject_id'], list) else y['subject_id'].tolist()
+                    y['subject_id'] = np.array([original_ids[i] for i in kept_indices])
+                print(f"After filtering: {len(X)} samples selected")
+            else:
+                print("Warning: Filtering resulted in no samples. Using all classes.")
+        except Exception as e:
+            print(f"Warning: Could not filter data by selected classes: {e}")
+            print("Proceeding with all classes.")
     
     # Transpose to (Batch, Channels, Time, 1) for Keras channels_last
     # Input is (Batch, 1, Channels, Time) -> (Batch, Channels, Time, 1)
@@ -157,7 +225,20 @@ def main():
         subject_ids = subject_ids[valid_group_mask]
 
     combined_labels = conditions * group_count + groups
-    nb_classes_data = len(np.unique(combined_labels))
+    
+    # Get unique classes actually present in the filtered data
+    unique_class_indices = np.unique(combined_labels)
+    nb_classes_data = len(unique_class_indices)
+    
+    # Remap labels to contiguous range [0, nb_classes-1] for the model
+    label_mapping = {old_idx: new_idx for new_idx, old_idx in enumerate(unique_class_indices)}
+    combined_labels = np.array([label_mapping[label] for label in combined_labels])
+    
+    nb_classes = nb_classes_data
+    
+    print(f"Number of classes after filtering: {nb_classes}")
+    print(f"Class indices present: {unique_class_indices.tolist()}")
+    
     if nb_classes_data <= 1:
         print("Error: Need at least two combined classes to train.")
         return
@@ -231,10 +312,16 @@ def main():
     model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
     model.summary()
 
-    # Checkpoint to save best model in data folder with naming: EEGNet_{analysis}_weights_best.keras
-    weights_filename = f"EEGNet_{analysis_mode}_weights_best.keras"
+    # Create checkpoint path in data folder (no results subfolder)
+    # Checkpoint to save best model with naming: EEGNet_{analysis}_g{groups}_weights_best.keras
+    unique_groups = extract_unique_groups(selected_classes)
+    if unique_groups:
+        groups_str = "_".join(unique_groups)
+        weights_filename = f"EEGNet_{analysis_mode}_g{groups_str}_weights_best.keras"
+    else:
+        weights_filename = f"EEGNet_{analysis_mode}_weights_best.keras"
+    
     checkpoint_path = os.path.join(data_folder, weights_filename)
-    os.makedirs(data_folder, exist_ok=True)
     
     checkpointer = ModelCheckpoint(filepath=checkpoint_path, 
                                    verbose=1, 
@@ -287,6 +374,11 @@ def main():
     else:
         print("Test set skipped (not enough subjects)")
     print("="*50)
+    
+    # -------------------------------------------------------------------------
+    # 6. Results generation disabled (requested: no results folder or artifacts)
+    # -------------------------------------------------------------------------
+    # Intentionally omitted: metrics JSON, plots, and results folder creation
 
 if __name__ == "__main__":
     main()

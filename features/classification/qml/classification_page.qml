@@ -83,9 +83,10 @@ Item {
                     currentFolderContents: fileExplorerRect.folderContents
                     currentFolderPath: fileExplorerRect.currentFolder
                     subjectListModel: fileExplorerRect.labelListModel
-                    onClassifyClicked: function(classifier, analysis) {
+                    onClassifyClicked: function(classifier, analysis, selectedClasses, configParams) {
                         console.log("Requesting " + classifier + " classification with " + analysis)
-                        classificationController.startClassification(classifier, analysis)
+                        console.log("Selected classes:", selectedClasses)
+                        classificationController.startClassification(classifier, analysis, selectedClasses, configParams)
                     }
                     onTestClassifierClicked: function(classifier, analysis, weightsPath) {
                         console.log("Testing " + classifier + " with analysis " + analysis + " using weights: " + weightsPath)
@@ -99,9 +100,10 @@ Item {
                     currentFolderContents: fileExplorerRect.folderContents
                     currentFolderPath: fileExplorerRect.currentFolder
                     subjectListModel: fileExplorerRect.labelListModel
-                    onClassifyClicked: function(classifier, analysis) {
+                    onClassifyClicked: function(classifier, analysis, selectedClasses, configParams) {
                         console.log("Requesting " + classifier + " classification with " + analysis)
-                        classificationController.startClassification(classifier, analysis)
+                        console.log("Selected classes:", selectedClasses)
+                        classificationController.startClassification(classifier, analysis, selectedClasses, configParams)
                     }
                     onTestClassifierClicked: function(classifier, analysis, weightsPath) {
                         console.log("Testing " + classifier + " with analysis " + analysis + " using weights: " + weightsPath)
@@ -115,9 +117,10 @@ Item {
                     currentFolderContents: fileExplorerRect.folderContents
                     currentFolderPath: fileExplorerRect.currentFolder
                     subjectListModel: fileExplorerRect.labelListModel
-                    onClassifyClicked: function(classifier, analysis) {
+                    onClassifyClicked: function(classifier, analysis, selectedClasses, configParams) {
                         console.log("Requesting " + classifier + " classification with " + analysis)
-                        classificationController.startClassification(classifier, analysis)
+                        console.log("Selected classes:", selectedClasses)
+                        classificationController.startClassification(classifier, analysis, selectedClasses, configParams)
                     }
                     onTestClassifierClicked: function(classifier, analysis, weightsPath) {
                         console.log("Testing " + classifier + " with analysis " + analysis + " using weights: " + weightsPath)

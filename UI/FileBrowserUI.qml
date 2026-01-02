@@ -25,12 +25,12 @@ Item {
     signal fieldtripPathRequested()
     signal dataDirectoryUpdateRequested(string path)
     
-    // Signal for file left-click
-    signal fileLeftClicked(string fileName, string displayName)
-    // Signal for clicking specifically a data .mat file
-    signal fileMatClicked(string fileName, string fullPath, string displayName)
+    // Signal to refresh folder contents from external source
+    signal externalRefreshRequested()
     
-    // Signal for file right-click (for context menu)
+    // Signals for file operations (existing)
+    signal fileLeftClicked(string fileName, string displayName)
+    signal fileMatClicked(string fileName, string fullPath, string displayName)
     signal fileRightClicked(string cleanFilename, string fullPath, bool isMatFile, real mouseX, real mouseY)
     signal fieldtripPathUpdateRequested(string path)
     
@@ -91,6 +91,11 @@ Item {
             fileBrowser.refreshCurrentFolder()
         }
         refreshRequested()
+    }
+    
+    // Function to trigger refresh from external source (e.g., after classification)
+    function refreshFromExternal() {
+        refreshFolderContents()
     }
     
     // Function to save labels to Python

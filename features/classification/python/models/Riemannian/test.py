@@ -98,10 +98,36 @@ def main():
     )
     
     test_mask = np.isin(subject_ids, test_subs)
-    X_test = X[test_mask]
-    y_test = y[test_mask]
-    test_dataset_names = [dataset_names[i] for i in range(len(dataset_names)) if test_mask[i]]  # Extract test dataset names
-    test_dataset_names = [dataset_names[i] for i in range(len(dataset_names)) if test_mask[i]]  # Extract test dataset names
+    X_test_all = X[test_mask]
+    y_test_all = y[test_mask]
+    all_test_dataset_names = [dataset_names[i] for i in range(len(dataset_names)) if test_mask[i]]
+    
+    condition_names = ["Target", "Standard", "Novelty"]
+    
+    # Balanced sampling: equal number of samples per unique label (automatic)
+    print(f"\\nApplying balanced sampling automatically...")
+    unique_labels = np.unique(y_test_all)
+    
+    # Find minimum samples across all labels
+    min_samples_per_label = min(np.sum(y_test_all == label) for label in unique_labels)
+    print(f"Minimum samples per label: {min_samples_per_label}")
+    
+    balanced_indices = []
+    for label in unique_labels:
+        label_indices = np.where(y_test_all == label)[0]
+        # Use all available samples up to min_samples_per_label for balanced classes
+        sampled_indices = np.random.choice(label_indices, size=min_samples_per_label, replace=False)
+        balanced_indices.extend(sampled_indices)
+        label_name = condition_names[label] if label < len(condition_names) else f"Label_{label}"
+        print(f"  {label_name}: {min_samples_per_label} samples")
+    
+    balanced_indices = np.array(balanced_indices)
+    np.random.shuffle(balanced_indices)  # Shuffle to mix labels
+    
+    X_test = X_test_all[balanced_indices]
+    y_test = y_test_all[balanced_indices]
+    test_dataset_names = [all_test_dataset_names[i] for i in balanced_indices]
+    print(f"Total balanced test samples: {len(X_test)}")
     
     print(f"\nTest Set: {X_test.shape} samples ({len(test_subs)} subjects)")
     
@@ -119,12 +145,11 @@ def main():
     
     # Per-class accuracy
     class_accuracies = {}
-    condition_names = ["Target", "Standard", "Novelty"]
     for i in range(nb_classes):
         mask = y_test == i
         if np.sum(mask) > 0:
             class_acc = np.mean(y_pred[mask] == y_test[mask])
-            class_accuracies[condition_names[i]] = class_acc
+            class_accuracies[condition_names[i] if i < len(condition_names) else f"Class_{i}"] = class_acc
     
     # -------------------------------------------------------------------------
     # 5. Print Results

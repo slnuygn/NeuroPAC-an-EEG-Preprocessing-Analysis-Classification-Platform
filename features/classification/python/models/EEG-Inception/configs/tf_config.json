@@ -1,10 +1,17 @@
 {
-    "batch_size": 16,
-    "epochs": 100,
-    "learning_rate": 0.001,
+    "batch_size": 12,
+    "epochs": 200,
+    "learning_rate": 0.002,
     "dropout_rate": 0.25,
-    "filters_per_branch": 8,
-    "scales_time": [500, 250, 125],
+    "filters_per_branch": 12,
+    "scales_time": [
+        6000,
+        4000,
+        2000
+    ],
     "activation": "elu",
-    "fs": 401
+    "fs": 1000,
+    "normalize_data": true,
+    "use_kfold": true,
+    "n_folds": 5
 }

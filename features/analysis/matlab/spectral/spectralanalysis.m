@@ -129,13 +129,12 @@ if hasTargetData || hasTarget
     for s = 1:numSubjects
         for c = 1:3
             baseName = conditionNames{c};
-            if hasTargetData
-                fieldName = [baseName '_data'];
-            else
-                fieldName = baseName;
-            end
-            if isfield(data_decomposed(s), fieldName)
-                subjectData(s).(baseName) = data_decomposed(s).(fieldName);
+            % Prefer *_data when present and non-empty; otherwise fallback to plain field
+            dataField = [baseName '_data'];
+            if isfield(data_decomposed(s), dataField) && ~isempty(data_decomposed(s).(dataField))
+                subjectData(s).(baseName) = data_decomposed(s).(dataField);
+            elseif isfield(data_decomposed(s), baseName) && ~isempty(data_decomposed(s).(baseName))
+                subjectData(s).(baseName) = data_decomposed(s).(baseName);
             end
         end
     end

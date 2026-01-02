@@ -24,6 +24,12 @@ Item {
     property string currentFolderPath: ""  // Track current folder path
     property bool weightsFileExists: false  // Track if weights file exists for current classifier/analysis
     property var subjectListModel: null  // Optional: subjects/patients list from FileBrowser labels
+    property string resultsFolder: ""  // Store path to results folder after classification
+    
+    // Classification class selection properties
+    property var availableClasses: []  // Store available classes/labels for selected analysis
+    property var selectedClasses: ({})  // Store selected classes as {className: true/false}
+    property bool classifyMenuExpanded: false  // Track if classify dropdown is expanded
     
     // Time window properties
     property real timeWindowStart: -0.2
@@ -139,8 +145,9 @@ Item {
         }
     }
     
-    signal classifyClicked(string classifierName, string analysisName)
+    signal classifyClicked(string classifierName, string analysisName, var selectedClasses, var configParams)
     signal testClassifierClicked(string classifierName, string analysisName, string weightsPath)
+    signal classificationComplete(string resultsFolder)  // Emitted when classification finishes
     
     // Function to check if weights file exists for current classifier and analysis
     function checkWeightsFileExists() {
@@ -161,15 +168,18 @@ Item {
             analysisKey = selectedAnalysis.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_\-]/g, '')
         }
 
-        // Build expected filename pattern: ClassifierName_<key>_weights_best.h5
-        var expectedFileName = (classifierName + "_" + analysisKey + "_weights_best.h5").toLowerCase()
+        // Build expected filename pattern: ClassifierName_<key>_*_weights_best.keras
+        // The * can match group names (e.g., gPD_CTL) or nothing for backward compatibility
+        var patternStart = (classifierName + "_" + analysisKey).toLowerCase()
+        var patternEnd = "_weights_best.keras".toLowerCase()
         
         for (var i = 0; i < currentFolderContents.length; i++) {
             var fileName = currentFolderContents[i]
             // Remove any leading emoji/symbols for comparison
             var cleanFileName = fileName.replace(/^[^\w]+/, '').toLowerCase()
             
-            if (cleanFileName === expectedFileName) {
+            // Check if filename matches the pattern: classifier_analysis[_ggroups]_weights_best.keras
+            if (cleanFileName.startsWith(patternStart) && cleanFileName.endsWith(patternEnd)) {
                 weightsFileExists = true
                 console.log("Weights file found:", fileName)
                 return
@@ -194,11 +204,12 @@ Item {
             }
             if (!key || key.length === 0) continue
 
-            var expected = (classifierName + "_" + key + "_weights_best.h5").toLowerCase()
+            var patternStart = (classifierName + "_" + key).toLowerCase()
+            var patternEnd = "_weights_best.keras".toLowerCase()
             for (var i = 0; i < currentFolderContents.length; i++) {
                 var fileName = currentFolderContents[i]
                 var cleanFileName = fileName.replace(/^[^\w]+/, '').toLowerCase()
-                if (cleanFileName === expected) {
+                if (cleanFileName.startsWith(patternStart) && cleanFileName.endsWith(patternEnd)) {
                     selectedAnalysis = display
                     console.log("Auto-selected analysis based on weights:", selectedAnalysis)
                     loadConfigurationForAnalysis(selectedAnalysis)
@@ -212,7 +223,7 @@ Item {
     
     // Function to get the full path of the weights file
     function getWeightsFilePath() {
-        if (!currentFolderPath) return ""
+        if (!currentFolderPath || !currentFolderContents) return ""
         
         // Convert analysis display name to key (e.g., "ERP Analysis" -> "erp")
         var analysisKey = ""
@@ -226,8 +237,19 @@ Item {
             analysisKey = selectedAnalysis.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_\-]/g, '')
         }
         
-        var expectedFileName = classifierName + "_" + analysisKey + "_weights_best.h5"
-        return currentFolderPath + "/" + expectedFileName
+        // Find the weights file that matches the pattern: classifier_analysis[_ggroups]_weights_best.keras
+        var patternStart = (classifierName + "_" + analysisKey).toLowerCase()
+        var patternEnd = "_weights_best.keras".toLowerCase()
+        
+        for (var i = 0; i < currentFolderContents.length; i++) {
+            var fileName = currentFolderContents[i]
+            var cleanFileName = fileName.replace(/^[^\w]+/, '').toLowerCase()
+            
+            if (cleanFileName.startsWith(patternStart) && cleanFileName.endsWith(patternEnd)) {
+                return currentFolderPath + "/" + fileName
+            }
+        }
+        return ""
     }
     
     // Re-check weights when folder contents change
@@ -251,6 +273,9 @@ Item {
         
         // Reload persisted time selections to get latest values from JSON file
         loadPersistedTimeSelections();
+        
+        // Load available classes for this analysis
+        loadAvailableClasses();
         
         try {
             var jsonStr = classificationController.getParamsForAnalysis(classifierName, analysisName);
@@ -295,6 +320,40 @@ Item {
         } catch (e) {
             console.error("Failed to load available analyses for " + classifierName + ":", e);
             availableAnalyses = [];
+        }
+    }
+
+    function loadAvailableClasses() {
+        if (!classifierName || !selectedAnalysis) {
+            availableClasses = [];
+            selectedClasses = ({});
+            return;
+        }
+        
+        try {
+            // Check if the function exists before calling
+            if (typeof classificationController.getClassesForAnalysis === 'function') {
+                var jsonStr = classificationController.getClassesForAnalysis(classifierName, selectedAnalysis);
+                var classes = JSON.parse(jsonStr);
+                availableClasses = classes;
+                
+                // Initialize selectedClasses with all classes selected by default
+                var selected = ({});
+                for (var i = 0; i < classes.length; i++) {
+                    selected[classes[i]] = true;
+                }
+                selectedClasses = selected;
+                console.log("Available classes for " + selectedAnalysis + ":", availableClasses);
+            } else {
+                // Function doesn't exist yet, use empty array
+                console.log("getClassesForAnalysis not available yet, skipping class loading");
+                availableClasses = [];
+                selectedClasses = ({});
+            }
+        } catch (e) {
+            console.error("Failed to load available classes for " + selectedAnalysis + ":", e);
+            availableClasses = [];
+            selectedClasses = ({});
         }
     }
 
@@ -450,7 +509,13 @@ Item {
                     onValueChanged: function(newValue) {
                         try {
                             if (isNumeric) {
-                                configParameters[modelData] = parseFloat(newValue);
+                                // Check if original value was an integer
+                                var originalValue = configParameters[modelData];
+                                if (Number.isInteger(originalValue)) {
+                                    configParameters[modelData] = parseInt(newValue);
+                                } else {
+                                    configParameters[modelData] = parseFloat(newValue);
+                                }
                             } else {
                                 try {
                                     configParameters[modelData] = JSON.parse(newValue);
@@ -459,6 +524,16 @@ Item {
                                 }
                             }
                             console.log("Updated " + modelData + " to:", configParameters[modelData]);
+                            
+                            // Save configuration immediately to JSON file
+                            if (classifierName && selectedAnalysis) {
+                                var saved = classificationController.saveConfiguration(classifierName, selectedAnalysis, configParameters);
+                                if (saved) {
+                                    console.log("Configuration saved to file");
+                                } else {
+                                    console.error("Failed to save configuration");
+                                }
+                            }
                         } catch (e) {
                             console.error("Error updating parameter:", e);
                         }
@@ -484,64 +559,14 @@ Item {
                 anchors.right: parent.right
             }
 
-            // Test Classifier Button - Only visible when weights file exists
+            // Test Classifier Button disabled per request
             Rectangle {
                 id: testClassifierButton
-                visible: weightsFileExists && selectedAnalysis !== ""
-                enabled: weightsFileExists && selectedAnalysis !== ""
-                width: 150
-                height: 40
-                color: "white"
-                border.color: "#2196f3"
-                border.width: 1
-                radius: 5
-                
-                anchors.right: parent.right
-                
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: parent.parent.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    enabled: parent.parent.enabled
-                    
-                    onClicked: {
-                        if (!testClassifierButton.enabled) return
-                        
-                        var weightsPath = getWeightsFilePath()
-                        console.log("Testing classifier with weights:", weightsPath)
-                        
-                        // Add log entry
-                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Testing classifier...")
-                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Weights file: " + weightsPath)
-                        classifyLogs = classifyLogs.slice()  // Force array update
-                        
-                        // Open the test classifier window
-                        testClassifierWindow.classifierName = classifierName
-                        testClassifierWindow.selectedAnalysis = selectedAnalysis
-                        testClassifierWindow.weightsPath = weightsPath
-                        testClassifierWindow.show()
-                        testClassifierWindow.raise()
-                        
-                        classifierTemplate.testClassifierClicked(classifierName, selectedAnalysis, weightsPath)
-                    }
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 1
-                    color: testClassifierButton.enabled ? 
-                           (parent.parent.pressed ? "#e3f2fd" : (parent.parent.containsMouse ? "#dcdbdbff" : "transparent")) : 
-                           "transparent"
-                    radius: 4
-                    z: -1
-                }
-
-                Text {
-                    text: "Test Classifier"
-                    color: testClassifierButton.enabled ? "#2196f3" : "#cccccc"
-                    font.pixelSize: 14
-                    anchors.centerIn: parent
-                }
+                visible: false
+                enabled: false
+                width: 0
+                height: 0
+                color: "transparent"
             }
 
             // Open Console Button
@@ -639,53 +664,238 @@ Item {
                     }
                 }
 
-                // Classify Button
-                Rectangle {
-                    id: classifyButton
+                // Classify Button - Dropdown with Class Selection
+                Item {
+                    id: classifyButtonContainer
                     width: 150
                     height: 40
-                    color: "#2196f3"
-                    radius: 5
                     
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
+                    // Dropdown popup menu
+                    Rectangle {
+                        id: classifyDropdownMenu
+                        visible: classifyMenuExpanded
+                        width: 250
+                        height: classifyMenuContent.implicitHeight + 20
+                        color: "white"
+                        border.color: "#e0e0e0"
+                        border.width: 1
+                        radius: 5
+                        z: 1001
                         
-                        Rectangle {
+                        anchors.bottom: classifyButton.top
+                        anchors.bottomMargin: 5
+                        anchors.right: classifyButton.right
+                        
+                        Column {
+                            id: classifyMenuContent
                             anchors.fill: parent
-                            color: parent.pressed ? "#1565c0" : (parent.containsMouse ? "#2196f3" : "transparent")
-                            radius: 5
-                        }
-
-                        Text {
-                            text: "Classify"
-                            color: "white"
-                            font.pixelSize: 14
-                            anchors.centerIn: parent
-                        }
-                        
-                        onClicked: {
-                            if (selectedAnalysis === "") {
-                                errorTextItem.text = "Please select an analysis type first"
-                                return
+                            anchors.margins: 10
+                            spacing: 2
+                            
+                            Text {
+                                text: "Select Classes to Classify:"
+                                font.pixelSize: 12
+                                font.bold: true
+                                color: "#333"
                             }
-                            errorTextItem.text = ""
                             
-                            // Clear previous logs and mark as executed
-                            classifyLogs = []
-                            classifyExecuted = true
+                            Repeater {
+                                model: availableClasses
+                                delegate: Rectangle {
+                                    width: parent.width
+                                    height: 25
+                                    color: "transparent"
+                                    
+                                    Row {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 5
+                                        spacing: 8
+                                            
+                                            // Custom checkbox
+                                            Rectangle {
+                                                id: customCheckbox
+                                                width: 15
+                                                height: 15
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                border.color: "#666"
+                                                border.width: 1
+                                                color: (selectedClasses[modelData] !== undefined ? selectedClasses[modelData] : true) ? "#2196f3" : "white"
+                                                
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "✓"
+                                                    color: "white"
+                                                    font.pixelSize: 10
+                                                    visible: selectedClasses[modelData] !== undefined ? selectedClasses[modelData] : true
+                                                }
+                                                
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    
+                                                    onClicked: {
+                                                        var currentState = selectedClasses[modelData] !== undefined ? selectedClasses[modelData] : true
+                                                        var updated = {}
+                                                        // Copy existing values
+                                                        for (var key in selectedClasses) {
+                                                            updated[key] = selectedClasses[key]
+                                                        }
+                                                        // Toggle the clicked item
+                                                        updated[modelData] = !currentState
+                                                        selectedClasses = updated
+                                                        console.log("Toggled " + modelData + " to " + updated[modelData])
+                                                    }
+                                                }
+                                            }
+                                            
+                                            Text {
+                                                text: modelData
+                                                font.pixelSize: 13
+                                                color: "#333"
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                width: parent.width - customCheckbox.width - 15
+                                                elide: Text.ElideRight
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    
+                    // Classify button with two sections
+                    Rectangle {
+                        id: classifyButton
+                        width: 150
+                        height: 40
+                        color: "transparent"
+                        radius: 5
+                        anchors.bottom: parent.bottom
+                        anchors.right: parent.right
+                        
+                        Row {
+                            anchors.fill: parent
+                            spacing: 0
                             
-                            // Add initial log
-                            classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Starting classification...")
-                            classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Classifier: " + classifierName)
-                            classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Analysis: " + selectedAnalysis)
-                            classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Parameters: " + JSON.stringify(configParameters))
+                            // Left section - Classify text
+                            Rectangle {
+                                id: classifySection
+                                width: parent.width - 40
+                                height: parent.height
+                                color: "#2196f3"
+                                radius: 5
+                                
+                                Rectangle {
+                                    anchors.right: parent.right
+                                    width: 5
+                                    height: parent.height
+                                    color: "#2196f3"
+                                }
+                                
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "Classify"
+                                    color: "white"
+                                    font.pixelSize: 14
+                                }
+                                
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    
+                                    onPressed: classifySection.color = "#1565c0"
+                                    onReleased: classifySection.color = "#2196f3"
+                                    onEntered: classifySection.color = "#1976d2"
+                                    onExited: classifySection.color = "#2196f3"
+                                    
+                                    onClicked: {
+                                        if (selectedAnalysis === "") {
+                                            errorTextItem.text = "Please select an analysis type first"
+                                            return
+                                        }
+                                        
+                                        errorTextItem.text = ""
+                                        
+                                        // Get selected classes
+                                        var selectedList = []
+                                        for (var cls in selectedClasses) {
+                                            if (selectedClasses[cls]) {
+                                                selectedList.push(cls)
+                                            }
+                                        }
+                                        
+                                        if (selectedList.length === 0) {
+                                            errorTextItem.text = "Please select at least one class"
+                                            return
+                                        }
+                                        
+                                        // Close the menu if open
+                                        classifyMenuExpanded = false
+                                        
+                                        // Clear previous logs and mark as executed
+                                        classifyLogs = []
+                                        classifyExecuted = true
+                                        
+                                        // Add initial log
+                                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Starting classification...")
+                                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Classifier: " + classifierName)
+                                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Analysis: " + selectedAnalysis)
+                                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Selected Classes: " + selectedList.join(", "))
+                                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Parameters: " + JSON.stringify(configParameters))
+                                        
+                                        classifierTemplate.classifyClicked(classifierName, selectedAnalysis, selectedList, configParameters)
+                                        
+                                        // Add completion log
+                                        classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Classification request sent")
+                                    }
+                                }
+                            }
                             
-                            classifierTemplate.classifyClicked(classifierName, selectedAnalysis)
+                            // Separator line
+                            Rectangle {
+                                width: 1
+                                height: parent.height
+                                color: "white"
+                                opacity: 0.5
+                            }
                             
-                            // Add completion log (you can update this based on actual results)
-                            classifyLogs.push("[" + new Date().toLocaleTimeString() + "] Classification request sent")
+                            // Right section - Arrow dropdown
+                            Rectangle {
+                                id: arrowSection
+                                width: 39
+                                height: parent.height
+                                color: "#2196f3"
+                                radius: 5
+                                
+                                Rectangle {
+                                    anchors.left: parent.left
+                                    width: 5
+                                    height: parent.height
+                                    color: "#2196f3"
+                                }
+                                
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: classifyMenuExpanded ? "▼" : "▲"
+                                    color: "white"
+                                    font.pixelSize: 10
+                                }
+                                
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    
+                                    onPressed: arrowSection.color = "#1565c0"
+                                    onReleased: arrowSection.color = "#2196f3"
+                                    onEntered: arrowSection.color = "#1976d2"
+                                    onExited: arrowSection.color = "#2196f3"
+                                    
+                                    onClicked: {
+                                        classifyMenuExpanded = !classifyMenuExpanded
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -703,6 +913,7 @@ Item {
                     consoleScrollView.ScrollBar.vertical.position = 1.0 - consoleScrollView.ScrollBar.vertical.size
                 }
             })
+            
         }
     }
 
@@ -710,35 +921,51 @@ Item {
     Window {
         id: consoleWindow
         title: "Classification Console - " + classifierName
-        width: 600
-        height: 400
-        minimumWidth: 400
-        minimumHeight: 300
+        width: 700
+        height: 550
+        minimumWidth: 500
+        minimumHeight: 350
 
         Rectangle {
             anchors.fill: parent
             color: "#1e1e1e"
-
-            ScrollView {
-                id: consoleScrollView
+            
+            Column {
                 anchors.fill: parent
-                anchors.margins: 10
-                clip: true
-
-                ScrollBar.horizontal: ScrollBar {
-                    policy: ScrollBar.AlwaysOff
+                anchors.margins: 0
+                spacing: 0
+                
+                // Results notification banner disabled per request
+                Rectangle {
+                    id: resultsNotification
+                    visible: false
+                    width: parent.width
+                    height: 0
+                    color: "transparent"
                 }
 
-                Text {
-                    id: consoleText
-                    text: classifyLogs.join("\n")
-                    color: "#d4d4d4"
-                    font.family: "Consolas, Monaco, monospace"
-                    font.pixelSize: 12
-                    wrapMode: Text.Wrap
-                    horizontalAlignment: Text.AlignLeft
-                    verticalAlignment: Text.AlignTop
-                    width: consoleScrollView.availableWidth
+                ScrollView {
+                    id: consoleScrollView
+                    width: parent.width
+                    height: parent.height - resultsNotification.height
+                    clip: true
+
+                    ScrollBar.horizontal: ScrollBar {
+                        policy: ScrollBar.AlwaysOff
+                    }
+
+                    Text {
+                        id: consoleText
+                        text: classifyLogs.join("\n")
+                        color: "#d4d4d4"
+                        font.family: "Consolas, Monaco, monospace"
+                        font.pixelSize: 12
+                        wrapMode: Text.Wrap
+                        horizontalAlignment: Text.AlignLeft
+                        verticalAlignment: Text.AlignTop
+                        width: consoleScrollView.availableWidth
+                        padding: 10
+                    }
                 }
             }
         }
@@ -756,61 +983,49 @@ Item {
         property string classifierName: ""
         property string selectedAnalysis: ""
         property string weightsPath: ""
-        property var testResults: null  // Store parsed test results
-        property bool testRunning: false
+        property bool isLoading: false  // Loading samples
+        property bool isPredicting: false  // Running prediction
         property var testLogs: []
-        property var testSamples: []  // List of test sample identifiers
-        property string selectedTestSample: ""  // Currently selected test sample
-        property real selectedSampleAccuracy: 0.0  // Accuracy for selected sample
+        property var availableSamples: []  // List of sample objects {index, name, label, group}
+        property int selectedSampleIndex: -1  // Index of selected sample in availableSamples
+        property var predictionResult: null  // Result from classification
 
-        // Connection to receive test results
+        // Connection to receive loaded samples
         Connections {
             target: classificationController
-            function onTestResults(jsonResults) {
+            function onSamplesLoaded(jsonSamples) {
+                if (!testClassifierWindow.visible) return
+                
                 try {
-                    testClassifierWindow.testResults = JSON.parse(jsonResults)
-                    testClassifierWindow.testRunning = false
-                    console.log("Test results received:", jsonResults)
-                    
-                    // Populate test samples from test results with dataset names (like "Label Your Data" format)
-                    if (testClassifierWindow.testResults) {
-                        var samples = []
-                        var datasetNames = testClassifierWindow.testResults.dataset_names || []
-                        var subjectGroupLabels = testClassifierWindow.testResults.subject_group_labels || []
-                        
-                        // Use dataset names if available (primary method - like Label Your Data section)
-                        if (datasetNames && datasetNames.length > 0) {
-                            for (var i = 0; i < datasetNames.length; i++) {
-                                // Format exactly like "Label Your Data" section: (index+1) + ": " + datasetName
-                                samples.push((i + 1) + ": " + datasetNames[i])
-                            }
-                        } 
-                        // Fallback to subject and group information from results
-                        else if (subjectGroupLabels && subjectGroupLabels.length > 0) {
-                            for (var i = 0; i < subjectGroupLabels.length; i++) {
-                                var label = subjectGroupLabels[i]
-                                samples.push((i + 1) + ": Subject " + label.subject_id + " - " + label.label)
-                            }
-                        } 
-                        // Final fallback to generic numbering
-                        else if (testClassifierWindow.testResults.num_test_samples) {
-                            for (var i = 0; i < testClassifierWindow.testResults.num_test_samples; i++) {
-                                samples.push((i + 1) + ": Sample " + (i + 1))
-                            }
-                        }
-                        
-                        testClassifierWindow.testSamples = samples
-                        console.log("Test samples populated:", samples.length, "samples")
-                    }
+                    var samples = JSON.parse(jsonSamples)
+                    testClassifierWindow.availableSamples = samples
+                    testClassifierWindow.isLoading = false
+                    testClassifierWindow.selectedSampleIndex = -1
+                    testClassifierWindow.predictionResult = null
+                    console.log("Samples loaded:", samples.length)
                 } catch (e) {
-                    console.error("Failed to parse test results:", e)
-                    testClassifierWindow.testRunning = false
+                    console.error("Failed to parse samples:", e)
+                    testClassifierWindow.isLoading = false
                 }
             }
+            
+            function onSingleSampleResult(jsonResult) {
+                if (!testClassifierWindow.visible) return
+                
+                try {
+                    testClassifierWindow.predictionResult = JSON.parse(jsonResult)
+                    testClassifierWindow.isPredicting = false
+                    console.log("Prediction result received")
+                } catch (e) {
+                    console.error("Failed to parse prediction result:", e)
+                    testClassifierWindow.isPredicting = false
+                }
+            }
+            
             function onLogReceived(message) {
-                if (testClassifierWindow.testRunning) {
+                if (testClassifierWindow.isLoading || testClassifierWindow.isPredicting) {
                     testClassifierWindow.testLogs.push("[" + new Date().toLocaleTimeString() + "] " + message)
-                    testClassifierWindow.testLogs = testClassifierWindow.testLogs.slice()  // Force update
+                    testClassifierWindow.testLogs = testClassifierWindow.testLogs.slice()
                 }
             }
         }
@@ -819,297 +1034,395 @@ Item {
             anchors.fill: parent
             color: "#f0f0f0"
 
-            Column {
+            ScrollView {
+                id: testClassifierScrollView
                 anchors.fill: parent
-                anchors.margins: 20
-                spacing: 15
-
-                Text {
-                    text: "Classifier: " + testClassifierWindow.classifierName + "  |  Analysis: " + testClassifierWindow.selectedAnalysis
-                    font.pixelSize: 18
-                    font.bold: true
-                    color: "#333"
-                    wrapMode: Text.Wrap
-                    width: parent.width - 40
+                clip: true
+                contentWidth: availableWidth
+                
+                ScrollBar.horizontal: ScrollBar {
+                    policy: ScrollBar.AlwaysOff
                 }
 
-                Text {
-                    text: "Weights: " + testClassifierWindow.weightsPath
-                    font.pixelSize: 14
-                    color: "#777"
-                    wrapMode: Text.WrapAnywhere
-                    width: parent.width - 40
-                }
+                Column {
+                    width: testClassifierScrollView.availableWidth
+                    spacing: 15
+                    padding: 20
 
-                // Test Sample Selection Section
-                Rectangle {
-                    width: parent.width - 40
-                    height: sampleSelectionContent.implicitHeight + 20
-                    color: "white"
-                    border.color: "#e0e0e0"
-                    border.width: 1
-                    radius: 5
-
-                    Column {
-                        id: sampleSelectionContent
-                        anchors.fill: parent
-                        anchors.margins: 15
-                        spacing: 10
-
-                        Text {
-                            text: "Test Sample Selection"
-                            font.pixelSize: 14
-                            font.bold: true
-                            color: "#333"
-                        }
-
-                        // Dropdown for selecting test samples
-                        DropdownTemplate {
-                            width: Math.min(parent.width - 30, 400)
-                            label: "Select Test Sample"
-                            matlabProperty: "test.sample"
-                            model: testClassifierWindow.testSamples.length > 0 ? testClassifierWindow.testSamples : ["No test data available"]
-                            currentIndex: -1
-                            showCheckboxes: false
-                            enabled: testClassifierWindow.testSamples.length > 0
-                            
-                            onSelectionChanged: function(value, index) {
-                                if (testClassifierWindow.testSamples.length > 0) {
-                                    testClassifierWindow.selectedTestSample = value
-                                    testClassifierWindow.selectedSampleAccuracy = 0.80 + Math.random() * 0.20
-                                    console.log("Selected test sample:", value, "with accuracy:", testClassifierWindow.selectedSampleAccuracy)
-                                }
-                            }
-                        }
-
-                        // Info text for selected sample
-                        Text {
-                            visible: testClassifierWindow.testSamples.length === 0 && !testClassifierWindow.testRunning
-                            text: "Click 'Run Test' below to load test samples from the analysis data"
-                            font.pixelSize: 12
-                            color: "#999"
-                            wrapMode: Text.Wrap
-                            width: parent.width - 30
-                        }
-
-                        Text {
-                            visible: testClassifierWindow.testRunning
-                            text: "Loading test data..."
-                            font.pixelSize: 12
-                            color: "#2196f3"
-                            font.italic: true
-                        }
-
-                        // Selected Sample Accuracy Display
-                        Rectangle {
-                            visible: testClassifierWindow.selectedTestSample !== ""
-                            width: parent.width - 30
-                            height: accuracyContent.implicitHeight + 10
-                            color: testClassifierWindow.selectedSampleAccuracy >= 0.90 ? "#c8e6c9" : (testClassifierWindow.selectedSampleAccuracy >= 0.75 ? "#ffe0b2" : "#ffcdd2")
-                            radius: 3
-
-                            Column {
-                                id: accuracyContent
-                                anchors.fill: parent
-                                anchors.margins: 8
-                                spacing: 4
-
-                                Text {
-                                    text: "Selected: " + testClassifierWindow.selectedTestSample
-                                    font.pixelSize: 12
-                                    color: "#333"
-                                }
-
-                                Text {
-                                    text: "Sample Accuracy: " + (testClassifierWindow.selectedSampleAccuracy * 100).toFixed(2) + "%"
-                                    font.pixelSize: 14
-                                    font.bold: true
-                                    color: testClassifierWindow.selectedSampleAccuracy >= 0.90 ? "#2e7d32" : (testClassifierWindow.selectedSampleAccuracy >= 0.75 ? "#e65100" : "#c62828")
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Test button
-                Rectangle {
-                    width: 150
-                    height: 40
-                    color: testClassifierWindow.testRunning ? "#ccc" : "#2196f3"
-                    radius: 5
-                    enabled: !testClassifierWindow.testRunning
-
-                    MouseArea {
-                        anchors.fill: parent
-                        enabled: !testClassifierWindow.testRunning
-                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-
-                        onClicked: {
-                            testClassifierWindow.testRunning = true
-                            testClassifierWindow.testResults = null
-                            testClassifierWindow.testLogs = []
-                            classificationController.testClassifier(
-                                testClassifierWindow.classifierName,
-                                testClassifierWindow.selectedAnalysis,
-                                testClassifierWindow.weightsPath
-                            )
-                        }
+                    // Header
+                    Text {
+                        text: "Classifier: " + testClassifierWindow.classifierName + "  |  Analysis: " + testClassifierWindow.selectedAnalysis
+                        font.pixelSize: 18
+                        font.bold: true
+                        color: "#333"
+                        wrapMode: Text.Wrap
+                        width: parent.width - 40
                     }
 
                     Text {
-                        text: testClassifierWindow.testRunning ? "Testing..." : "Run Test"
-                        color: "white"
+                        text: "Weights: " + testClassifierWindow.weightsPath
                         font.pixelSize: 14
-                        anchors.centerIn: parent
+                        color: "#777"
+                        wrapMode: Text.WrapAnywhere
+                        width: parent.width - 40
                     }
-                }
 
-                // Results display
-                Rectangle {
-                    visible: testClassifierWindow.testResults !== null
-                    width: parent.width - 40
-                    height: resultsContent.implicitHeight + 20
-                    color: "white"
-                    border.color: "#2196f3"
-                    border.width: 2
-                    radius: 5
+                    // Loading indicator
+                    Rectangle {
+                        visible: testClassifierWindow.isLoading
+                        width: parent.width - 40
+                        height: 50
+                        color: "white"
+                        border.color: "#e0e0e0"
+                        border.width: 1
+                        radius: 5
 
-                    Column {
-                        id: resultsContent
-                        anchors.fill: parent
-                        anchors.margins: 15
-                        spacing: 10
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 10
 
-                        Text {
-                            text: "Test Results"
-                            font.pixelSize: 18
-                            font.bold: true
-                            color: "#2196f3"
+                            Text {
+                                text: "Loading test samples..."
+                                font.pixelSize: 14
+                                color: "#666"
+                            }
                         }
+                    }
 
-                        Text {
-                            visible: testClassifierWindow.testResults !== null
-                            text: "Test Accuracy: " + (testClassifierWindow.testResults ? (testClassifierWindow.testResults.test_accuracy * 100).toFixed(2) + "%" : "N/A")
-                            font.pixelSize: 16
-                            font.bold: true
-                            color: "#333"
-                        }
+                    // Sample Selection Section (shown after samples are loaded)
+                    Rectangle {
+                        visible: testClassifierWindow.availableSamples.length > 0
+                        width: parent.width - 40
+                        height: selectSampleContent.implicitHeight + 30
+                        color: "white"
+                        border.color: "#e0e0e0"
+                        border.width: 1
+                        radius: 5
 
-                        Text {
-                            visible: testClassifierWindow.testResults !== null && testClassifierWindow.testResults.test_loss !== undefined
-                            text: "Test Loss: " + (testClassifierWindow.testResults ? testClassifierWindow.testResults.test_loss.toFixed(4) : "N/A")
-                            font.pixelSize: 14
-                            color: "#555"
-                        }
+                        Column {
+                            id: selectSampleContent
+                            anchors.fill: parent
+                            anchors.margins: 15
+                            spacing: 10
 
-                        Text {
-                            visible: testClassifierWindow.testResults !== null
-                            text: "Test Samples: " + (testClassifierWindow.testResults ? testClassifierWindow.testResults.num_test_samples : "N/A")
-                            font.pixelSize: 14
-                            color: "#555"
-                        }
+                            Row {
+                                spacing: 10
+                                Text {
+                                    text: "Select a Test Sample"
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    color: "#333"
+                                }
+                                Text {
+                                    text: "(" + testClassifierWindow.availableSamples.length + " samples)"
+                                    font.pixelSize: 12
+                                    color: "#4caf50"
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
 
-                        Text {
-                            visible: testClassifierWindow.testResults !== null
-                            text: "Test Subjects: " + (testClassifierWindow.testResults ? testClassifierWindow.testResults.num_test_subjects : "N/A")
-                            font.pixelSize: 14
-                            color: "#555"
-                        }
+                            Text {
+                                text: "Choose a sample from the test set to predict. Labels are hidden until prediction."
+                                font.pixelSize: 12
+                                color: "#666"
+                                wrapMode: Text.Wrap
+                                width: parent.width - 10
+                            }
 
-                        // Labels list
-                        Text {
-                            visible: testClassifierWindow.testResults && testClassifierWindow.testResults.class_accuracies
-                            text: {
-                                if (!(testClassifierWindow.testResults && testClassifierWindow.testResults.class_accuracies)) return "Labels: N/A"
-                                var keys = Object.keys(testClassifierWindow.testResults.class_accuracies)
-                                var labels = keys.map(function(k) {
-                                    var parts = k.split("-")
-                                    if (parts.length === 2) {
-                                        return parts[1] + " " + parts[0]
+                            // Dropdown for sample selection (without labels)
+                            DropdownTemplate {
+                                id: sampleSelectionDropdown
+                                width: Math.min(parent.width - 20, 400)
+                                label: ""
+                                matlabProperty: ""
+                                model: {
+                                    var names = []
+                                    for (var i = 0; i < testClassifierWindow.availableSamples.length; i++) {
+                                        var sample = testClassifierWindow.availableSamples[i]
+                                        // Show only sample number and name - NO LABEL
+                                        names.push((i + 1) + ": " + (sample.name || "Sample " + (i + 1)))
                                     }
-                                    return k
-                                })
-                                return "Labels: " + labels.join(", ")
+                                    return names
+                                }
+                                currentIndex: testClassifierWindow.selectedSampleIndex >= 0 ? testClassifierWindow.selectedSampleIndex : 0
+                                showCheckboxes: false
+                                isMultiSelect: false
+                                hasAddFeature: false
+
+                                onSelectionChanged: function(value, index) {
+                                    testClassifierWindow.selectedSampleIndex = index
+                                    testClassifierWindow.predictionResult = null  // Clear previous result
+                                    console.log("Selected sample index:", index)
+                                }
                             }
-                            font.pixelSize: 13
-                            color: "#555"
-                            wrapMode: Text.Wrap
-                            width: parent.width - 10
+
+                            // Show group info if available (but not the label!)
+                            Text {
+                                visible: testClassifierWindow.selectedSampleIndex >= 0 && testClassifierWindow.availableSamples[testClassifierWindow.selectedSampleIndex]
+                                text: {
+                                    if (testClassifierWindow.selectedSampleIndex < 0) return ""
+                                    var sample = testClassifierWindow.availableSamples[testClassifierWindow.selectedSampleIndex]
+                                    if (!sample) return ""
+                                    var info = "Group: " + (sample.group || "Unknown")
+                                    return info
+                                }
+                                font.pixelSize: 11
+                                color: "#888"
+                            }
+                        }
+                    }
+
+                    // Predict Button
+                    Rectangle {
+                        visible: testClassifierWindow.availableSamples.length > 0 && testClassifierWindow.selectedSampleIndex >= 0
+                        width: 160
+                        height: 44
+                        color: testClassifierWindow.isPredicting ? "#ccc" : "#2196f3"
+                        radius: 5
+
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: !testClassifierWindow.isPredicting && testClassifierWindow.selectedSampleIndex >= 0
+                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: {
+                                testClassifierWindow.isPredicting = true
+                                testClassifierWindow.predictionResult = null
+                                var sampleData = testClassifierWindow.availableSamples[testClassifierWindow.selectedSampleIndex]
+                                classificationController.classifySingleSample(
+                                    testClassifierWindow.classifierName,
+                                    testClassifierWindow.selectedAnalysis,
+                                    testClassifierWindow.weightsPath,
+                                    sampleData.index  // Use actual sample index from data
+                                )
+                            }
                         }
 
-                        // Group distribution
                         Text {
-                            visible: testClassifierWindow.testResults && testClassifierWindow.testResults.group_counts
-                            text: "Group Counts:" + (testClassifierWindow.testResults && testClassifierWindow.testResults.group_counts ? "" : " N/A")
-                            font.pixelSize: 14
+                            text: testClassifierWindow.isPredicting ? "Predicting..." : "Predict"
+                            color: "white"
+                            font.pixelSize: 15
                             font.bold: true
-                            color: "#333"
+                            anchors.centerIn: parent
                         }
+                    }
+
+                    // Prediction Result Display
+                    Rectangle {
+                        visible: testClassifierWindow.predictionResult !== null
+                        width: parent.width - 40
+                        height: predictionResultContent.implicitHeight + 30
+                        color: testClassifierWindow.predictionResult && testClassifierWindow.predictionResult.is_correct ? "#e8f5e9" : "#ffebee"
+                        border.color: testClassifierWindow.predictionResult && testClassifierWindow.predictionResult.is_correct ? "#4caf50" : "#f44336"
+                        border.width: 2
+                        radius: 5
 
                         Column {
-                            visible: testClassifierWindow.testResults && testClassifierWindow.testResults.group_counts
-                            spacing: 4
-                            Repeater {
-                                model: testClassifierWindow.testResults && testClassifierWindow.testResults.group_counts ? Object.keys(testClassifierWindow.testResults.group_counts) : []
-                                delegate: Text {
-                                    text: "  " + modelData + ": " + testClassifierWindow.testResults.group_counts[modelData]
-                                    font.pixelSize: 13
-                                    color: "#555"
+                            id: predictionResultContent
+                            anchors.fill: parent
+                            anchors.margins: 15
+                            spacing: 12
+
+                            // Header
+                            Text {
+                                text: "🎯 Prediction Result"
+                                font.pixelSize: 16
+                                font.bold: true
+                                color: "#333"
+                            }
+
+                            Rectangle {
+                                width: parent.width
+                                height: 1
+                                color: "#ddd"
+                            }
+
+                            // Sample info
+                            Text {
+                                text: "Sample: " + (testClassifierWindow.predictionResult ? testClassifierWindow.predictionResult.sample_name : "")
+                                font.pixelSize: 13
+                                color: "#555"
+                                wrapMode: Text.Wrap
+                                width: parent.width
+                            }
+
+                            // Main result - Predicted vs Actual
+                            Row {
+                                spacing: 30
+                                
+                                Column {
+                                    spacing: 4
+                                    Text {
+                                        text: "PREDICTED"
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        color: "#1565c0"
+                                    }
+                                    Rectangle {
+                                        width: 120
+                                        height: 40
+                                        color: "#e3f2fd"
+                                        border.color: "#1565c0"
+                                        border.width: 2
+                                        radius: 5
+                                        
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: testClassifierWindow.predictionResult ? testClassifierWindow.predictionResult.predicted_label : ""
+                                            font.pixelSize: 18
+                                            font.bold: true
+                                            color: "#1565c0"
+                                        }
+                                    }
+                                }
+                                
+                                Text {
+                                    text: "→"
+                                    font.pixelSize: 28
+                                    color: "#999"
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                
+                                Column {
+                                    spacing: 4
+                                    Text {
+                                        text: "ACTUAL"
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        color: "#2e7d32"
+                                    }
+                                    Rectangle {
+                                        width: 120
+                                        height: 40
+                                        color: "#e8f5e9"
+                                        border.color: "#2e7d32"
+                                        border.width: 2
+                                        radius: 5
+                                        
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: testClassifierWindow.predictionResult ? testClassifierWindow.predictionResult.actual_label : ""
+                                            font.pixelSize: 18
+                                            font.bold: true
+                                            color: "#2e7d32"
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Result indicator
+                            Rectangle {
+                                width: parent.width
+                                height: 36
+                                color: testClassifierWindow.predictionResult && testClassifierWindow.predictionResult.is_correct ? "#c8e6c9" : "#ffcdd2"
+                                radius: 5
+                                
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: testClassifierWindow.predictionResult && testClassifierWindow.predictionResult.is_correct ? "✓ CORRECT PREDICTION" : "✗ INCORRECT PREDICTION"
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    color: testClassifierWindow.predictionResult && testClassifierWindow.predictionResult.is_correct ? "#2e7d32" : "#c62828"
+                                }
+                            }
+
+                            // Confidence score
+                            Text {
+                                text: "Confidence: " + (testClassifierWindow.predictionResult ? (testClassifierWindow.predictionResult.confidence * 100).toFixed(1) : "0") + "%"
+                                font.pixelSize: 13
+                                color: "#555"
+                            }
+
+                            // Class probabilities
+                            Rectangle {
+                                width: parent.width
+                                height: 1
+                                color: "#ddd"
+                            }
+
+                            Text {
+                                text: "Class Probabilities:"
+                                font.pixelSize: 12
+                                font.bold: true
+                                color: "#555"
+                            }
+
+                            Column {
+                                spacing: 6
+                                width: parent.width
+                                
+                                Repeater {
+                                    model: testClassifierWindow.predictionResult && testClassifierWindow.predictionResult.probabilities ? Object.keys(testClassifierWindow.predictionResult.probabilities) : []
+                                    delegate: Row {
+                                        spacing: 10
+                                        width: parent.width
+                                        
+                                        Text {
+                                            text: modelData + ":"
+                                            font.pixelSize: 12
+                                            color: "#555"
+                                            width: 80
+                                        }
+                                        Rectangle {
+                                            width: 150
+                                            height: 16
+                                            color: "#e0e0e0"
+                                            radius: 3
+                                            
+                                            Rectangle {
+                                                width: parent.width * (testClassifierWindow.predictionResult.probabilities[modelData] || 0)
+                                                height: parent.height
+                                                color: modelData === testClassifierWindow.predictionResult.predicted_label ? "#2196f3" : "#90caf9"
+                                                radius: 3
+                                            }
+                                        }
+                                        Text {
+                                            text: ((testClassifierWindow.predictionResult.probabilities[modelData] || 0) * 100).toFixed(1) + "%"
+                                            font.pixelSize: 11
+                                            color: "#666"
+                                            width: 50
+                                        }
+                                    }
                                 }
                             }
                         }
+                    }
 
-                        Rectangle {
-                            width: parent.width
-                            height: 1
-                            color: "#ddd"
-                        }
+                    // Console output
+                    Rectangle {
+                        visible: testClassifierWindow.testLogs.length > 0
+                        width: parent.width - 40
+                        height: Math.min(240, testClassifierWindow.testLogs.length * 14 + 20)
+                        color: "#1e1e1e"
+                        radius: 5
 
-                        Text {
-                            text: "Per-Class Accuracy:"
-                            font.pixelSize: 14
-                            font.bold: true
-                            color: "#333"
-                        }
+                        ScrollView {
+                            id: testConsoleScrollView
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            clip: true
 
-                        Column {
-                            spacing: 5
-                            Repeater {
-                                model: testClassifierWindow.testResults ? Object.keys(testClassifierWindow.testResults.class_accuracies) : []
-                                delegate: Text {
-                                    text: "  " + modelData + ": " + (testClassifierWindow.testResults.class_accuracies[modelData] * 100).toFixed(2) + "%"
-                                    font.pixelSize: 13
-                                    color: "#555"
+                            Text {
+                                id: testConsoleText
+                                text: testClassifierWindow.testLogs.join("\n")
+                                color: "#d4d4d4"
+                                font.family: "Consolas, Monaco, monospace"
+                                font.pixelSize: 11
+                                wrapMode: Text.Wrap
+                                width: testConsoleScrollView.availableWidth
+                                
+                                onTextChanged: {
+                                    // Auto-scroll to bottom when new text is added
+                                    Qt.callLater(function() {
+                                        if (testConsoleScrollView && testConsoleScrollView.ScrollBar.vertical) {
+                                            testConsoleScrollView.ScrollBar.vertical.position = 1.0 - testConsoleScrollView.ScrollBar.vertical.size
+                                        }
+                                    })
                                 }
                             }
                         }
                     }
                 }
-
-                // Console output anchored to bottom
-                Rectangle {
-                    visible: testClassifierWindow.testLogs.length > 0
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    color: "#1e1e1e"
-                    radius: 5
-
-                    ScrollView {
-                        anchors.fill: parent
-                        anchors.margins: 10
-                        clip: true
-
-                        Text {
-                            text: testClassifierWindow.testLogs.join("\n")
-                            color: "#d4d4d4"
-                            font.family: "Consolas, Monaco, monospace"
-                            font.pixelSize: 11
-                            wrapMode: Text.Wrap
-                            width: parent.width
-                        }
-                    }
-                }
-            }
+            }  // End ScrollView
         }
     }
 }

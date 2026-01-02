@@ -61,11 +61,14 @@ class TrainingWorker(QObject):
     finished = pyqtSignal()
     log_message = pyqtSignal(str)
     
-    def __init__(self, model_name="EEGNet", analysis_key="erp", data_path=""):
+    def __init__(self, model_name="EEGNet", analysis_key="erp", data_path="", selected_classes=None, config_params=None):
         super().__init__()
         self.model_name = model_name
         self.analysis_key = analysis_key
         self.data_path = data_path
+        self.selected_classes = selected_classes  # List of selected class names (e.g., ["PD_target", "CTL_standard"])
+        self.config_params = config_params if config_params else {}  # UI configuration parameters
+        self.config_params = config_params if config_params else {}  # UI configuration parameters
 
     def run(self):
         self.log_message.emit(f"Starting {self.model_name} training with {self.analysis_key} analysis...")
@@ -97,12 +100,41 @@ class TrainingWorker(QObject):
                 self.finished.emit()
                 return
             
+            # Save config parameters to JSON file if provided
+            if self.config_params:
+                config_dir = os.path.join(current_dir, "models", model_dir, "configs")
+                config_file = os.path.join(config_dir, f"{self.analysis_key}_config.json")
+                
+                if os.path.exists(config_file):
+                    try:
+                        # Load existing config
+                        with open(config_file, 'r') as f:
+                            existing_config = json.load(f)
+                        
+                        # Update with UI parameters
+                        existing_config.update(self.config_params)
+                        
+                        # Save updated config
+                        with open(config_file, 'w') as f:
+                            json.dump(existing_config, f, indent=4)
+                        
+                        self.log_message.emit(f"Updated configuration: {config_file}")
+                        self.log_message.emit(f"Parameters: {json.dumps(self.config_params)}")
+                    except Exception as e:
+                        self.log_message.emit(f"Warning: Could not update config file: {e}")
+            
             self.log_message.emit(f"Running: {main_script} with analysis_key={self.analysis_key}")
             
             # Run the training script as a subprocess with the analysis key as argument
             args = [sys.executable, main_script, self.analysis_key]
             if self.data_path:
                 args.append(self.data_path)
+            
+            # Add selected classes as JSON if provided
+            if self.selected_classes:
+                args.append(json.dumps(self.selected_classes))
+            else:
+                args.append(json.dumps([]))  # Empty list means use all classes
             
             process = subprocess.Popen(
                 args,
@@ -150,7 +182,6 @@ class TestWorker(QObject):
             import subprocess
             import sys
             
-            # Determine model directory name
             model_dir_map = {
                 "EEGNet": "EEGNet",
                 "EEG-Inception": "EEG-Inception",
@@ -163,11 +194,9 @@ class TestWorker(QObject):
                 self.finished.emit()
                 return
             
-            # Build path to model's test script
             current_dir = os.path.dirname(os.path.abspath(__file__))
             test_script = os.path.join(current_dir, "models", model_dir, "test.py")
             
-            # If test.py doesn't exist, try using main.py with a test flag
             if not os.path.exists(test_script):
                 self.log_message.emit(f"Note: Dedicated test script not found at {test_script}")
                 self.log_message.emit(f"Using main training script for evaluation...")
@@ -181,7 +210,6 @@ class TestWorker(QObject):
             self.log_message.emit(f"Running: {test_script} with analysis_key={self.analysis_key}")
             self.log_message.emit(f"Using weights: {self.weights_path}")
             
-            # Run the test script as a subprocess
             args = [sys.executable, test_script, self.analysis_key]
             if self.data_path:
                 args.append(self.data_path)
@@ -197,13 +225,11 @@ class TestWorker(QObject):
                 universal_newlines=True
             )
             
-            # Stream output to log and capture JSON results
             json_result = None
             for line in process.stdout:
                 stripped_line = line.strip()
                 self.log_message.emit(stripped_line)
                 
-                # Check if line contains JSON result
                 if stripped_line.startswith("JSON_RESULT:"):
                     try:
                         json_str = stripped_line.replace("JSON_RESULT:", "").strip()
@@ -227,6 +253,155 @@ class TestWorker(QObject):
         finally:
             self.finished.emit()
 
+
+class SampleLoaderWorker(QObject):
+    """Worker to load available test samples without classifying them."""
+    finished = pyqtSignal()
+    log_message = pyqtSignal(str)
+    samples_loaded = pyqtSignal(str)  # Emits JSON string with sample list
+    
+    def __init__(self, model_name="EEGNet", analysis_key="erp", data_path=""):
+        super().__init__()
+        self.model_name = model_name
+        self.analysis_key = analysis_key
+        self.data_path = data_path
+    
+    def run(self):
+        self.log_message.emit(f"Loading available samples for {self.model_name}...")
+        
+        try:
+            import subprocess
+            import sys
+            
+            model_dir_map = {
+                "EEGNet": "EEGNet",
+                "EEG-Inception": "EEG-Inception",
+                "Riemannian": "Riemannian"
+            }
+            
+            model_dir = model_dir_map.get(self.model_name)
+            if not model_dir:
+                self.log_message.emit(f"Error: Unknown model {self.model_name}")
+                self.finished.emit()
+                return
+            
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            load_script = os.path.join(current_dir, "models", model_dir, "load_samples.py")
+            
+            if not os.path.exists(load_script):
+                self.log_message.emit(f"Error: load_samples.py not found at {load_script}")
+                self.finished.emit()
+                return
+            
+            args = [sys.executable, load_script, self.analysis_key, self.data_path]
+            
+            process = subprocess.Popen(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+            
+            json_result = None
+            for line in process.stdout:
+                stripped_line = line.strip()
+                self.log_message.emit(stripped_line)
+                
+                if stripped_line.startswith("JSON_SAMPLES:"):
+                    json_result = stripped_line.replace("JSON_SAMPLES:", "").strip()
+            
+            process.wait()
+            
+            if json_result:
+                self.samples_loaded.emit(json_result)
+            else:
+                self.log_message.emit("No samples found")
+                
+        except Exception as e:
+            self.log_message.emit(f"Error loading samples: {str(e)}")
+            import traceback
+            self.log_message.emit(traceback.format_exc())
+        finally:
+            self.finished.emit()
+
+
+class SingleSampleClassifierWorker(QObject):
+    """Worker to classify a single sample using the saved model."""
+    finished = pyqtSignal()
+    log_message = pyqtSignal(str)
+    classification_result = pyqtSignal(str)  # Emits JSON string with classification result
+    
+    def __init__(self, model_name="EEGNet", analysis_key="erp", data_path="", weights_path="", sample_index=0):
+        super().__init__()
+        self.model_name = model_name
+        self.analysis_key = analysis_key
+        self.data_path = data_path
+        self.weights_path = weights_path
+        self.sample_index = sample_index
+    
+    def run(self):
+        self.log_message.emit(f"Classifying sample {self.sample_index} with {self.model_name}...")
+        
+        try:
+            import subprocess
+            import sys
+            
+            model_dir_map = {
+                "EEGNet": "EEGNet",
+                "EEG-Inception": "EEG-Inception",
+                "Riemannian": "Riemannian"
+            }
+            
+            model_dir = model_dir_map.get(self.model_name)
+            if not model_dir:
+                self.log_message.emit(f"Error: Unknown model {self.model_name}")
+                self.finished.emit()
+                return
+            
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            classify_script = os.path.join(current_dir, "models", model_dir, "classify_sample.py")
+            
+            if not os.path.exists(classify_script):
+                self.log_message.emit(f"Error: classify_sample.py not found at {classify_script}")
+                self.finished.emit()
+                return
+            
+            args = [sys.executable, classify_script, self.analysis_key, self.data_path, self.weights_path, str(self.sample_index)]
+            
+            process = subprocess.Popen(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+            
+            json_result = None
+            for line in process.stdout:
+                stripped_line = line.strip()
+                self.log_message.emit(stripped_line)
+                
+                if stripped_line.startswith("JSON_CLASSIFICATION:"):
+                    json_result = stripped_line.replace("JSON_CLASSIFICATION:", "").strip()
+            
+            process.wait()
+            
+            if json_result:
+                self.classification_result.emit(json_result)
+            else:
+                self.log_message.emit("Classification failed - no result")
+                
+        except Exception as e:
+            self.log_message.emit(f"Error classifying sample: {str(e)}")
+            import traceback
+            self.log_message.emit(traceback.format_exc())
+        finally:
+            self.finished.emit()
+
+
 class ClassificationController(QObject):
     def __init__(self):
         super().__init__()
@@ -240,7 +415,8 @@ class ClassificationController(QObject):
     logReceived = pyqtSignal(str, arguments=['message'])
     trainingFinished = pyqtSignal()
     testResults = pyqtSignal(str, arguments=['results'])  # JSON string with test results
-    testResults = pyqtSignal(str, arguments=['results'])  # JSON string with test results
+    samplesLoaded = pyqtSignal(str, arguments=['samples'])  # JSON string with available samples
+    singleSampleResult = pyqtSignal(str, arguments=['result'])  # JSON string with single sample classification
     
     @pyqtSlot(str)
     def setDataFolder(self, folder_path):
@@ -259,6 +435,30 @@ class ClassificationController(QObject):
     def getAvailableAnalyses(self, classifierName):
         """Get available analyses for a specific classifier as JSON array"""
         return self.config_parser.get_available_analyses_as_json(classifierName)
+    
+    @pyqtSlot(str, str, result=str)
+    def getClassesForAnalysis(self, classifierName, analysisName):
+        """Get all class combinations (labels x conditions) for a specific analysis as JSON array.
+        For example: ['PD_target', 'PD_standard', 'PD_novelty', 'CTL_target', 'CTL_standard', 'CTL_novelty']
+        """
+        try:
+            # Get unique diagnosis labels
+            unique_labels = list(set(diagnosis_labels))
+            unique_labels.sort()  # Sort for consistent ordering
+            
+            # Get conditions
+            conditions = ["target", "standard", "novelty"]
+            
+            # Generate all combinations: label_condition
+            classes = []
+            for label in unique_labels:
+                for condition in conditions:
+                    classes.append(f"{label}_{condition}")
+            
+            return json.dumps(classes)
+        except Exception as e:
+            self.logReceived.emit(f"Error generating classes: {str(e)}")
+            return json.dumps([])
 
     @pyqtSlot(result=str)
     def getDiagnosisLabels(self):
@@ -294,6 +494,57 @@ class ClassificationController(QObject):
     def getAllClassifierConfigs(self):
         """Get all classifier configurations as JSON"""
         return self.config_parser.get_all_classifiers_as_json()
+    
+    @pyqtSlot(str, str, 'QVariantMap', result=bool)
+    def saveConfiguration(self, classifierName, analysisDisplayName, configParams):
+        """Save configuration parameters to JSON file immediately."""
+        try:
+            # Convert display name to analysis key
+            analysis_key = self.config_parser.get_analysis_key(analysisDisplayName)
+            if not analysis_key:
+                print(f"Error: Unknown analysis type '{analysisDisplayName}'")
+                return False
+            
+            # Determine model directory
+            model_dir_map = {
+                "EEGNet": "EEGNet",
+                "EEG-Inception": "EEG-Inception",
+                "Riemannian": "Riemannian"
+            }
+            
+            model_dir = model_dir_map.get(classifierName)
+            if not model_dir:
+                print(f"Error: Unknown classifier '{classifierName}'")
+                return False
+            
+            # Build path to config file
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            config_dir = os.path.join(current_dir, "models", model_dir, "configs")
+            config_file = os.path.join(config_dir, f"{analysis_key}_config.json")
+            
+            if not os.path.exists(config_file):
+                print(f"Error: Config file not found: {config_file}")
+                return False
+            
+            # Load existing config
+            with open(config_file, 'r') as f:
+                existing_config = json.load(f)
+            
+            # Update with new parameters
+            existing_config.update(configParams)
+            
+            # Save updated config
+            with open(config_file, 'w') as f:
+                json.dump(existing_config, f, indent=4)
+            
+            print(f"Configuration saved to: {config_file}")
+            return True
+            
+        except Exception as e:
+            print(f"Error saving configuration: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
     @pyqtSlot(str)
     def startTraining(self, modelName):
@@ -322,8 +573,10 @@ class ClassificationController(QObject):
         self.thread.start()
 
     @pyqtSlot(str, str)
-    def startClassification(self, classifierName, analysisDisplayName):
-        """Start classification with specific classifier and analysis type"""
+    @pyqtSlot(str, str, list)
+    @pyqtSlot(str, str, list, 'QVariantMap')
+    def startClassification(self, classifierName, analysisDisplayName, selectedClasses=None, configParams=None):
+        """Start classification with specific classifier, analysis type, and selected classes"""
         if self.thread is not None and self.thread.isRunning():
             self.logReceived.emit("Training is already in progress.")
             return
@@ -341,9 +594,16 @@ class ClassificationController(QObject):
         
         self.logReceived.emit(f"Starting {classifierName} with {analysisDisplayName} (key: {analysis_key})...")
         self.logReceived.emit(f"Using data folder: {self.data_folder}")
+        if selectedClasses and len(selectedClasses) > 0:
+            classes_str = ", ".join(selectedClasses)
+            self.logReceived.emit(f"Selected classes: {classes_str}")
+            print(f"[Classification] Selected classes: {classes_str}")
+        else:
+            self.logReceived.emit("No class filter applied - using all classes")
+            print("[Classification] No class filter applied - using all classes")
         
         self.thread = QThread()
-        self.worker = TrainingWorker(model_name=classifierName, analysis_key=analysis_key, data_path=self.data_folder)
+        self.worker = TrainingWorker(model_name=classifierName, analysis_key=analysis_key, data_path=self.data_folder, selected_classes=selectedClasses, config_params=configParams)
         self.worker.moveToThread(self.thread)
         
         # Connect signals
@@ -365,6 +625,99 @@ class ClassificationController(QObject):
         self.worker = None
         self.trainingFinished.emit()
         self.logReceived.emit("Training thread cleaned up.")
+
+    @pyqtSlot(str, str)
+    def loadTestSamples(self, classifierName, analysisDisplayName):
+        """Load available test samples without classifying them."""
+        if self.thread is not None and self.thread.isRunning():
+            self.logReceived.emit("Another operation is in progress.")
+            return
+        
+        if not classifierName:
+            self.logReceived.emit("Error: Classifier name is required.")
+            return
+        if not analysisDisplayName:
+            self.logReceived.emit("Error: Analysis name is required.")
+            return
+        if not self.data_folder:
+            self.logReceived.emit("Error: No data folder selected.")
+            return
+        
+        analysis_key = self.config_parser.get_analysis_key(analysisDisplayName)
+        if not analysis_key:
+            self.logReceived.emit(f"Error: Unknown analysis type '{analysisDisplayName}'")
+            return
+        
+        self.logReceived.emit(f"Loading samples for {classifierName} - {analysisDisplayName}...")
+        
+        self.thread = QThread()
+        self.worker = SampleLoaderWorker(
+            model_name=classifierName,
+            analysis_key=analysis_key,
+            data_path=self.data_folder
+        )
+        self.worker.moveToThread(self.thread)
+        
+        self.thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+        
+        self.worker.log_message.connect(self.logReceived)
+        self.worker.samples_loaded.connect(self.samplesLoaded)
+        
+        self.thread.finished.connect(self.on_training_finished)
+        self.thread.start()
+
+    @pyqtSlot(str, str, str, int)
+    def classifySingleSample(self, classifierName, analysisDisplayName, weightsPath, sampleIndex):
+        """Classify a single sample using the saved model."""
+        if self.thread is not None and self.thread.isRunning():
+            self.logReceived.emit("Another operation is in progress.")
+            return
+        
+        if not classifierName:
+            self.logReceived.emit("Error: Classifier name is required.")
+            return
+        if not analysisDisplayName:
+            self.logReceived.emit("Error: Analysis name is required.")
+            return
+        if not self.data_folder:
+            self.logReceived.emit("Error: No data folder selected.")
+            return
+        
+        normalized_weights = weightsPath.replace('file:///', '').replace('file://', '').replace('/', '\\')
+        if not normalized_weights or not os.path.exists(normalized_weights):
+            self.logReceived.emit(f"Error: Weights file not found: {normalized_weights}")
+            return
+        
+        analysis_key = self.config_parser.get_analysis_key(analysisDisplayName)
+        if not analysis_key:
+            self.logReceived.emit(f"Error: Unknown analysis type '{analysisDisplayName}'")
+            return
+        
+        self.logReceived.emit(f"Classifying sample {sampleIndex}...")
+        
+        self.thread = QThread()
+        self.worker = SingleSampleClassifierWorker(
+            model_name=classifierName,
+            analysis_key=analysis_key,
+            data_path=self.data_folder,
+            weights_path=normalized_weights,
+            sample_index=sampleIndex
+        )
+        self.worker.moveToThread(self.thread)
+        
+        self.thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+        
+        self.worker.log_message.connect(self.logReceived)
+        self.worker.classification_result.connect(self.singleSampleResult)
+        
+        self.thread.finished.connect(self.on_training_finished)
+        self.thread.start()
 
     @pyqtSlot(str, str, str, str, result=str)
     def testErpSubject(self, classifierName: str, analysisDisplayName: str, subjectName: str, weightsPath: str) -> str:

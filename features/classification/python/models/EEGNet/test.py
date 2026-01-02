@@ -144,8 +144,44 @@ def main():
         val_subs, test_subs = train_test_split(temp_subs, test_size=0.5, random_state=42)
 
     test_mask = np.isin(subject_ids, test_subs)
-    X_test = X[test_mask]
-    y_test_combined = combined_labels[test_mask]
+    X_test_all = X[test_mask]
+    y_test_combined_all = combined_labels[test_mask]
+    
+    # Extract all test data for potential balanced sampling
+    all_test_dataset_names = [dataset_names[i] for i in range(len(test_mask)) if test_mask[i]]
+    test_groups_all = groups[test_mask]
+    test_subject_ids_all = subject_ids[test_mask]
+    
+    # Balanced sampling: equal number of samples per unique label (automatic)
+    print(f"\\nApplying balanced sampling automatically...")
+    unique_labels = np.unique(y_test_combined_all)
+    
+    # Find minimum samples across all labels
+    min_samples_per_label = min(np.sum(y_test_combined_all == label) for label in unique_labels)
+    print(f"Minimum samples per label: {min_samples_per_label}")
+    
+    condition_names_temp = ["Target", "Standard", "Novelty"]
+    balanced_indices = []
+    for label in unique_labels:
+        label_indices = np.where(y_test_combined_all == label)[0]
+        # Use all available samples up to min_samples_per_label for balanced classes
+        sampled_indices = np.random.choice(label_indices, size=min_samples_per_label, replace=False)
+        balanced_indices.extend(sampled_indices)
+        cond_idx = int(label // group_count)
+        grp_idx = int(label % group_count)
+        cond_name = condition_names_temp[cond_idx] if cond_idx < len(condition_names_temp) else f"cond_{cond_idx}"
+        grp_name = group_name_lookup.get(grp_idx, f"grp_{grp_idx}")
+        print(f"  {cond_name}-{grp_name}: {min_samples_per_label} samples")
+    
+    balanced_indices = np.array(balanced_indices)
+    np.random.shuffle(balanced_indices)  # Shuffle to mix labels
+    
+    X_test = X_test_all[balanced_indices]
+    y_test_combined = y_test_combined_all[balanced_indices]
+    test_dataset_names = [all_test_dataset_names[i] for i in balanced_indices]
+    test_groups = test_groups_all[balanced_indices]
+    test_subject_ids = test_subject_ids_all[balanced_indices]
+    print(f"Total balanced test samples: {len(X_test)}")
     
     # Validate test labels before conversion
     if np.max(y_test_combined) >= nb_classes or np.min(y_test_combined) < 0:
@@ -153,9 +189,6 @@ def main():
         sys.exit(1)
     
     y_test_cat = to_categorical(y_test_combined, num_classes=nb_classes)
-    test_dataset_names = [dataset_names[i] for i in range(len(test_mask)) if test_mask[i]]  # Extract test dataset names
-    test_groups = groups[test_mask]
-    group_name_lookup = {idx: name for idx, name in enumerate(group_list)}
     group_counts = {}
     for g in np.unique(test_groups):
         name = group_name_lookup.get(g, f"group_{g}")
@@ -165,7 +198,7 @@ def main():
             "subject_id": int(sub_id),
             "label": group_name_lookup.get(group_val, f"group_{group_val}")
         }
-        for sub_id, group_val in zip(subject_ids[test_mask], test_groups)
+        for sub_id, group_val in zip(test_subject_ids, test_groups)
     ]
     
     print(f"\nTest Set: {X_test.shape} samples ({len(test_subs)} subjects)")

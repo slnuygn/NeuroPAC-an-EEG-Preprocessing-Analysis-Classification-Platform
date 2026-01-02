@@ -1,9 +1,30 @@
 {
-    "estimator": "scm",
-    "metric": "riemann",
-    "kernel": "linear",
+    "estimator": "lwf",
+    "metric": "logeuclid",
+    "kernel": "rbf",
     "C": 1.0,
     "use_mdm": false,
+    "use_deep": true,
+    "enable_grid_search": false,
     "test_size": 0.3,
-    "random_state": 42
+    "val_split": 0.15,
+    "random_state": 42,
+    "hidden_dims": [
+        128,
+        64,
+        32
+    ],
+    "dropout": 0.3,
+    "input_dropout": 0.05,
+    "lr": 0.0005,
+    "max_epochs": 200,
+    "batch_size": 16,
+    "weight_decay": 0.0005,
+    "patience": 25,
+    "train_split": 0.15,
+    "label_smoothing": 0.05,
+    "reg": 1e-07,
+    "shrinkage": 0.001,
+    "min_eigenvalue": 1e-08,
+    "use_vectorized": true
 }
