@@ -1,58 +1,155 @@
 \contentsline {chapter}{Abstract}{3}{chapter*.1}%
-\contentsline {chapter}{List of Tables}{5}{chapter*.3}%
-\contentsline {chapter}{List of Figures}{6}{chapter*.4}%
-\contentsline {chapter}{\numberline {I}Introduction}{7}{chapter.1}%
-\contentsline {section}{\numberline {I.1}Problem Statement}{7}{section.1.1}%
-\contentsline {section}{\numberline {I.2}Purpose of the Study}{8}{section.1.2}%
-\contentsline {section}{\numberline {I.3}Research Questions}{9}{section.1.3}%
-\contentsline {section}{\numberline {I.4}Definition of Terms}{10}{section.1.4}%
-\contentsline {section}{\numberline {I.5}Assumptions and Limitations of the Study}{10}{section.1.5}%
-\contentsline {section}{\numberline {I.6}Overview}{11}{section.1.6}%
-\contentsline {chapter}{\numberline {II}Literature Review}{12}{chapter.2}%
-\contentsline {section}{\numberline {II.1}Next Heading}{12}{section.2.1}%
-\contentsline {section}{\numberline {II.2}Next Heading}{12}{section.2.2}%
-\contentsline {section}{\numberline {II.3}Summary}{12}{section.2.3}%
-\contentsline {chapter}{\numberline {III}Methodology}{13}{chapter.3}%
-\contentsline {section}{\numberline {III.1}Research Design and Procedures}{13}{section.3.1}%
-\contentsline {section}{\numberline {III.2}System Design and Modules}{13}{section.3.2}%
-\contentsline {subsection}{\numberline {III.2.1}Preprocessing Module}{13}{subsection.3.2.1}%
-\contentsline {subsubsection}{Overview}{13}{subsubsection*.5}%
-\contentsline {subsubsection}{Preprocessing}{13}{subsubsection*.6}%
-\contentsline {subsubsection}{Independent Component Analysis (ICA) \& Artifact Removal}{17}{subsubsection*.7}%
-\contentsline {subsubsection}{Event/Condition Decomposition}{17}{subsubsection*.8}%
-\contentsline {subsection}{\numberline {III.2.2}Analysis Module}{17}{subsection.3.2.2}%
-\contentsline {subsubsection}{Overview}{17}{subsubsection*.9}%
-\contentsline {subsubsection}{ERP Analysis}{17}{subsubsection*.10}%
-\contentsline {subsubsection}{Time-Frequency Analysis}{17}{subsubsection*.11}%
-\contentsline {subsubsection}{Spectral Analysis}{17}{subsubsection*.12}%
-\contentsline {subsubsection}{Channel-Wise Connectivity Analysis}{17}{subsubsection*.13}%
-\contentsline {subsubsection}{Inter-Trial Coherence Analysis}{17}{subsubsection*.14}%
-\contentsline {subsection}{\numberline {III.2.3}Classification Module}{17}{subsection.3.2.3}%
-\contentsline {subsubsection}{Overview}{17}{subsubsection*.15}%
-\contentsline {subsubsection}{EEGNet Classifier}{17}{subsubsection*.16}%
-\contentsline {subsubsection}{EEG-Inception Classifier}{17}{subsubsection*.17}%
-\contentsline {subsubsection}{Riemann Classifier}{17}{subsubsection*.18}%
-\contentsline {section}{\numberline {III.3}Other Application Components}{17}{section.3.3}%
-\contentsline {subsection}{\numberline {III.3.1}Matlab Executor}{17}{subsection.3.3.1}%
-\contentsline {subsection}{\numberline {III.3.2}Template Items}{17}{subsection.3.3.2}%
-\contentsline {subsection}{\numberline {III.3.3}Matlab Parameter Parser}{17}{subsection.3.3.3}%
-\contentsline {subsection}{\numberline {III.3.4}File Browser Window}{17}{subsection.3.3.4}%
-\contentsline {subsection}{\numberline {III.3.5}Top Menu}{17}{subsection.3.3.5}%
-\contentsline {subsubsection}{Parameter Adding \& Editing}{17}{subsubsection*.19}%
-\contentsline {subsubsection}{Changing File Browser Directory \& Fieldtrip Path}{17}{subsubsection*.20}%
-\contentsline {section}{\numberline {III.4}Data Description}{17}{section.3.4}%
-\contentsline {subsection}{\numberline {III.4.1}Parkinson's}{17}{subsection.3.4.1}%
-\contentsline {subsection}{\numberline {III.4.2}mTBI}{17}{subsection.3.4.2}%
-\contentsline {section}{\numberline {III.5}Instrumentation}{17}{section.3.5}%
-\contentsline {section}{\numberline {III.6}Limitations}{17}{section.3.6}%
-\contentsline {section}{\numberline {III.7}Summary}{17}{section.3.7}%
-\contentsline {chapter}{\numberline {IV}Results}{18}{chapter.4}%
-\contentsline {section}{\numberline {IV.1}Data Analysis}{18}{section.4.1}%
-\contentsline {section}{\numberline {IV.2}Summary}{18}{section.4.2}%
-\contentsline {chapter}{\numberline {V}Summary, Conclusions, and Recommendations}{19}{chapter.5}%
-\contentsline {section}{\numberline {V.1}Summary of the Results}{19}{section.5.1}%
-\contentsline {section}{\numberline {V.2}Conclusions}{19}{section.5.2}%
-\contentsline {section}{\numberline {V.3}Recommendations}{19}{section.5.3}%
-\contentsline {chapter}{References}{19}{section.5.3}%
-\contentsline {chapter}{Appendix \numberline {A}Assessment Activity}{20}{appendix.1.A}%
-\contentsline {chapter}{Appendix \numberline {B}Assessment Rubric}{21}{appendix.1.B}%
+\contentsline {chapter}{List of Tables}{8}{chapter*.3}%
+\contentsline {chapter}{List of Figures}{9}{chapter*.4}%
+\contentsline {chapter}{\numberline {I}Introduction}{10}{chapter.1}%
+\contentsline {section}{\numberline {I.1}Background and Motivation}{10}{section.1.1}%
+\contentsline {section}{\numberline {I.2}Problem Statement}{11}{section.1.2}%
+\contentsline {section}{\numberline {I.3}Purpose of the Study}{12}{section.1.3}%
+\contentsline {chapter}{\numberline {II}Methodology}{13}{chapter.2}%
+\contentsline {section}{\numberline {II.1}Preprocessing Module}{13}{section.2.1}%
+\contentsline {subsection}{\numberline {II.1.1}Preprocessing}{13}{subsection.2.1.1}%
+\contentsline {subsection}{\numberline {II.1.2}Independent Component Analysis (ICA) \& Artifact Removal}{15}{subsection.2.1.2}%
+\contentsline {subsection}{\numberline {II.1.3}Event/Condition Decomposition}{15}{subsection.2.1.3}%
+\contentsline {section}{\numberline {II.2}Analysis Module}{15}{section.2.2}%
+\contentsline {section}{\numberline {II.3}Common Procedures During Analyses}{16}{section.2.3}%
+\contentsline {subsection}{\numberline {II.3.1}File Management and Error Handling}{16}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {II.3.2}FieldTrip Initialization}{16}{subsection.2.3.2}%
+\contentsline {subsection}{\numberline {II.3.3}Batch Processing for Memory Efficiency}{17}{subsection.2.3.3}%
+\contentsline {subsection}{\numberline {II.3.4}Baseline Correction}{17}{subsection.2.3.4}%
+\contentsline {subsection}{\numberline {II.3.5}Result Storage and Output}{17}{subsection.2.3.5}%
+\contentsline {subsection}{\numberline {II.3.6}ERP Analysis}{18}{subsection.2.3.6}%
+\contentsline {subsubsection}{Configuration and Computation}{18}{subsubsection*.5}%
+\contentsline {subsubsection}{Baseline Correction and Output}{18}{subsubsection*.6}%
+\contentsline {subsection}{\numberline {II.3.7}Time-Frequency Analysis}{18}{subsection.2.3.7}%
+\contentsline {subsubsection}{Data Structure Normalization}{19}{subsubsection*.7}%
+\contentsline {subsubsection}{Wavelet Configuration and Computation}{19}{subsubsection*.8}%
+\contentsline {subsubsection}{Baseline Correction and Output}{19}{subsubsection*.9}%
+\contentsline {subsection}{\numberline {II.3.8}Spectral Analysis}{19}{subsection.2.3.8}%
+\contentsline {subsubsection}{Data Structure Normalization and Configuration}{20}{subsubsection*.10}%
+\contentsline {subsubsection}{Computation and Output}{20}{subsubsection*.11}%
+\contentsline {subsection}{\numberline {II.3.9}Channel-Wise Connectivity Analysis}{20}{subsection.2.3.9}%
+\contentsline {subsubsection}{Data Normalization and Three-Stage Pipeline}{21}{subsubsection*.12}%
+\contentsline {subsubsection}{Coherence Computation}{21}{subsubsection*.13}%
+\contentsline {subsubsection}{Output}{21}{subsubsection*.14}%
+\contentsline {subsection}{\numberline {II.3.10}Inter-Trial Coherence Analysis}{22}{subsection.2.3.10}%
+\contentsline {subsubsection}{Data Normalization and Configuration}{22}{subsubsection*.15}%
+\contentsline {subsubsection}{Two-Stage Computational Pipeline}{22}{subsubsection*.16}%
+\contentsline {subsubsection}{Distinction from Channel-Wise Coherence and Output}{23}{subsubsection*.17}%
+\contentsline {section}{\numberline {II.4}Classification Module}{23}{section.2.4}%
+\contentsline {subsection}{\numberline {II.4.1}EEGNet Classifier}{23}{subsection.2.4.1}%
+\contentsline {subsubsection}{Configuration Parameters}{23}{subsubsection*.18}%
+\contentsline {subsubsection}{Architecture Overview}{24}{subsubsection*.19}%
+\contentsline {paragraph}{First Block: Temporal and Spatial Filtering}{24}{paragraph*.20}%
+\contentsline {paragraph}{Second Block: Feature Combination}{24}{paragraph*.21}%
+\contentsline {paragraph}{Classification Layer}{24}{paragraph*.22}%
+\contentsline {subsubsection}{Design Rationale}{25}{subsubsection*.23}%
+\contentsline {subsection}{\numberline {II.4.2}EEG-Inception Classifier}{25}{subsection.2.4.2}%
+\contentsline {subsubsection}{Base Model Configuration}{25}{subsubsection*.24}%
+\contentsline {subsubsection}{Architecture Overview}{26}{subsubsection*.25}%
+\contentsline {paragraph}{First Inception Block}{26}{paragraph*.26}%
+\contentsline {paragraph}{Second Inception Block}{26}{paragraph*.27}%
+\contentsline {paragraph}{Classification Stages}{26}{paragraph*.28}%
+\contentsline {subsubsection}{Time-Frequency Variant}{26}{subsubsection*.29}%
+\contentsline {subsubsection}{Inter-Trial Coherence Variant}{27}{subsubsection*.30}%
+\contentsline {subsubsection}{Architectural Variants}{27}{subsubsection*.31}%
+\contentsline {subsubsection}{Design Philosophy}{28}{subsubsection*.32}%
+\contentsline {subsection}{\numberline {II.4.3}Riemannian Classifier}{28}{subsection.2.4.3}%
+\contentsline {subsubsection}{Theoretical Foundation}{28}{subsubsection*.33}%
+\contentsline {subsubsection}{Base Pipeline Configuration}{29}{subsubsection*.34}%
+\contentsline {subsubsection}{Pipeline Stages}{29}{subsubsection*.35}%
+\contentsline {paragraph}{Covariance Estimation}{29}{paragraph*.36}%
+\contentsline {paragraph}{Tangent Space Projection}{29}{paragraph*.37}%
+\contentsline {paragraph}{Classification Methods}{30}{paragraph*.38}%
+\contentsline {subsubsection}{Connectivity-Focused Implementation}{30}{subsubsection*.39}%
+\contentsline {subsubsection}{Advantages and Limitations}{31}{subsubsection*.40}%
+\contentsline {section}{\numberline {II.5}Other Application Components}{32}{section.2.5}%
+\contentsline {subsection}{\numberline {II.5.1}Template Items}{32}{subsection.2.5.1}%
+\contentsline {subsubsection}{Range Slider Template}{32}{subsubsection*.41}%
+\contentsline {subsubsection}{Step Range Slider Template}{32}{subsubsection*.42}%
+\contentsline {subsubsection}{Dropdown Menu Template}{33}{subsubsection*.43}%
+\contentsline {subsubsection}{Input Box Template}{33}{subsubsection*.44}%
+\contentsline {subsubsection}{Analysis Module Template}{33}{subsubsection*.45}%
+\contentsline {paragraph}{Core Architecture}{33}{paragraph*.46}%
+\contentsline {paragraph}{Parameter Management and Dynamic Rendering}{34}{paragraph*.47}%
+\contentsline {paragraph}{Workflow Controls}{34}{paragraph*.48}%
+\contentsline {paragraph}{File Validation and Error Handling}{35}{paragraph*.49}%
+\contentsline {paragraph}{Advanced Features}{35}{paragraph*.50}%
+\contentsline {subsubsection}{Classifier Template}{35}{subsubsection*.51}%
+\contentsline {paragraph}{Core Architecture}{36}{paragraph*.52}%
+\contentsline {paragraph}{Time Window Management}{36}{paragraph*.53}%
+\contentsline {paragraph}{Analysis Selection and Configuration Loading}{37}{paragraph*.54}%
+\contentsline {paragraph}{Dynamic Parameters and Class Selection}{37}{paragraph*.55}%
+\contentsline {paragraph}{Training Workflow and Logging}{38}{paragraph*.56}%
+\contentsline {paragraph}{Weights Detection and Auto-Selection}{38}{paragraph*.57}%
+\contentsline {paragraph}{Time Range Integration and Testing}{38}{paragraph*.58}%
+\contentsline {paragraph}{Error Handling and Signal Communication}{39}{paragraph*.59}%
+\contentsline {paragraph}{Advanced Features}{39}{paragraph*.60}%
+\contentsline {subsection}{\numberline {II.5.2}MATLAB Parameter Parser \& Dynamic Parameter Loader}{40}{subsection.2.5.2}%
+\contentsline {subsubsection}{MATLAB Parameter Parser}{40}{subsubsection*.61}%
+\contentsline {subsubsection}{Dynamic Parameter Loader}{40}{subsubsection*.62}%
+\contentsline {subsection}{\numberline {II.5.3}Matlab Executor}{41}{subsection.2.5.3}%
+\contentsline {subsubsection}{Architectural Foundation and Core Responsibilities}{41}{subsubsection*.63}%
+\contentsline {subsubsection}{Asynchronous MATLAB Execution Framework}{42}{subsubsection*.64}%
+\contentsline {subsubsection}{Configuration Persistence and File Manipulation}{43}{subsubsection*.65}%
+\contentsline {subsubsection}{Dynamic Parameter Reading and Interface Initialization}{44}{subsubsection*.66}%
+\contentsline {subsubsection}{Path Resolution and Cross-Platform Compatibility}{45}{subsubsection*.67}%
+\contentsline {subsubsection}{Custom Component Management}{46}{subsubsection*.68}%
+\contentsline {subsubsection}{Module-Specific Targeting and Script Selection}{47}{subsubsection*.69}%
+\contentsline {subsubsection}{Data Formatting and MATLAB Syntax Generation}{48}{subsubsection*.70}%
+\contentsline {subsubsection}{Classification Pipeline Integration}{49}{subsubsection*.71}%
+\contentsline {subsubsection}{Error Handling and User Feedback}{50}{subsubsection*.72}%
+\contentsline {subsubsection}{State Management and Configuration Synchronization}{51}{subsubsection*.73}%
+\contentsline {subsection}{\numberline {II.5.4}File Browser Window}{52}{subsection.2.5.4}%
+\contentsline {paragraph}{Backend Implementation and Path Normalization}{52}{paragraph*.74}%
+\contentsline {paragraph}{Frontend Architecture and Visual Layout}{53}{paragraph*.75}%
+\contentsline {paragraph}{File Interaction and Type-Specific Handling}{54}{paragraph*.76}%
+\contentsline {paragraph}{Data Labeling Interface}{54}{paragraph*.77}%
+\contentsline {paragraph}{Advanced Features}{55}{paragraph*.78}%
+\contentsline {subsection}{\numberline {II.5.5}Preprocessing-Specific}{55}{subsection.2.5.5}%
+\contentsline {subsubsection}{ICA Browser}{55}{subsubsection*.79}%
+\contentsline {paragraph}{Data Loading and Variable Detection}{55}{paragraph*.80}%
+\contentsline {paragraph}{Sensor-Space Data Handling}{55}{paragraph*.81}%
+\contentsline {paragraph}{Interactive Review and Batch Processing}{56}{paragraph*.82}%
+\contentsline {paragraph}{Stimulus-Specific Decomposition and Outputs}{56}{paragraph*.83}%
+\contentsline {subsubsection}{Reject IC Button \& \texttt {ft\_databrowser} Synchronization}{56}{subsubsection*.84}%
+\contentsline {paragraph}{Architecture: Minimally Invasive Modification}{57}{paragraph*.85}%
+\contentsline {paragraph}{Core Modification: Reject IC Button}{57}{paragraph*.86}%
+\contentsline {paragraph}{Rejection Data Structure and Visual Feedback}{57}{paragraph*.87}%
+\contentsline {paragraph}{Synchronization Mechanism}{58}{paragraph*.88}%
+\contentsline {paragraph}{Communication Flow and Result Collection}{59}{paragraph*.89}%
+\contentsline {subsection}{\numberline {II.5.6}Analysis-Specific}{59}{subsection.2.5.6}%
+\contentsline {subsubsection}{Analysis Visualizer}{59}{subsubsection*.90}%
+\contentsline {paragraph}{Shared interaction model}{59}{paragraph*.91}%
+\contentsline {paragraph}{FieldTrip dependency handling}{60}{paragraph*.92}%
+\contentsline {paragraph}{ERP visualizer (time-domain averages)}{60}{paragraph*.93}%
+\contentsline {paragraph}{Spectral visualizer (frequency-domain power)}{60}{paragraph*.94}%
+\contentsline {paragraph}{Time–frequency visualizer (TFR surfaces)}{60}{paragraph*.95}%
+\contentsline {paragraph}{Channel-wise coherence visualizer}{60}{paragraph*.96}%
+\contentsline {paragraph}{Inter-trial coherence visualizer}{61}{paragraph*.97}%
+\contentsline {subsection}{\numberline {II.5.7}Classification-Specific}{61}{subsection.2.5.7}%
+\contentsline {subsubsection}{Preprocess Bridge}{61}{subsubsection*.98}%
+\contentsline {paragraph}{Purpose and role}{61}{paragraph*.99}%
+\contentsline {paragraph}{Core data structures}{61}{paragraph*.100}%
+\contentsline {paragraph}{Loading pipeline}{61}{paragraph*.101}%
+\contentsline {paragraph}{Shape normalization and transforms}{61}{paragraph*.102}%
+\contentsline {paragraph}{Filtering and selection}{62}{paragraph*.103}%
+\contentsline {paragraph}{MATLAB v7.3 handling}{62}{paragraph*.104}%
+\contentsline {subsubsection}{Controller}{63}{subsubsection*.105}%
+\contentsline {subsubsection}{Console}{63}{subsubsection*.106}%
+\contentsline {subsubsection}{Inference}{63}{subsubsection*.107}%
+\contentsline {subsubsection}{Main}{63}{subsubsection*.108}%
+\contentsline {subsubsection}{Model}{63}{subsubsection*.109}%
+\contentsline {subsubsection}{Test}{63}{subsubsection*.110}%
+\contentsline {section}{\numberline {II.6}Research Design and Procedures}{63}{section.2.6}%
+\contentsline {section}{\numberline {II.7}Data Description}{63}{section.2.7}%
+\contentsline {subsection}{\numberline {II.7.1}Parkinson's}{63}{subsection.2.7.1}%
+\contentsline {section}{\numberline {II.8}Instrumentation}{63}{section.2.8}%
+\contentsline {section}{\numberline {II.9}Limitations}{63}{section.2.9}%
+\contentsline {section}{\numberline {II.10}Summary}{63}{section.2.10}%
+\contentsline {chapter}{\numberline {III}Results}{64}{chapter.3}%
+\contentsline {chapter}{\numberline {IV}Conclusion and Future Work}{65}{chapter.4}%
+\contentsline {section}{\numberline {IV.1}Conclusion}{65}{section.4.1}%
+\contentsline {section}{\numberline {IV.2}Future Work}{65}{section.4.2}%
+\contentsline {chapter}{References}{65}{section.4.2}%
+\contentsline {chapter}{Appendix \numberline {A}Assessment Activity}{66}{appendix.1.A}%
+\contentsline {chapter}{Appendix \numberline {B}Assessment Rubric}{67}{appendix.1.B}%
