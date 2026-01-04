@@ -31,27 +31,27 @@
     \vspace*{1cm}
     \Huge
     \textbf{NeuroPAC: A Pre-Processing, Analysis, and Classification Pipeline Platform for EEG Signals}
-    
+
     \vspace{1.5cm}
     \Large
     \textbf{Selin Uygun}
-    
+
     \vspace{1cm}
-    
+
     \large
     Supervisor: Assoc Prof Emine Elif Tülay
-    
+
     \vfill
-    
+
     A Thesis Submitted in Partial Fulfillment of the Requirements\\
     for the Degree of Bachelor of Science in Software Engineering
-    
+
     \vspace{0.8cm}
-    
+
     \Large
     Department of Software Engineering\\
     Mugla Sitki Kocman University\\
-    
+
 \end{titlepage}
 
 % Abstract
@@ -78,7 +78,7 @@
 \section{Background and Motivation}
 Electroencephalography (EEG) is a non-invasive technique used to record electrical activity in the brain. It has become an essential tool in neuroscience research and clinical diagnostics due to its high temporal resolution, non-invasive nature, and relatively low cost. EEG signals are widely used to study brain function, cognitive processes, and neurological disorders such as epilepsy, Parkinson's disease, and Alzheimer's disease. EEG can help to diagnose certain conditions such as Alzheimer's disease by identifying characteristic patterns of brain activity associated with the disease. For example, EEG can detect changes in brain wave patterns that are indicative of cognitive decline, memory impairment, and brain disconnectivity. Additionally, EEG can be used to monitor the progression of neurodegenerative diseases and evaluate the effectiveness of treatments. By analyzing EEG data, researchers and clinicians can gain insights into the underlying mechanisms of neurodegenerative diseases and develop more effective diagnostic and treatment strategies.
 
-3-Auditory Oddball Task is a widely used experimental paradigm in cognitive neuroscience to investigate attention, perception, and cognitive processing. In this task, participants are presented with a series of auditory stimuli, typically consisting of frequent standard tones, infrequent target tones and novel tones. The participants are instructed to respond to the target tones while ignoring the standard tones and aren't instruced on novel tones because they are unexpected and meant to capture attention involuntarily. 
+3-Auditory Oddball Task is a widely used experimental paradigm in cognitive neuroscience to investigate attention, perception, and cognitive processing. In this task, participants are presented with a series of auditory stimuli, typically consisting of frequent standard tones, infrequent target tones and novel tones. The participants are instructed to respond to the target tones while ignoring the standard tones and aren't instruced on novel tones because they are unexpected and meant to capture attention involuntarily.
 The oddball task is designed to elicit specific event-related potentials (ERPs) in the EEG signal, such as the P300 component, which is associated with attentional processes and cognitive evaluation of stimuli. The oddball task has been extensively used to study various cognitive functions, including attention, memory, and decision-making. It has also been employed in clinical research to investigate cognitive deficits in neurological and psychiatric disorders, such as schizophrenia, ADHD, and Alzheimer's disease.
 
 \section{Problem Statement}
@@ -108,23 +108,60 @@ The purpose of this study is two-fold: to address the usability gap in existing 
 
 The ultimate goal is to deliver a practical product that enhances the efficiency of the EEG analysis pipeline and produces high-quality, reproducible research outcomes.
 
+
+\section{Data Description}
+
+\subsection{Parkinson's}
+
 % Chapter III
 \chapter{Methodology}
+
+\section{System Architecture \& Workflow}
+
+
+The NeuroPAC platform is structured into three primary modules that collectively facilitate a comprehensive EEG data analysis pipeline: Preprocessing, Analysis, and Classification. Each module is designed to handle specific stages of the workflow, ensuring a systematic approach to EEG data handling and interpretation.
+
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{./images/architecture.png}
+    \caption{System Architecture of NeuroPAC platform illustrating the three main modules: Preprocessing, Analysis, and Classification.}
+    \label{fig:architecture}
+\end{figure}  
+
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{./images/workflow.png}
+    \caption{Workflow of NeuroPAC platform illustrating the sequence of operations across the three main modules: Preprocessing, Analysis, and Classification.}
+    \label{fig:workflow}
+\end{figure}
 
 \section{Preprocessing Module}
 
 \subsection{Preprocessing}
-Preprocessing is the very first step of the EEG analysis pipeline. It includes adjusting the raw EEG data to make it suitable for further analysis. To analyze a dataset, we must first initialize a cfg data structure from the FieldTrip toolbox, which serves as our data container and provides numerous configurable properties. The preprocessing module of NeuroPAC streamlines this process by allowing users to set cfg structure properties directly through the GUI, automating the workflow without requiring manual code configuration. The preprocessing steps currently implemented in NeuroPAC as base preprocessing components are as follows: 
+
+
+
+Preprocessing is the very first step of the EEG analysis pipeline. It includes adjusting the raw EEG data to make it suitable for further analysis. To analyze a dataset, we must first initialize a cfg data structure from the FieldTrip toolbox, which serves as our data container and provides numerous configurable properties. The preprocessing module of NeuroPAC streamlines this process by allowing users to set cfg structure properties directly through the GUI, automating the workflow without requiring manual code configuration. The preprocessing steps currently implemented in NeuroPAC as base preprocessing components are as follows:
 \begin{itemize}
   \item \verb|cfg.trialfun = 'ft_trialfun_general'| : Defines trials based on specified events and time windows.
   \item \verb|cfg.trialdef.eventtype = 'stimulus'|: Specifies the type of event to use for trial definition.
-  \item \verb|cfg.trialdef.eventvalue = {'S200', 'S201', 'S202'}| : Sets the specific event value to identify trials (conditions). 
+  \item \verb|cfg.trialdef.eventvalue = {'S200', 'S201', 'S202'}| : Sets the specific event value to identify trials (conditions).
   \item \verb|cfg.channel = 'all'| : Selects all available EEG channels for analysis.
   \item \verb|cfg.demean = 'yes'| : Removes the mean value from each channel.
   \item \verb|cfg.baselinewindow = [-0.2 0]| : Defines the time window for baseline correction.
   \item \verb|cfg.dftfilter = 'yes'| : Enables the use of a notch filter to remove line noise.
   \item \verb|cfg.dftfreq = [50 60]| : Specifies the frequencies to be removed by the notch filter (e.g., 50 Hz and its harmonics).
  \end{itemize}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{./images/preprocessing.png}
+    \caption{Preprocessing module interface showing configurable parameters and MATLAB script generation.}
+    \label{fig:preprocessing}
+\end{figure}
+
 These steps can be deleted, modified, or new ones can be added from the top menu as needed. These are individual lines that get converted from simple MATLAB script lines to specific QML template items by the parameter parser, you can read further about the parameter parser and template items themselves on sections 3.3.2 and 3.3.3.
 Before moving on to running preprocessing, the user has to make sure that:
 \begin{itemize}
@@ -134,8 +171,16 @@ Before moving on to running preprocessing, the user has to make sure that:
 After these configurations are set, the user can run the \verb|Preprocess and Run ICA| button, which executes a Fieldtrip function called \verb|ft_preprocessing| that applies the defined preprocessing steps to the raw EEG data. This operation will require to run on MATLAB, therefore the MATLAB will open to ensure a smooth execution and will provide any warnings from its console that the user might need to be aware of. After the preprocessing is done, the preprocessed data will be saved in a file named \verb|data.mat| in the same directory as the raw data. After preprocessing is done, the button will fulfill its second purpose, which is to run ICA on the preprocessed data. ICA is a computational dimension reduction method used to separate a multivariate signal into additive, independent components. In the context of EEG data, ICA is commonly employed to identify and remove artifacts (unwanted signals) such as eye blinks, muscle activity, and other noise sources that can contaminate the EEG recordings. In our case ICA is chosen as \verb|fast_ica| algorithm provided by Fieldtrip, and in this study's case only the eye artifacts were considered and removed. After running ICA, the resulting components will be saved in a file named \verb|data_ICApplied.mat| in the same directory as the raw data for further inspection and artifact removal.
 
 \subsection{Independent Component Analysis (ICA) \& Artifact Removal}
-The user, if ready to proceed, can then move on to the artifact removal step by clicking the \verb|data_ICApplied.mat| file name directly from the file browser, which will open a matlab window displaying a slightly modified version of \verb|ft_databrowser| which now contains a ``Reject ICA'' button on the right of the browser window. If any user wants to replicate the same application experience, they would have to run the syncing script, which is given as an option in the top menu. This will help to modify their own ``\verb|ft_databrowser|'' script by adding the ``Reject IC'' button. The independent components obtained from ICA will be shown and iterated for every subject. The user can then visually inspect these components and select the ones corresponding to artifacts (e.g., eye blinks) for removal with the ``Reject IC'' button. Once the user selects the components to be removed and confirms their choice, the array with the rejected IC's will be saved and then be iterated through the whole data, removing each rejected IC of the corresponding subject. The system will reconstruct the EEG data without the selected artifact components. 
-  
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{./images/icarejection.png}
+    \caption{\texttt{ft\_databrowser} interface with the externally added Reject IC button for artifact removal, while rejecting IC 5 on a subject.}
+    \label{fig:icareject}
+\end{figure}
+
+The user, if ready to proceed, can then move on to the artifact removal step by clicking the \verb|data_ICApplied.mat| file name directly from the file browser, which will open a matlab window displaying a slightly modified version of \verb|ft_databrowser| which now contains a ``Reject ICA'' button on the right of the browser window. If any user wants to replicate the same application experience, they would have to run the syncing script, which is given as an option in the top menu. This will help to modify their own ``\verb|ft_databrowser|'' script by adding the ``Reject IC'' button. The independent components obtained from ICA will be shown and iterated for every subject. The user can then visually inspect these components and select the ones corresponding to artifacts (e.g., eye blinks) for removal with the ``Reject IC'' button. Once the user selects the components to be removed and confirms their choice, the array with the rejected IC's will be saved and then be iterated through the whole data, removing each rejected IC of the corresponding subject. The system will reconstruct the EEG data without the selected artifact components.
+
 
 
 \subsection{Event/Condition Decomposition}
@@ -144,8 +189,15 @@ After the IC rejection, a quick event (trial type) decomposition is made to read
 
 \section{Analysis Module}
 
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{./images/analysis.png}
+    \caption{Analysis module interface showing configurable analysis options and MATLAB script generation.}
+    \label{fig:analysis}
+\end{figure}
+
 The analysis module of NeuroPAC provides a suite of commonly used EEG analysis techniques that can be easily configured and executed through the GUI. The module allows users to select from various analysis methods, set relevant parameters, and visualize the results. The available analyses include:
-\begin{itemize} 
+\begin{itemize}
   \item Event-Related Potential (ERP) Analysis,
   \item Time-Frequency Analysis,
   \item Spectral Analysis,
@@ -258,6 +310,13 @@ Results are packaged into two complementary structures: \verb|itc_data| (standar
 
 \section{Classification Module}
 
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{./images/classification.png}
+    \caption{Classification module interface showing configurable hyperparameters and classification options.}
+    \label{fig:classification}
+\end{figure}
+
 \subsection{EEGNet Classifier}
 
 EEGNet is a compact deep learning architecture designed specifically for EEG signal classification. Originally introduced by Lawhern et al. in 2018, the model addresses the unique challenges of EEG data by incorporating separate temporal and spatial filtering stages that mirror traditional signal processing approaches while remaining parameter-efficient for limited training data scenarios.
@@ -278,15 +337,15 @@ Key parameters control the model architecture:
 
 The input tensor is organized as channels by time points by a singleton feature dimension, treating channels analogously to image height and time analogously to width. The architecture progresses through two primary convolutional blocks followed by a classification layer.
 
-\paragraph{First Block: Temporal and Spatial Filtering}
+\paragraph{First Block: Temporal and Spatial Filtering}\mbox{}
 
 The first block learns both temporal and spatial patterns. A temporal convolution with \verb|F1| filters spans one channel by \verb|kernLength| time points, detecting temporal patterns across all channels simultaneously. This is followed by batch normalization and a depthwise convolution that applies spatial filters of all channels by one time point, creating \verb|F1 * D| feature maps. The \verb|depthwise_constraint| regularization limits filter norms to one, preventing individual filters from dominating. An exponential linear unit (ELU) activation introduces nonlinearity. Average pooling reduces temporal resolution by a factor of four, and dropout prevents overfitting.
 
-\paragraph{Second Block: Feature Combination}
+\paragraph{Second Block: Feature Combination}\mbox{}
 
 The second block uses separable convolutions to optimally combine spatial features across the temporal dimension. Depthwise filters span one by sixteen time points, followed by a pointwise convolution with \verb|F2| filters that learns weighted combinations of features. A more aggressive average pooling (kernel size one by eight) further reduces temporal resolution, creating abstract representations of longer-range dependencies.
 
-\paragraph{Classification Layer}
+\paragraph{Classification Layer}\mbox{}
 
 A flattening operation concatenates all feature dimensions into a one-dimensional vector. A single fully connected dense layer maps this to the output space with softmax activation. The \verb|kernel_constraint| parameter regularizes the classification weights.
 
@@ -313,15 +372,15 @@ Key parameters control the architecture:
 
 The input tensor is organized as temporal samples by channels by a singleton feature dimension. The architecture progresses through multiple Inception blocks that progressively compress and refine multi-scale features.
 
-\paragraph{First Inception Block}
+\paragraph{First Inception Block}\mbox{}
 
 Creates parallel processing pathways for each temporal scale specified. Each pathway applies: (1) temporal convolution spanning the full scale by one channel with He normal initialization, (2) batch normalization, (3) ELU activation, (4) depthwise convolution with depth multiplier of two and max-norm constraint of one, (5) batch normalization and dropout. All pathways are concatenated along the feature dimension, producing a unified multi-scale representation. Adaptive average pooling further reduces temporal resolution while preventing degenerate dimensions.
 
-\paragraph{Second Inception Block}
+\paragraph{Second Inception Block}\mbox{}
 
 Operates on pooled features from the first block using reduced kernel sizes (one-quarter of original scales). Excludes depthwise spatial convolutions, focusing instead on combining and abstracting spatially-filtered features from the first block. Concatenated outputs undergo adaptive pooling for further downsampling.
 
-\paragraph{Classification Stages}
+\paragraph{Classification Stages}\mbox{}
 
 A sequential refinement pathway progressively reduces feature dimensionality through two convolutional stages with adaptive kernel sizes and filter counts that create a bottleneck, forcing the network to learn the most discriminative features. Flattening converts feature maps to a one-dimensional vector, and a dense layer with softmax produces class probabilities. Training uses Adam optimizer with specified learning rate and binary cross-entropy loss.
 
@@ -329,7 +388,7 @@ A sequential refinement pathway progressively reduces feature dimensionality thr
 
 Operates on spectrogram data (frequency bins $\times$ time points $\times$ channels) from wavelet decomposition. Parameters \verb|n_freqs|, \verb|n_times|, \verb|n_channels| specify dimensions (defaults: 91, 29, 12). Multi-scale kernel sizes are defined in frequency (\verb|scales_freq|: defaults 3, 5, 9) and time (\verb|scales_time|: defaults 3, 5, 7) dimensions.
 
-More aggressive regularization includes spatial dropout (0.15) after input and channel expansion via one-by-one convolutions. Inception blocks employ separable convolutions (decomposed into depthwise and pointwise) with 12 filters per branch. Classification consists of dense layers (128, 64 units) with batch normalization and dropout (0.4, 0.3). 
+More aggressive regularization includes spatial dropout (0.15) after input and channel expansion via one-by-one convolutions. Inception blocks employ separable convolutions (decomposed into depthwise and pointwise) with 12 filters per branch. Classification consists of dense layers (128, 64 units) with batch normalization and dropout (0.4, 0.3).
 
 A critical innovation uses focal loss instead of standard cross-entropy, emphasizing hard-to-classify examples. The modulating factor downweights well-classified examples, with focusing parameter $\gamma = 4.0$ creating strong emphasis on difficult cases. This proves valuable in medical diagnostic applications with class imbalance.
 
@@ -374,15 +433,15 @@ Key parameters control the pipeline:
 
 \subsubsection{Pipeline Stages}
 
-\paragraph{Covariance Estimation}
+\paragraph{Covariance Estimation}\mbox{}
 
 The Covariances transformer accepts raw EEG data (trials $\times$ channels $\times$ time points) and produces covariance matrices (trials $\times$ channels $\times$ channels), computing second-order statistics characterizing spatial relationships. Shrinkage-based estimators (Ledoit-Wolf, oracle approximating shrinkage) provide stable estimates when channels approach or exceed temporal samples, preventing ill-conditioned matrices. Each covariance matrix represents a trial as a point on the manifold, encoding spatial correlation structure while discarding temporal dynamics.
 
-\paragraph{Tangent Space Projection}
+\paragraph{Tangent Space Projection}\mbox{}
 
 For classical or deep learning classification, the TangentSpace transformer linearizes curved manifold geometry into flat Euclidean space suitable for conventional algorithms. A reference point (typically the Riemannian mean of training covariance matrices) serves as the tangent space origin. The Riemannian metric computes this mean via iterative optimization minimizing squared geodesic distances; log-Euclidean metric uses closed-form solutions via matrix logarithms. Each covariance matrix maps to the tangent space via logarithmic mapping, computing the tangent vector along the geodesic connecting reference and target. Resulting tangent vectors have dimensionality $n_{channels}(n_{channels}+1)/2$, creating Euclidean feature vectors that preserve local geometric relationships while enabling standard machine learning operations.
 
-\paragraph{Classification Methods}
+\paragraph{Classification Methods}\mbox{}
 
 \textbf{Minimum Distance to Mean (MDM)}: Computes a Riemannian mean for each class, classifying new trials by geodesic distance to class means. This pure geometric approach respects manifold structure throughout, avoiding linearization approximations. Effective when classes exhibit distinct covariance patterns forming separated clusters on the manifold and training samples per class are sufficient for stable mean estimation. Higher computational cost due to eigenvalue decompositions and matrix logarithms compared to tangent space methods.
 
@@ -414,15 +473,36 @@ Flexibility to choose pure geometric methods (MDM, best with limited data) or hy
 
 \subsubsection{Range Slider Template}
 
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{./images/rangeslider.png}
+    \caption{Range slider component for selecting numeric intervals.}
+    \label{fig:rangeslider}
+\end{figure}
+
 The range slider QML component displays a pair of draggable handles to select a numeric interval, keeps text fields in sync for min/max/current values, and snaps changes to a configurable step with sensible rounding. It supports an edit/add mode that lets users rename the bound MATLAB property, preview the exact assignment text (including special handling for trial windows), and persist or delete the property via hooks to the global \verb|matlabExecutor|. Input validation prevents inverted ranges, enforces bounds, and surfaces warnings inline; helper functions also update related MATLAB settings when specialized slider IDs (baseline, dftfreq, prestim/poststim, ERP) are used. Visual affordances include background highlighting of the active span, focus-driven z-ordering, and icon buttons for saving or removing the parameter while respecting read-only vs. edit states.
 
 
 \subsubsection{Step Range Slider Template}
 
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{./images/steprangeslider.png}
+      \caption{Step range slider component for selecting numeric intervals with defined steps.}
+    \label{fig:steprangeslider}
+\end{figure}
+
 This stepped range slider renders a double-handled control for values defined in MATLAB’s start:step:end syntax, keeps paired text inputs synchronized for bounds, step size, and handle positions, and snaps all changes to the current step with precision-aware rounding. An add/edit mode lets users rename the underlying \verb|cfg| property, preview the exact colon-form assignment, and persist or delete it via \verb|matlabExecutor| hooks; validation guards against reversed bounds, zero/negative steps, and out-of-range entries with inline warnings. When slider IDs match known preprocessing roles (baseline, dftfreq, prestim/poststim, ERP) it calls specialized executor updaters; otherwise it saves dynamic parameters through the step-range MATLAB writer, ensuring UI edits stay in lockstep with script values.
 
 
 \subsubsection{Dropdown Menu Template}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{./images/dropdown.png}
+    \caption{Dropdown menu component showing multi-select options with checkboxes.}
+    \label{fig:dropdownmenu}
+\end{figure}
 
 The dropdown component renders both single- and multi-select pickers, keeping a MATLAB-bound property in view with editable labels and add/delete actions. It hides the stock controls and replaces them with custom popups, optional checkboxes, and an “add custom” flow that persists new options. For multi-select it summarizes selections (“All”, count, or none) while exposing the full quoted list in the assignment preview; single-select mirrors the current choice. An edit/add mode lets users rename the \verb|cfg| property, save via \verb|matlabExecutor|, or remove the assignment entirely. Z-index management, focus handling, and inline validation keep the control usable in dense layouts.
 
@@ -431,22 +511,29 @@ The dropdown component renders both single- and multi-select pickers, keeping a 
 
 The input box presents a single-line field bound to a MATLAB property, with optional numeric mode, placeholder text, and a compact display of the exact assignment (quoted for strings, raw for numbers). Edit/add mode lets users rename the \verb|cfg| key, preview the assignment, and save or delete it through \verb|matlabExecutor| hooks; focus and z-ordering keep the control usable in dense layouts. Text changes emit live signals so downstream logic can react immediately, while a save icon commits the value and a trash icon removes the property when exposed in edit contexts.
 
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{./images/inputbox.png}
+    \caption{Input box component for string/numeric MATLAB property binding.}
+    \label{fig:inputbox}
+\end{figure}
+
 
 \subsubsection{Analysis Module Template}
 
 The Analysis Module Template is a reusable QML component providing a consistent interface for configuring and executing MATLAB-based analyses. It encapsulates complex functionality into a self-contained, configurable unit supporting any analysis type while maintaining visual and behavioral consistency. The template handles the complete lifecycle from parameter configuration through execution and visualization.
 
-\paragraph{Core Architecture}
+\paragraph{Core Architecture}\mbox{}
 
 The component implements a collapsible panel design conserving screen space. Initially collapsed, showing only a header bar with the analysis name, it expands on click to reveal parameter controls and action buttons. This accordion-style pattern allows multiple analysis modules on one page without overwhelming users, letting them focus on one analysis at a time while remaining aware of others. Height dynamically adjusts based on expansion state.
 
-\paragraph{Parameter Management and Dynamic Rendering}
+\paragraph{Parameter Management and Dynamic Rendering}\mbox{}
 
 When instantiated, the template leverages the MATLAB parameter parser through the \verb|matlabExecutor| object, which analyzes the corresponding MATLAB script and extracts all configurable parameters with their types, defaults, and ranges. This information returns as JSON, deserialized into the \verb|dynamicParameters| property serving as the data model for interface generation.
 
 A Repeater iterates over all parameters, delegating rendering to a DynamicParameterLoader that examines metadata and selects appropriate control types: range sliders for numeric ranges, step range sliders for stepped sequences, dropdowns for enumerations, input boxes for strings/numbers, and checkboxes for booleans. Each control receives configuration directly from parameter metadata, automatically matching interface constraints to MATLAB script requirements without manual synchronization.
 
-\paragraph{Workflow Controls}
+\paragraph{Workflow Controls}\mbox{}
 
 Two action buttons become visible when expanded:
 
@@ -456,11 +543,11 @@ Two action buttons become visible when expanded:
 
 Visual hierarchy reinforces workflow: Visualize button appears above Feature Extract with white background and blue border indicating secondary role. Both implement hover detection with pointer cursor changes.
 
-\paragraph{File Validation and Error Handling}
+\paragraph{File Validation and Error Handling}\mbox{}
 
 The \verb|validateTargetFile| function verifies necessary data exists before execution. For analysis modules, this target is typically \verb|data_ICApplied_clean.mat| from preprocessing. The validator iterates through folder contents with case-insensitive comparison, setting descriptive error messages if required files are missing. An inline error text component displays messages in red, positioned near relevant controls.
 
-\paragraph{Advanced Features}
+\paragraph{Advanced Features}\mbox{}
 
 \textbf{Edit Mode}: When \verb|editModeEnabled| is true, parameter controls expose additional functionality including renaming, syntax editing, and deletion. This transforms the template from consumption to configuration tool, enabling experienced users to customize analyses without leaving the application.
 
@@ -477,7 +564,7 @@ The template abstracts configuration and execution complexity behind an intuitiv
 
 The Classifier Template orchestrates the complete machine learning workflow for training, configuring, and testing deep learning classifiers across multiple analysis types and architectures (EEGNet, EEG-Inception, Riemannian geometry-based approaches). Unlike the Analysis Module Template, it provides state management, persistent configuration storage, real-time logging, and testing capabilities within a unified interface.
 
-\paragraph{Core Architecture}
+\paragraph{Core Architecture}\mbox{}
 
 The template uses the collapsible panel design pattern, expanding to reveal analysis selection controls, time window sliders, classifier-specific parameters, class selection menus, action buttons, and logging displays. Dynamic height adjustment accommodates varying parameter counts, ensuring smooth layout transitions. Key properties:
 
@@ -488,7 +575,7 @@ The template uses the collapsible panel design pattern, expanding to reveal anal
 \item \verb|analysisTimeSelections|: Dictionary mapping classifier-analysis pairs to user-selected time windows; persists across sessions and application restarts
 \end{itemize}
 
-\paragraph{Time Window Management}
+\paragraph{Time Window Management}\mbox{}
 
 Different analysis types require different temporal ranges due to distinct neuroscientific patterns. The \verb|analysisTimeRanges| property stores four-element arrays [defaultStart, defaultEnd, minTime, maxTime] for each analysis:
 
@@ -500,7 +587,7 @@ Different analysis types require different temporal ranges due to distinct neuro
 
 The \verb|timeWindowProgrammaticUpdate| flag prevents circular update loops by distinguishing user-driven slider changes from programmatic updates, using Qt's \verb|callLater| to reset the flag asynchronously. The \verb|applyTimeWindowRange| function synchronizes both local properties and slider positions while managing persistence through the \verb|savePersistedTimeSelections| method.
 
-\paragraph{Analysis Selection and Configuration Loading}
+\paragraph{Analysis Selection and Configuration Loading}\mbox{}
 
 When users select an analysis from the dropdown, \verb|loadConfigurationForAnalysis| orchestrates a cascading sequence:
 
@@ -513,13 +600,13 @@ When users select an analysis from the dropdown, \verb|loadConfigurationForAnaly
 
 This ensures all interface elements remain synchronized with the selected analysis type, preventing stale parameter persistence from previous selections.
 
-\paragraph{Dynamic Parameters and Class Selection}
+\paragraph{Dynamic Parameters and Class Selection}\mbox{}
 
 A Repeater iterates over \verb|configParameters| keys, instantiating InputBoxTemplate for each parameter. Type detection enables appropriate validation (numeric vs. textual). The \verb|onValueChanged| handler implements immediate persistence: updates the in-memory object, invokes the controller's \verb|saveConfiguration| method, and ensures configuration files always reflect interface state.
 
 Class selection uses a split-button design with two sections: the main classify action and a right-side arrow toggle. The dropdown menu reveals checkboxes for each available class mapped to \verb|selectedClasses| object entries. JavaScript immutability requires creating new objects with copied values when toggling selections to trigger QML property change notifications.
 
-\paragraph{Training Workflow and Logging}
+\paragraph{Training Workflow and Logging}\mbox{}
 
 The classify button validates input (analysis selected; at least one class chosen), then initializes training:
 
@@ -531,19 +618,19 @@ The classify button validates input (analysis selected; at least one class chose
 
 A dedicated Window component displays a dark-themed console with monospaced text, automatically scrolling to show recent messages. The Connections component registers a \verb|logReceived| handler that checks the \verb|classifyExecuted| flag and appends timestamped messages from the Python backend. Title dynamically incorporates classifier name for context during concurrent operations. An "Open Console" button allows users to show the window after closing without restarting classification.
 
-\paragraph{Weights Detection and Auto-Selection}
+\paragraph{Weights Detection and Auto-Selection}\mbox{}
 
 The \verb|checkWeightsFileExists| function monitors folder contents for files matching the pattern \textbf{[classifierName]\_[analysisKey]\_weights\_best.keras}, checking for substring presence to accommodate qualifiers. When detected, the \verb|weightsFileExists| property enables interface elements depending on trained model availability, and \verb|getWeightsFilePath| constructs the absolute path.
 
 The \verb|tryAutoSelectAnalysisFromWeights| function automatically expands the template and selects an analysis if the current directory contains matching weights files for any supported analysis, activating only when users have not manually selected an analysis. This streamlines workflows for resuming training sessions.
 
-\paragraph{Time Range Integration and Testing}
+\paragraph{Time Range Integration and Testing}\mbox{}
 
 The "Select Time Range" button invokes the MATLAB executor's \verb|runSelectTimeRange| method, triggering a MATLAB script that loads feature data, extracts temporal samples within the configured window bounds, and saves the windowed dataset. This enables experiments comparing classifier performance across different temporal windows.
 
 A Test Classifier Window (currently disabled) provides a self-contained testing environment with properties for classifier name, selected analysis, weights file path, sample lists, and prediction results. The window connects to controller signals \verb|onSamplesLoaded| and \verb|onSingleSampleResult|, populates a dropdown with blind test samples (hiding ground truth labels), and displays predictions with visual hierarchy: predicted vs. actual labels in large boxes, correctness indicator (green for correct; red for incorrect), confidence percentage, and horizontal progress bars for class probability distributions. Dark-themed console at bottom displays test-specific logs with automatic scrolling.
 
-\paragraph{Error Handling and Signal Communication}
+\paragraph{Error Handling and Signal Communication}\mbox{}
 
 An inline \verb|errorTextItem| (red text, positioned above action buttons) displays contextual error messages without modal dialogs, such as "Please select an analysis type first" or "Please select at least one class". This follows best practices by positioning feedback adjacent to error sources.
 
@@ -556,7 +643,7 @@ The template emits three signals:
 
 Signal-based architecture enables loose coupling between template and parent page implementations.
 
-\paragraph{Advanced Features}
+\paragraph{Advanced Features}\mbox{}
 
 \textbf{Default Property Alias}: Theoretically enables injection of custom content into the expanded area via \verb|contentContainer|'s data property, accommodating future classifier-specific elements (training progress curves, configuration wizards, documentation panels) without template modifications.
 
@@ -687,9 +774,16 @@ The executor's state management embodies a consistent philosophy of single-sourc
 
 \subsection{File Browser Window}
 
+\begin{minipage}{\textwidth}
+\centering
+\includegraphics[width=0.4\textwidth]{./images/file_browser.png}
+\captionof{figure}{File Browser Interface displays the file explorer with folder contents, the lower section provides data labeling for annotating selected dataset.}
+\label{fig:filebrowser}
+\end{minipage}
+
 The file browser serves as the primary interface for navigating the file system, selecting datasets, and labeling experimental data. It bridges the QML frontend with a Python backend using a reactive architecture: a \verb|FileBrowser| class (inheriting from \verb|QObject|) manages file operations, while \verb|FileBrowserUI| QML component maintains signal-slot connections that ensure the interface always reflects backend state.
 
-\paragraph{Backend Implementation and Path Normalization}
+\paragraph{Backend Implementation and Path Normalization}\mbox{}
 
 The Python \verb|FileBrowser| class maintains three internal states exposed through Qt properties: current folder path, folder contents list, and processed file data in RAM. Property changes emit \verb|pyqtSignal| events that trigger QML updates without explicit method calls, eliminating synchronization issues.
 
@@ -706,7 +800,7 @@ The \verb|loadFolder| method handles cross-platform path complexity through defe
 
 This robust approach ensures consistent path handling regardless of source (file dialogs, MATLAB scripts, user input).
 
-\paragraph{Frontend Architecture and Visual Layout}
+\paragraph{Frontend Architecture and Visual Layout}\mbox{}
 
 The \verb|FileBrowserUI| component uses Qt's \verb|Connections| element to register handlers for backend signals, exemplifying the model-view-controller pattern: Python backend (model/logic), QML component (view/controller). The layout occupies the left 20% of the application window, divided into two regions:
 
@@ -723,7 +817,7 @@ Header bar (spanning both regions) displays the current folder path with two but
 
 Responsive height computation allocates screen space dynamically, maintaining minimum heights to ensure usability. Computed properties calculate available space and distribute fairly between explorer and labeling sections.
 
-\paragraph{File Interaction and Type-Specific Handling}
+\paragraph{File Interaction and Type-Specific Handling}\mbox{}
 
 The file explorer renders items as interactive elements with hover effects. Hover state displays light blue background; MATLAB files (\verb|.mat|) gain underline styling. Color coding distinguishes file types:
 
@@ -740,7 +834,7 @@ Click handling implements type-specific behavior:
 \item \textbf{Other files}: Simple notification signal (no further action)
 \end{itemize}
 
-\paragraph{Data Labeling Interface}
+\paragraph{Data Labeling Interface}\mbox{}
 
 When a \verb|data.mat| file is selected, the system queries the Python backend through \verb|matlabExecutor| to retrieve dataset names (MATLAB \verb|.mat| files can contain multiple named arrays and structures). The backend:
 
@@ -752,7 +846,7 @@ When a \verb|data.mat| file is selected, the system queries the Python backend t
 
 The interface presents pairs as input fields bound to the list model through QML property binding, automatically persisting user-entered label changes. When users press enter or move focus away from a field, labels save to Python storage, establishing permanent dataset-semantic associations.
 
-\paragraph{Advanced Features}
+\paragraph{Advanced Features}\mbox{}
 
 \textbf{Dual-Pane Design}: File explorer and labeling interface in stacked layout keeps frequently accessed controls visible while providing specialized functionality below. This thoughtful UX maintains immediate access to core operations while organizing secondary features.
 
@@ -765,21 +859,21 @@ The file browser abstracts file system complexity and persistent storage behind 
 
 The ICA Browser enables inspection and rejection of independent components extracted from EEG data, bridging automated decomposition with human judgment for identifying physiological artifacts (eye blinks, muscle activity, cardiac signals).
 
-\paragraph{Data Loading and Variable Detection}
+\paragraph{Data Loading and Variable Detection}\mbox{}
 
 The browser loads preprocessed ICA data from a specified MATLAB file path, performing intelligent variable detection by examining all non-metadata variables. The detection algorithm prioritizes \verb|data_ICApplied| (conventional ICA decomposition container) but flexibly identifies ICA data structures through characteristic FieldTrip properties: channel labels, trial matrices, temporal information arrays. This structural validation enables operation on diverse preprocessing outputs without rigid naming conventions.
 
-\paragraph{Sensor-Space Data Handling}
+\paragraph{Sensor-Space Data Handling}\mbox{}
 
 The system attempts to locate a companion \verb|data.mat| file containing raw sensor-level measurements. If found, loads directly. Otherwise, implements a fallback mechanism reconstructing sensor-space data from ICA components via matrix multiplication: applies topographical transformation matrices to project independent components back to original electrode space. Reconstruction preserves metadata (sampling rates, trial information, recording headers) by traversing FieldTrip's configuration history chain.
 
-\paragraph{Interactive Review and Batch Processing}
+\paragraph{Interactive Review and Batch Processing}\mbox{}
 
 The browser processes subjects sequentially, presenting FieldTrip's \verb|ft_databrowser| in component view mode. This displays each component's temporal evolution alongside its topographical scalp distribution, enabling artifact identification through time-series and spatial signatures. Rejection decisions accumulate in a structured array maintaining subject-component correspondence.
 
 After interactive review, an automated pipeline applies rejection decisions in batches (10 subjects at a time for memory efficiency). For each subject, reconstructs channel signals from only retained components, filtering artifact-related neural activity while preserving cognitive signals. Batch processing with incremental disk persistence protects against data loss and allows interrupted sessions to resume from last successful batch.
 
-\paragraph{Stimulus-Specific Decomposition and Outputs}
+\paragraph{Stimulus-Specific Decomposition and Outputs}\mbox{}
 
 Following artifact removal, the browser segments each cleaned dataset into three condition categories (target, standard, novelty stimuli) by examining trial information codes. Prepares data for condition-specific analyses (ERP averaging, spectral power comparisons).
 
@@ -796,7 +890,7 @@ All outputs persist to disk in MATLAB's compressed format and export to workspac
 
 Integrating NeuroPAC's ICA workflow with FieldTrip's \verb|ft_databrowser| required a strategic modification approach extending FieldTrip capabilities while maintaining compatibility with future updates and minimizing disruption to users' existing installations.
 
-\paragraph{Architecture: Minimally Invasive Modification}
+\paragraph{Architecture: Minimally Invasive Modification}\mbox{}
 
 Rather than forking FieldTrip entirely (creating maintenance burden and breaking shared installations), the solution adopts a minimally invasive approach modifying only ICA component rejection functionality. Two parallel versions exist:
 
@@ -805,7 +899,7 @@ Rather than forking FieldTrip entirely (creating maintenance burden and breaking
 \item \textbf{User's installation version}: Located in user's FieldTrip directory, receives modifications through automated synchronization
 \end{itemize}
 
-\paragraph{Core Modification: Reject IC Button}
+\paragraph{Core Modification: Reject IC Button}\mbox{}
 
 The modification introduces a "reject IC" button in \verb|ft_databrowser|'s right column control panel using normalized coordinates for resolution independence. Button instantiation via \verb|uicontrol| specifies parent figure handle, pushbutton style, and unique user data identifier 'rc' linking to callback handler.
 
@@ -816,7 +910,7 @@ When clicked, the interface enters interactive selection mode. The callback impl
 \item \textbf{Vertical/component view}: Each element occupies dedicated spatial region; directly queries figure's timecourse objects using \verb|findobj| with 'timecourse' tag, exposing y-data through graphics handles. Identifies temporal sample nearest to horizontal click coordinate, then determines component by finding which timecourse has nearest y-value at that time sample. This reverse approach (rendered graphics → data indices) proves robust by implicitly accounting for all FieldTrip scaling/transformation operations
 \end{itemize}
 
-\paragraph{Rejection Data Structure and Visual Feedback}
+\paragraph{Rejection Data Structure and Visual Feedback}\mbox{}
 
 Once a component is identified, the system extracts component number/label from the data structure's channel label array. Accesses \verb|cfg.current_subject_index| passed by \verb|browse_ICA.m|, which iterates through subjects sequentially. Maintains cell array \verb|opt.reject_ICs| (one cell per subject, initialized with zeros):
 
@@ -831,7 +925,7 @@ Visual feedback highlights the selected timecourse in red with "(REJECTED)" labe
 
 When databrowser closes, a cleanup callback packages state into output configuration, adding \verb|cfg.rejected_ICs| field to standard FieldTrip outputs. This minimal semantic extension maintains backward compatibility.
 
-\paragraph{Synchronization Mechanism}
+\paragraph{Synchronization Mechanism}\mbox{}
 
 The Python script \verb|quick_sync.py| propagates modifications from NeuroPAC's reference version to user's FieldTrip installation. Implements intelligent update system:
 
@@ -848,7 +942,7 @@ Timestamp-based approach provides efficient change detection without expensive f
 
 Integrates as optional preliminary step users invoke through menu option before ICA analysis. Transparent instructions explain installation modification and recommend backing up original \verb|ft_databrowser.m|. Users declining synchronization retain preprocessing features but lack integrated component rejection.
 
-\paragraph{Communication Flow and Result Collection}
+\paragraph{Communication Flow and Result Collection}\mbox{}
 
 \verb|browse_ICA.m| constructs configuration structures with standard FieldTrip parameters (layout specifications, view mode) plus NeuroPAC-specific context (\verb|cfg.total_subjects|, \verb|cfg.current_subject_index|). After databrowser returns, extracts rejection information from \verb|cfg.rejected_ICs| field, consolidating into master rejection array with defensive extraction logic handling various data structure possibilities (missing fields, empty arrays, nested cells, inconsistent indexing).
 
@@ -861,25 +955,32 @@ The architecture reflects key software engineering principles: minimal modificat
 
 \subsubsection{Analysis Visualizer}
 
-\paragraph{Shared interaction model}
+\paragraph{Shared interaction model}\mbox{}
+
 All visualizers follow a consistent MATLAB GUI pattern to keep analysis exploration predictable. Each tool: (i) normalizes inputs into a subjects-by-condition struct array (target/standard/novelty) to avoid dissimilar-structure errors; (ii) stores state in the figure via \verb|guidata| (current subject, selected channels or pairs, axis overrides); (iii) provides Previous/Next navigation to iterate subjects; (iv) offers checkbox panels to select channels (or channel pairs) with an “all” toggle; (v) exposes \verb|xlim|/\verb|ylim| overrides through edit boxes that immediately re-render plots; and (vi) hides the figure until UI controls are fully built to avoid flicker. All UIs enforce defensive handling of empty or malformed inputs and clamp selections to valid indices.
 
-\paragraph{FieldTrip dependency handling}
+\paragraph{FieldTrip dependency handling}\mbox{}
+
 The time–frequency and coherence visualizers attempt to auto-locate FieldTrip (e.g., checking \verb|ft_singleplotTFR|/\verb|ft_connectivityplot| availability) and mirror the fallback search logic used in preprocessing scripts. When available, FieldTrip plotting routines are invoked with interaction disabled (e.g., \verb|cfg.interactive = 'no'|) so that NeuroPAC’s own UI remains authoritative.
 
-\paragraph{ERP visualizer (time-domain averages)}
+\paragraph{ERP visualizer (time-domain averages)}\mbox{}
+
 Displays per-channel event-related potentials in a channel-by-condition grid using \verb|avg| waveforms. Typical use: rapidly compare latency/amplitude differences across target, standard, and novelty conditions with optional manual axis limits. Uses the recorded channel labels when present, falling back to autogenerated labels otherwise.
 
-\paragraph{Spectral visualizer (frequency-domain power)}
+\paragraph{Spectral visualizer (frequency-domain power)}\mbox{}
+
 Plots power spectral density curves derived from \verb|fourierspctrm| for each selected channel. Supports subject paging and channel selection identical to ERP, with optional frequency/Power axis overrides to focus on bands of interest. Generates default channel labels when none are provided.
 
-\paragraph{Time–frequency visualizer (TFR surfaces)}
+\paragraph{Time–frequency visualizer (TFR surfaces)}\mbox{}
+
 Renders time–frequency power maps per condition via FieldTrip’s \verb|ft_singleplotTFR|. Requires at least one channel selection; otherwise it suppresses plotting with a user message. Preserves provided \verb|layout| when present, and applies optional time/frequency window overrides. Input normalization accepts either a subjects-by-3 matrix or a vector of structs with \{target, standard, novelty\} fields, copying only known fields to avoid structure mismatch.
 
-\paragraph{Channel-wise coherence visualizer}
+\paragraph{Channel-wise coherence visualizer}\mbox{}
+
 Targets connectivity outputs (coherence) across channel pairs. Builds a pair list from \verb|labelcmb| or square coherence matrices, then plots time–frequency coherence per selected pair across the three conditions. Provides pair-level checkboxes (two-column layout when many pairs exist) plus shared axis overrides. Extracts pair-specific slices into FieldTrip-compatible TFR structs for plotting.
 
-\paragraph{Inter-trial coherence visualizer}
+\paragraph{Inter-trial coherence visualizer}\mbox{}
+
 Shows per-channel ITPC/ITLC maps, switchable via a coherence mode dropdown (phase or linear). Otherwise mirrors the ERP-style navigation and channel selection. Uses \verb|itpc| or \verb|itlc| fields when present, with graceful skips for missing data and optional axis limits to highlight time–frequency regions.
 
 
@@ -887,43 +988,151 @@ Shows per-channel ITPC/ITLC maps, switchable via a coherence mode dropdown (phas
 
 \subsubsection{Preprocess Bridge}
 
-\paragraph{Purpose and role} The Python module \texttt{preprocess\_bridge.py} bridges MATLAB analysis outputs and Python deep-learning models. It discovers and loads FieldTrip-derived \texttt{.mat} files (ERP, time--frequency, spectral, connectivity, inter-trial coherence), normalizes their structures, pads variable shapes, and returns tensors plus labels suitable for model input.
+\paragraph{Purpose and role}\mbox{}
 
-\paragraph{Core data structures} \texttt{MatlabStructElement} wraps MATLAB structs so they behave like Python dicts and attributes while preserving keys, shapes, and simple metadata. \texttt{PreprocessBridge} holds resolved data paths, filename mappings per analysis type, expected condition order (target, standard, novelty), and flexible group label mappings (e.g., HC/CTL vs. PD variants) sourced from a shared \texttt{labels} list.
+The Python module \texttt{preprocess\_bridge.py} bridges MATLAB analysis outputs and Python deep-learning models. It discovers and loads FieldTrip-derived \texttt{.mat} files (ERP, time--frequency, spectral, connectivity, inter-trial coherence), normalizes their structures, pads variable shapes, and returns tensors plus labels suitable for model input.
 
-\paragraph{Loading pipeline} \texttt{load\_and\_transform()} cleans incoming paths (stripping \texttt{file:///} prefixes, normalizing slashes), picks the right \texttt{.mat} filename, then loads with \texttt{scipy.io.loadmat}; MATLAB v7.3 files automatically fall back to \texttt{h5py}. It selects the correct struct key per analysis (e.g., \texttt{ERP\_data} with \texttt{avg}, \texttt{timefreq\_data} with \texttt{powspctrm}), iterates subjects in struct arrays, derives dataset names from \texttt{cfg.dataset} when available, and attaches group labels from \texttt{labels}. For each condition it retrieves the primary data field with fallbacks (trial averaging when needed), converts complex arrays to magnitudes, handles spectral/connectivity-specific averaging, cleans NaN/Inf values, and records condition and subject indices.
+\paragraph{Core data structures}\mbox{}
 
-\paragraph{Shape normalization and transforms} After extraction, samples are squeezed, dimension-aligned by padding to the max observed shape, and stacked into \(X\). Labels \(y\) include condition, group, subject id, and dataset name. \texttt{\_apply\_transform()} reshapes ERP data for EEGNet/EEG-Inception (adds singleton spatial dimension) and preserves 4D tensors for time--frequency and inter-trial coherence when targeting EEG-Inception, while passing through Riemannian targets untouched.
+\texttt{MatlabStructElement} wraps MATLAB structs so they behave like Python dicts and attributes while preserving keys, shapes, and simple metadata. \texttt{PreprocessBridge} holds resolved data paths, filename mappings per analysis type, expected condition order (target, standard, novelty), and flexible group label mappings (e.g., HC/CTL vs. PD variants) sourced from a shared \texttt{labels} list.
 
-\paragraph{Filtering and selection} \texttt{filter\_by\_selected\_classes()} supports class-specific downselection (e.g., only PD-target) by parsing class strings into group/condition pairs, normalizing group labels (numeric or textual), and returning filtered samples plus kept indices.
+\paragraph{Loading pipeline}\mbox{}
 
-\paragraph{MATLAB v7.3 handling} Helper methods (\texttt{\_load\_mat\_v73}, \texttt{\_convert\_mat73\_struct\_array}, \texttt{\_convert\_condition\_struct}) dereference HDF5 references, extract only relevant data fields, and wrap them in \texttt{MatlabStructElement}, ensuring v7.3 files remain interchangeable with earlier \texttt{loadmat} outputs.
+\texttt{load\_and\_transform()} cleans incoming paths (stripping \texttt{file:///} prefixes, normalizing slashes), picks the right \texttt{.mat} filename, then loads with \texttt{scipy.io.loadmat}; MATLAB v7.3 files automatically fall back to \texttt{h5py}. It selects the correct struct key per analysis (e.g., \texttt{ERP\_data} with \texttt{avg}, \texttt{timefreq\_data} with \texttt{powspctrm}), iterates subjects in struct arrays, derives dataset names from \texttt{cfg.dataset} when available, and attaches group labels from \texttt{labels}. For each condition it retrieves the primary data field with fallbacks (trial averaging when needed), converts complex arrays to magnitudes, handles spectral/connectivity-specific averaging, cleans NaN/Inf values, and records condition and subject indices.
+
+\paragraph{Shape normalization and transforms}\mbox{}
+
+After extraction, samples are squeezed, dimension-aligned by padding to the max observed shape, and stacked into \(X\). Labels \(y\) include condition, group, subject id, and dataset name. \texttt{\_apply\_transform()} reshapes ERP data for EEGNet/EEG-Inception (adds singleton spatial dimension) and preserves 4D tensors for time--frequency and inter-trial coherence when targeting EEG-Inception, while passing through Riemannian targets untouched.
+
+\paragraph{Filtering and selection}\mbox{}
+
+\texttt{filter\_by\_selected\_classes()} supports class-specific downselection (e.g., only PD-target) by parsing class strings into group/condition pairs, normalizing group labels (numeric or textual), and returning filtered samples plus kept indices.
+
+\paragraph{MATLAB v7.3 handling}\mbox{}
+
+Helper methods (\texttt{\_load\_mat\_v73}, \texttt{\_convert\_mat73\_struct\_array}, \texttt{\_convert\_condition\_struct}) dereference HDF5 references, extract only relevant data fields, and wrap them in \texttt{MatlabStructElement}, ensuring v7.3 files remain interchangeable with earlier \texttt{loadmat} outputs.
 
 
 \subsubsection{Controller}
-\subsubsection{Console}
+
+\paragraph{Role and architecture}\mbox{}
+
+The classification controller coordinates training, testing, sample loading, and single-sample inference through Qt signals/slots and worker objects that run in separate \texttt{QThread}s, keeping the UI responsive while streaming live log output from subprocesses.
+
+\paragraph{Worker responsibilities}\mbox{}
+
+\texttt{TrainingWorker}, \texttt{TestWorker}, \texttt{SampleLoaderWorker}, and \texttt{SingleSampleClassifierWorker} each wrap a specific workflow. They resolve the model directory (EEGNet, EEG-Inception, Riemannian), build the correct script path (\texttt{main.py}, \texttt{test.py}, \texttt{load\_samples.py}, \texttt{classify\_sample.py}), launch a Python subprocess with the chosen analysis key and data path, stream stdout to the UI, and emit JSON-tagged results when present (e.g., \texttt{JSON\_RESULT}, \texttt{JSON\_SAMPLES}, \texttt{JSON\_CLASSIFICATION}). Training additionally passes selected classes (as JSON) and optional config parameters; testing accepts weights paths; loaders focus on discovery without inference.
+
+\paragraph{Controller duties}\mbox{}
+
+\texttt{ClassificationController} owns a \texttt{ConfigParser} for analysis/model metadata, tracks the active data folder, and exposes slots to QML for listing classifier configs, available analyses, and class combinations built from \texttt{diagnosis\_labels} crossed with the canonical conditions (target, standard, novelty). It normalizes incoming paths from the UI (stripping \texttt{file:///}), prevents concurrent runs by checking an existing thread, wires worker signals to UI signals (logs, completion, results), and cleans thread references after completion.
+
+\paragraph{Training and classification flow}\mbox{}
+
+\texttt{startClassification()} converts display names to analysis keys, validates that a data folder is set, logs selected class filters, spawns a \texttt{TrainingWorker}, and streams subprocess output. Training optionally writes per-analysis JSON configs into the model's \texttt{configs} directory before execution. Similar patterns drive \texttt{startTraining()} when launched without UI-specified analysis/config overrides.
+
+\paragraph{Testing and inference flow}\mbox{}
+
+\texttt{testClassifier()} normalizes weight file paths, resolves the analysis key, and runs a \texttt{TestWorker}; JSON results are forwarded via \texttt{testResults}. \texttt{loadTestSamples()} invokes \texttt{SampleLoaderWorker} to list available samples without classifying. \texttt{classifySingleSample()} runs \texttt{SingleSampleClassifierWorker} with a specific weight file and sample index, emitting a single-result JSON payload.
+
+\paragraph{Persistence and utilities}\mbox{}
+
+The controller keeps a shared time-window selection file under \texttt{config/time\_window\_selections.json}, ensuring parent directories exist and providing load/save slots for UI persistence. Helper slots return diagnosis labels, condition labels, counts, and analysis-key mappings. Defensive try/except blocks surface errors to the UI via log signals instead of crashing the application.
+
+
 \subsubsection{Inference}
+
+\paragraph{Unified inference architecture}\mbox{}
+
+All three classification models (EEGNet, EEG-Inception, Riemannian) follow a consistent inference pattern with dedicated wrapper classes that isolate weight loading, preprocessing, and prediction into standardized interfaces. Each inference module exposes a class constructor accepting a weights path, a \texttt{preprocess()} method normalizing input tensors, and a \texttt{predict()} method returning class predictions plus probability distributions (when available). This uniform API enables the controller to treat models interchangeably at runtime, switching between deep learning and traditional machine learning approaches without code duplication.
+
+\paragraph{Common inference logic}\mbox{}
+
+All implementations share core responsibilities: (i) weight loading with exception handling that surfaces file-not-found or corruption errors gracefully; (ii) batch dimension handling to accept both single-trial \texttt{(channels, samples)} and multi-trial \texttt{(trials, channels, samples)} inputs, automatically expanding singleton dimensions; (iii) defensive validation ensuring loaded artifacts (Keras models or scikit-learn pipelines) are properly instantiated before inference; (iv) unified output format returning predicted class indices alongside probability vectors (or \texttt{None} when unavailable); and (v) scaling support via optional \texttt{scale\_factor} parameters to convert units (e.g., volts to microvolts) without altering stored data.
+
+\paragraph{Deep learning inference (EEGNet and EEG-Inception)}\mbox{}
+
+Both neural network models leverage TensorFlow/Keras backends and set \texttt{K.set\_image\_data\_format('channels\_last')} to enforce consistent tensor ordering. Initialization requires architecture hyperparameters (number of classes, channel counts, temporal samples, filter configurations, dropout rates) mirroring those used during training; the constructor rebuilds the model graph then loads saved weights via \texttt{model.load\_weights()}. Preprocessing applies data scaling first, expands single-trial inputs to batch form \texttt{(1, channels, samples)}, then reshapes to match expected 4D tensor layouts—EEGNet expects \texttt{(trials, channels, samples, 1)} with a trailing singleton dimension representing convolutional kernels, while EEG-Inception transposes channel and time axes \texttt{(trials, time, channels)} before adding the singleton to yield \texttt{(batch, time, channels, 1)}, reflecting its time-major architecture. Prediction invokes \texttt{model.predict()}, which returns softmax probabilities; class labels are extracted via \texttt{argmax(-1)}.
+
+\paragraph{Riemannian inference (pyRiemann pipeline)}\mbox{}
+
+The Riemannian approach loads a complete \texttt{scikit-learn} pipeline serialized with \texttt{joblib}, avoiding architecture reconstruction entirely. This pipeline encapsulates covariance estimation, tangent space projection, and SVM/MDM classification in a single artifact. Initialization only requires the \texttt{.pkl} path; validation confirms file existence before loading. Preprocessing is minimal—ensuring the input is 3D \texttt{(trials, channels, features)} by expanding 2D arrays—since feature extraction (spectral power or connectivity matrices) occurs upstream in the analysis bridge. Prediction calls \texttt{pipeline.predict()} directly; probability retrieval attempts \texttt{predict\_proba()} but gracefully returns \texttt{None} when the final estimator lacks this method (e.g., Minimum Distance to Mean classifiers). Additional introspection methods (\texttt{get\_pipeline\_steps()}, \texttt{get\_feature\_importance()}) expose internal pipeline structure and SVM coefficients when available, supporting interpretability workflows absent from black-box neural models.
+
+\paragraph{Shape handling divergences}\mbox{}
+
+Input tensor transformations differ per model's inductive biases. EEGNet's depthwise-separable convolutions operate channel-wise on temporal sequences, accepting \texttt{(trials, channels, samples, kernels)} with standard channel-first EEG ordering preserved except for the trailing dimension. EEG-Inception's multi-scale inception modules process time-first sequences \texttt{(batch, time, channels, 1)}, necessitating a transpose from the canonical \texttt{(batch, channels, time)} input; this reordering aligns temporal convolutions along axis 1. Riemannian methods expect pre-extracted features in \texttt{(trials, channels, features)} where features encode frequency-band power or connectivity coefficients, not raw time-series samples; the inference module assumes these features arrive already computed from upstream spectral or coherence analyses, avoiding redundant transformations.
+
+\paragraph{Error handling and robustness}\mbox{}
+
+All classes wrap weight loading in try-except blocks, printing diagnostic messages before re-raising exceptions to aid debugging. Deep learning models catch \texttt{load\_weights()} failures (missing files, incompatible architectures); Riemannian inference validates file existence via \texttt{os.path.exists()} prior to \texttt{joblib.load()}. Preprocessing methods enforce dimensionality checks with fallback expansions, preventing shape mismatches during prediction. The Riemannian implementation additionally guards \texttt{predict\_proba()} calls with \texttt{AttributeError} handling, surfacing clear error messages when probability estimation is unsupported, and validates pipeline initialization before every prediction call to prevent cryptic failures from unloaded models. This layered validation ensures inference operations fail early with actionable feedback rather than producing silent errors or corrupted outputs.
+
+
 \subsubsection{Main}
-\subsubsection{Model}
+
+\paragraph{Unified training orchestration}\mbox{}
+
+All three classification models share a common \texttt{main.py} entry point structure that orchestrates the complete training pipeline from data loading through model persistence. Each script accepts command-line arguments specifying analysis type (ERP, time--frequency, spectral, connectivity, inter-trial coherence), data folder path, and optional JSON-encoded class filters for subset training. Configuration management follows a consistent pattern: loading analysis-specific JSON files from a local \texttt{configs} directory, merging with hardcoded defaults, and extracting hyperparameters (learning rates, batch sizes, epochs, regularization parameters). The unified workflow proceeds through five stages: configuration parsing, data loading via \texttt{PreprocessBridge}, subject-wise data splitting or cross-validation, model initialization and training, and weight persistence with standardized naming conventions. All scripts suppress framework warnings (TensorFlow logging, NumPy deprecations) to maintain clean console output for UI integration.
+
+\paragraph{Common training logic}\mbox{}
+
+Shared responsibilities span data preparation, label construction, and evaluation reporting. All implementations: (i) invoke \texttt{PreprocessBridge.load\_and\_transform()} with the appropriate analysis key and model target, receiving \texttt{X} tensors and \texttt{y} metadata dictionaries containing condition (target/standard/novelty), group (HC/PD), and subject IDs; (ii) apply optional class filtering when \texttt{selected\_classes} arguments specify diagnostic-condition subsets (e.g., PD-target only), re-indexing samples while preserving subject associations; (iii) construct combined multi-class labels via \texttt{groups * 3 + conditions}, then remap to contiguous ranges matching the filtered class count to avoid sparse label spaces; (iv) perform subject-wise splits to prevent data leakage, ensuring no subject appears in multiple partitions—typical ratios are 60\% training, 20\% validation, 20\% test, with GroupKFold for robust estimates; (v) handle edge cases (fewer than three subjects, empty validation sets) by printing warnings and adjusting split logic; (vi) save best models using descriptive filenames encoding analysis type and filtered groups (e.g., \texttt{EEGNet\_erp\_gPD\_weights\_best.keras}), placing artifacts directly in the data folder without creating separate results hierarchies; and (vii) report training, validation, and test accuracies plus loss metrics in structured console blocks for upstream JSON parsing.
+
+\paragraph{Deep learning workflows (EEGNet and EEG-Inception)}\mbox{}
+
+Neural network training scripts leverage TensorFlow/Keras APIs with categorical cross-entropy loss and Adam optimization. Shared elements include: one-hot encoding labels via \texttt{to\_categorical()} after subject splits; initializing models with architecture-specific hyperparameters (filter counts, kernel sizes, dropout rates) extracted from configs; compiling with \texttt{model.compile()} specifying loss, optimizer, and accuracy metrics; training via \texttt{model.fit()} with validation data, epoch counts, and callback arrays; using \texttt{ModelCheckpoint} to monitor validation accuracy and persist only the best-performing weights; and loading saved weights post-training for final test-set evaluation. Both scripts explicitly set \texttt{K.set\_image\_data\_format('channels\_last')} to enforce Keras' channel-last convention, matching preprocessing outputs. EEGNet applies a simple transpose \texttt{(batch, 1, channels, time) -> (batch, channels, time, 1)} to align bridge outputs with its depthwise-separable architecture. EEG-Inception implements more complex reshaping: detecting whether inputs are 3D (ERP: channels, time) or 4D (time--frequency/inter-trial: frequency, time, channels), applying model-specific transpositions to achieve \texttt{(batch, time, channels, 1)} layouts, and selecting between \texttt{EEGInception} (for ERP) and \texttt{EEGInceptionTF} (for spectrograms) model constructors based on analysis type. EEG-Inception additionally supports optional data augmentation for time--frequency inputs (noise injection, time/frequency masking, amplitude scaling, mixup), controlled via config flags, to combat overfitting with limited samples.
+
+\paragraph{Riemannian workflow (pyRiemann and scikit-learn)}\mbox{}
+
+The Riemannian training script diverges significantly by using traditional machine learning pipelines instead of gradient descent. Key differences: (i) imputes NaN/Inf values with zeros before covariance estimation to avoid singular matrices; (ii) invokes model factories (\texttt{create\_riemannian\_pipeline()}, \texttt{create\_connectivity\_pipeline()}) that return complete \texttt{sklearn.pipeline.Pipeline} objects encapsulating covariance estimators (SCM, LWF with shrinkage), tangent space projections, dimensionality reduction, and SVM/MDM classifiers; (iii) supports deep tangent space networks when \texttt{use\_deep=True}, injecting custom neural estimators with configurable hidden dimensions, dropout, and PyTorch Skorch wrappers into the pipeline; (iv) performs five-fold \texttt{GroupKFold} cross-validation on the full dataset to report mean and standard deviation accuracies, providing robust performance estimates despite small sample sizes; (v) trains a final model on the complete dataset after CV, explicitly warning users that full-data training accuracy is optimistic and CV metrics represent true generalization; (vi) persists the entire pipeline (including fitted transformers and classifiers) via \texttt{joblib.dump()} to \texttt{.pkl} files; and (vii) prints detailed label summaries showing group/condition/combined-class distributions plus subject counts, aiding debugging of aggressive filtering that might leave too few samples. Connectivity analysis uses regularized covariance estimators with configurable shrinkage and minimum eigenvalue thresholds to stabilize ill-conditioned matrices, while spectral analysis operates on pre-averaged frequency-band power.
+
+\paragraph{Configuration and hyperparameter management}\mbox{}
+
+All scripts define analysis-specific config files (\texttt{erp\_config.json}, \texttt{tf\_config.json}, \texttt{spectral\_config.json}, \texttt{connectivity\_config.json}) mapping user-facing analysis modes to backend parameter sets. Configs specify model architecture (layer counts, filter dimensions), training regimes (epochs, batch sizes, learning rates), regularization (dropout, weight decay, label smoothing), optimization strategies (schedulers, early stopping patience), and workflow toggles (enable K-fold, grid search, augmentation). Scripts merge loaded configs with defaults via dictionary updates, allowing partial overrides. EEG-Inception exposes advanced options like target validation accuracy for early stopping (\texttt{StopOnAccuracy} callback) and learning rate reduction on plateaus. Riemannian configs include traditional ML parameters (SVM kernels, regularization constants, class weights) plus deep tangent network settings when enabled. This externalized configuration supports rapid experimentation without code modification, though all scripts also accept command-line overrides for data paths and class filters, enabling controller-driven batch training across multiple analysis-class combinations.
+
+\paragraph{Subject-wise splitting and cross-validation}\mbox{}
+
+Preventing subject leakage is critical: all scripts partition data by unique subject IDs rather than random trial shuffling. EEGNet and EEG-Inception default to fixed 60/20/20 train/validation/test splits using \texttt{train\_test\_split()} with \texttt{random\_state=42} for reproducibility, extracting subject lists first then masking samples via \texttt{np.isin(subject\_ids, train\_subs)}. When fewer than three subjects exist, scripts issue warnings and allocate all data to training. EEG-Inception optionally supports \texttt{StratifiedGroupKFold} when \texttt{use\_kfold=True}, iterating folds, training separate models, and reporting per-fold accuracies plus mean/std aggregates before final training on the full set. Riemannian always uses five-fold \texttt{GroupKFold}, treating each fold independently without final model averaging, then trains one last pipeline on all data for deployment. This cross-validation rigor addresses the Parkinson's dataset's limited subject count (approximately 20 HC, 20 PD), ensuring reported accuracies reflect out-of-subject generalization rather than memorization.
+
+\paragraph{Output and logging conventions}\mbox{}
+
+All scripts print structured console messages designed for upstream parsing by the classification controller. Key patterns: section headers delimited by repeated dashes or equals signs; accuracy/loss metrics formatted as percentages with fixed decimal places; explicit labels for train/validation/test partitions; and warnings prefixed with "Warning:" or "Error:" for UI highlighting. None generate standalone results folders or plots—training completion messages specify only the saved weight path. This minimalist output philosophy keeps the data folder clean and delegates visualization to the controller or separate analysis tools. Errors are surfaced via exceptions that propagate to the controller's subprocess capture, where traceback parsing extracts actionable messages for the user. The combination of clean logs and standardized weight naming enables the controller to discover trained models programmatically and populate UI dropdown lists without manual intervention.
+
 \subsubsection{Test}
 
+\paragraph{Unified evaluation architecture}\mbox{}
 
-\section{Research Design and Procedures}
+All three classification models provide standalone \texttt{test.py} scripts that independently evaluate trained models on held-out test sets, reporting aggregate metrics and per-class performance without requiring the full training pipeline. Each script accepts command-line arguments specifying analysis type, data folder path, and optional pre-trained weight file paths. When weight paths are omitted, scripts auto-detect model files using standardized naming conventions (e.g., \texttt{EEGNet\_erp\_weights\_best.keras}). The evaluation workflow mirrors training's data loading and splitting phases to ensure test subjects remain isolated from training, then loads saved model artifacts, performs inference on test samples, and outputs structured JSON payloads tagged with \texttt{JSON\_RESULT:} prefixes for controller parsing. This separation allows post-hoc model evaluation without re-training and supports interactive single-sample classification via weight reuse.
 
-\section{Data Description}
+\paragraph{Common evaluation logic}\mbox{}
 
-\subsection{Parkinson's}
+Shared responsibilities span data loading, split reproduction, balanced sampling, and result reporting. All implementations: (i) initialize \texttt{PreprocessBridge} and invoke \texttt{load\_and\_transform()} with matching analysis types and model targets used during training; (ii) reproduce identical subject-wise train/validation/test splits by applying \texttt{train\_test\_split()} with \texttt{random\_state=42}, ensuring test subjects never appeared in training data—this split fidelity is critical for unbiased accuracy estimates; (iii) construct combined multi-class labels via the same \texttt{groups * 3 + conditions} formula, maintaining label consistency across training and testing phases; (iv) apply automatic balanced sampling by detecting minimum sample counts across all unique labels and downsampling majority classes to match, preventing class imbalance from inflating accuracy metrics—each class contributes equally to reported performance; (v) load pre-trained model artifacts (Keras \texttt{.keras} files or \texttt{joblib} \texttt{.pkl} pipelines) with defensive existence checks and graceful error messages; (vi) compute overall test accuracy plus per-class accuracies, iterating through unique labels and calculating class-specific correct prediction rates; (vii) format console output with delimited result blocks showing test accuracy, per-class breakdowns, sample counts, and subject counts; and (viii) emit JSON-encoded result dictionaries containing numeric metrics, class names, sample/subject counts, and dataset identifiers for UI consumption. The \texttt{JSON\_RESULT:} prefix enables controller regex matching to extract structured data from subprocess stdout streams.
 
-\section{Instrumentation}
+\paragraph{Deep learning evaluation (EEGNet and EEG-Inception)}\mbox{}
+
+Neural network test scripts leverage TensorFlow/Keras model loading and prediction APIs. Shared elements include: setting \texttt{K.set\_image\_data\_format('channels\_last')} for tensor layout consistency; loading complete model graphs with \texttt{load\_model()} from \texttt{.keras} files (Keras 3.x format); extracting label metadata (conditions, groups, subject IDs, dataset names) from bridge outputs; filtering invalid groups and conditions with boolean masks to handle corrupted or out-of-range labels, printing warnings for dropped samples; applying identical tensor reshaping as training—EEGNet transposes to \texttt{(batch, channels, time, 1)}, EEG-Inception performs dimension detection and reordering to achieve \texttt{(batch, time/frequency, time, channels)} layouts based on analysis type; one-hot encoding test labels via \texttt{to\_categorical()} to match model output shapes; invoking \texttt{model.evaluate()} for aggregate accuracy and loss, then \texttt{model.predict()} for per-sample class probabilities; extracting predicted classes via \texttt{argmax()} over the probability axis; and computing per-class accuracy by masking test samples belonging to each class and calculating correct prediction rates. EEG-Inception additionally implements dynamic class detection by inspecting \texttt{model.output\_shape[-1]} to infer whether the model was trained for binary (HC vs PD), tri-class (conditions only), or six-class (group × condition) classification, adjusting label construction and class names accordingly. Both scripts build detailed per-sample result arrays containing predicted/actual labels, confidence scores (max probability), correctness flags, and full probability distributions across all classes—EEG-Inception exposes this granular data in its JSON output to support UI-driven sample inspection and confusion matrix generation.
+
+\paragraph{Riemannian evaluation (pyRiemann pipeline)}\mbox{}
+
+The Riemannian test script diverges by loading complete \texttt{scikit-learn} pipelines rather than model weights alone. Key differences: (i) uses \texttt{joblib.load()} to deserialize \texttt{.pkl} files containing fitted covariance estimators, tangent space projectors, and SVM/MDM classifiers; (ii) skips one-hot encoding since sklearn classifiers accept integer labels directly; (iii) applies NaN/Inf imputation (\texttt{np.nan\_to\_num()}) before evaluation to prevent covariance estimation failures on missing values; (iv) invokes \texttt{clf.score()} for overall accuracy rather than separate loss metrics (no loss functions in traditional ML); (v) extracts predictions via \texttt{clf.predict()} without explicit probability retrieval, as MDM classifiers lack \texttt{predict\_proba()} methods; (vi) computes per-class accuracies by iterating unique condition labels (target/standard/novelty) rather than combined group-condition classes, reflecting Riemannian's focus on spectral/connectivity features that may not encode group differences as robustly; (vii) includes dataset names in JSON output but omits per-sample granular results (no probability distributions); and (viii) prints simpler console summaries without loss values. The pipeline approach ensures all preprocessing transformations (covariance, tangent projection) are applied consistently between training and testing without manual parameter alignment.
+
+\paragraph{Balanced sampling and class distribution}\mbox{}
+
+All scripts implement automatic class balancing to address inherent dataset imbalance (e.g., more standard trials than target trials, unequal HC/PD subject counts). The algorithm: (i) identifies unique labels in the test set via \texttt{np.unique()}; (ii) counts samples per label using \texttt{np.sum(labels == label)}; (iii) finds the minimum count across all labels; (iv) for each label, randomly samples exactly \texttt{min\_samples\_per\_label} trials without replacement via \texttt{np.random.choice()}, ensuring no class dominates; (v) concatenates sampled indices, shuffles them to mix labels, and extracts corresponding \texttt{X\_test} and \texttt{y\_test} subsets; and (vi) prints per-class sample counts to confirm balance. This approach prevents scenarios where a model achieves high accuracy by simply predicting the majority class—balanced evaluation forces models to perform equally well across all diagnostic groups and stimulus conditions. EEGNet and EEG-Inception apply balancing to combined six-class labels (group × condition), while Riemannian balances three-class condition labels. The \texttt{random\_state} is \textit{not} fixed for sampling (uses default random seed), introducing minor variability across runs but maintaining fairness.
+
+\paragraph{Split reproduction and leakage prevention}\mbox{}
+
+Critical to unbiased evaluation is reproducing training's exact subject-wise splits using identical random seeds. All scripts invoke \texttt{train\_test\_split()} twice with \texttt{random\_state=42}: first splitting 60\% train vs 40\% temp, then splitting temp into 20\% validation vs 20\% test. This matches training's logic exactly, ensuring test subjects \texttt{test\_subs} are identical between training and testing runs given the same input data. Masking via \texttt{np.isin(subject\_ids, test\_subs)} isolates test samples before any processing, guaranteeing no subject leakage. Scripts validate that \texttt{len(unique\_subjects) >= 3} before splitting; fewer subjects trigger fallback logic allocating all data to test with printed warnings. This rigor prevents optimistic accuracy inflation from subject memorization—models never see test subjects' data during training, forcing genuine generalization across individuals rather than trial-level overfitting.
+
+\paragraph{Output formatting and JSON serialization}\mbox{}
+
+All scripts follow strict output conventions for controller integration. Console output uses repeated equals signs (\texttt{=*60}) to delimit result blocks, labels metrics explicitly (\texttt{Test Accuracy:}, \texttt{Per-Class Accuracy:}), and formats percentages with two decimal places. JSON payloads encode: \texttt{test\_accuracy} (float), \texttt{class\_accuracies} (dict mapping class names to floats), \texttt{num\_test\_samples}/\texttt{num\_test\_subjects} (ints), and \texttt{dataset\_names} (list of strings identifying trial sources). Deep learning scripts add \texttt{test\_loss}, \texttt{per\_sample\_results} (detailed prediction arrays), and \texttt{classification\_mode} (e.g., "6-class"). EEGNet includes \texttt{group\_counts} and \texttt{subject\_group\_labels} mapping subject IDs to diagnostic groups. All floats are cast explicitly via \texttt{float()}/\texttt{int()} to avoid NumPy type serialization errors. EEG-Inception implements \texttt{sanitize\_for\_json()} to replace NaN/Inf with \texttt{None}, preventing \texttt{json.dumps()} failures. The \texttt{ensure\_ascii=True} flag escapes non-ASCII characters in dataset paths. The \texttt{JSON\_RESULT:} prefix enables regex extraction: \texttt{re.search(r'JSON\_RESULT:(.*)', stdout)} captures the payload for UI parsing without manual text processing.
 
 \section{Limitations}
 
 \section{Summary}
 
 % Chapter IV
-\chapter{Results}
-
-
+\chapter{Classification Results}
 
 % Chapter V
 \chapter{Conclusion and Future Work}
@@ -937,7 +1146,7 @@ Shows per-channel ITPC/ITLC maps, switchable via a coherence mode dropdown (phas
 
 % References
 \bibliographystyle{plain}
-\bibliography{references} 
+\bibliography{references}
 \addcontentsline{toc}{chapter}{References}
 
 % Appendices

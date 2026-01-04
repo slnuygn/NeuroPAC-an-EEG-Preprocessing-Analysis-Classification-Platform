@@ -1,5 +1,16 @@
 \addvspace {10\p@ }
 \addvspace {10\p@ }
+\contentsline {figure}{\numberline {II.1}{\ignorespaces System Architecture of NeuroPAC platform illustrating the three main modules: Preprocessing, Analysis, and Classification.}}{14}{figure.caption.5}%
+\contentsline {figure}{\numberline {II.2}{\ignorespaces Workflow of NeuroPAC platform illustrating the sequence of operations across the three main modules: Preprocessing, Analysis, and Classification.}}{14}{figure.caption.6}%
+\contentsline {figure}{\numberline {II.3}{\ignorespaces Preprocessing module interface showing configurable parameters and MATLAB script generation.}}{16}{figure.caption.7}%
+\contentsline {figure}{\numberline {II.4}{\ignorespaces \texttt {ft\_databrowser} interface with the externally added Reject IC button for artifact removal, while rejecting IC 5 on a subject.}}{17}{figure.caption.8}%
+\contentsline {figure}{\numberline {II.5}{\ignorespaces Analysis module interface showing configurable analysis options and MATLAB script generation.}}{18}{figure.caption.9}%
+\contentsline {figure}{\numberline {II.6}{\ignorespaces Classification module interface showing configurable hyperparameters and classification options.}}{26}{figure.caption.23}%
+\contentsline {figure}{\numberline {II.7}{\ignorespaces Range slider component for selecting numeric intervals.}}{35}{figure.caption.48}%
+\contentsline {figure}{\numberline {II.8}{\ignorespaces Step range slider component for selecting numeric intervals with defined steps.}}{35}{figure.caption.50}%
+\contentsline {figure}{\numberline {II.9}{\ignorespaces Dropdown menu component showing multi-select options with checkboxes.}}{36}{figure.caption.52}%
+\contentsline {figure}{\numberline {II.10}{\ignorespaces Input box component for string/numeric MATLAB property binding.}}{37}{figure.caption.54}%
+\contentsline {figure}{\numberline {II.11}{\ignorespaces File Browser Interface displays the file explorer with folder contents, the lower section provides data labeling for annotating selected dataset.}}{57}{figure.2.11}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }
