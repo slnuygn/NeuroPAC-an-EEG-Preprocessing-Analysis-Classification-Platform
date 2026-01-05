@@ -58,7 +58,7 @@
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 \setcounter{page}{3} % Starting page number as requested
-(Abstract text goes here...)
+NeuroPAC is a user-friendly Graphical User Interface (GUI) designed to streamline the preprocessing, analysis, and classification of Electroencephalography (EEG) data. Built on top of the powerful FieldTrip toolbox, NeuroPAC simplifies complex EEG data workflows, making advanced analysis accessible to researchers with varying levels of programming expertise. The platform integrates essential preprocessing steps, including filtering, artifact removal via Independent Component Analysis (ICA), and event decomposition. It offers a suite of analysis techniques such as Event-Related Potential (ERP), time-frequency, spectral, channel-wise connectivity, and inter-trial coherence analyses. Additionally, NeuroPAC incorporates a deep learning classification module utilizing the EEGNet, EEG-Inception and Riemannian Geometry architectures to classify EEG signals effectively. This thesis details the design and implementation of NeuroPAC, demonstrating its capabilities through application to clinical datasets, specifically focusing on Parkinson's Disease classification. The results highlight NeuroPAC's potential to facilitate reproducible and efficient EEG data analysis in both research and clinical settings.
 
 % Table of Contents
 \setcounter{tocdepth}{3} % Include subsubsections in table of contents
@@ -171,6 +171,37 @@ Before moving on to running preprocessing, the user has to make sure that:
 After these configurations are set, the user can run the \verb|Preprocess and Run ICA| button, which executes a Fieldtrip function called \verb|ft_preprocessing| that applies the defined preprocessing steps to the raw EEG data. This operation will require to run on MATLAB, therefore the MATLAB will open to ensure a smooth execution and will provide any warnings from its console that the user might need to be aware of. After the preprocessing is done, the preprocessed data will be saved in a file named \verb|data.mat| in the same directory as the raw data. After preprocessing is done, the button will fulfill its second purpose, which is to run ICA on the preprocessed data. ICA is a computational dimension reduction method used to separate a multivariate signal into additive, independent components. In the context of EEG data, ICA is commonly employed to identify and remove artifacts (unwanted signals) such as eye blinks, muscle activity, and other noise sources that can contaminate the EEG recordings. In our case ICA is chosen as \verb|fast_ica| algorithm provided by Fieldtrip, and in this study's case only the eye artifacts were considered and removed. After running ICA, the resulting components will be saved in a file named \verb|data_ICApplied.mat| in the same directory as the raw data for further inspection and artifact removal.
 
 \subsection{Independent Component Analysis (ICA) \& Artifact Removal}
+\subsubsection{Target Control Group vs Parkinson's Disease}
+\begin{table}[h]
+\centering
+\caption{EEGNet ERP classification performance (target vs Parkinson's Disease)}
+\begin{tabular}{lcc}
+\hline
+  	\\t\textbf{Split} & \textbf{Accuracy (\%)} & \textbf{Loss} \\
+\hline
+Training & 63.33 & 0.6884 \\
+Validation & 60.00 & 0.6972 \\
+Test & 50.00 & 0.6921 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Standard Control Group vs Parkinson's Disease}
+\begin{table}[h]
+\centering
+\caption{EEGNet ERP classification performance (standard vs Parkinson's Disease)}
+\begin{tabular}{lcc}
+\hline
+  	\\t\textbf{Split} & \textbf{Accuracy (\%)} & \textbf{Loss} \\
+\hline
+Training & 86.67 & 0.5161 \\
+Validation & 80.00 & 0.5632 \\
+Test & 70.00 & 0.7055 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Novelty Control Group vs Parkinson's Disease}
 
 \begin{figure}[h]
     \centering
@@ -1133,6 +1164,490 @@ All scripts follow strict output conventions for controller integration. Console
 
 % Chapter IV
 \chapter{Classification Results}
+
+Classification combinations that belong to an analysis were evaluated using the same hyperparameters, therefore the results may vary regarding accuracy and loss. These can be tuned further for better individual accuracies.
+
+\section{EEGNet Classification Results}
+
+\subsection{ERP Data Classification Results}
+
+The hyperparameters used were:
+
+\begin{itemize}
+    \item \texttt{num\_classes}: 3
+    \item \texttt{batch\_size}: 16
+    \item \texttt{epochs}: 50
+    \item \texttt{lr}: 0.001
+    \item \texttt{dropout}: 0.5
+    \item \texttt{f1}: 8
+    \item \texttt{d}: 2
+    \item \texttt{f2}: 16
+    \item \texttt{kern\_length}: 64
+\end{itemize}
+
+
+\subsubsection{Target Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{EEGNet ERP classification performance (target vs Parkinson's Disease)}
+\begin{tabular}{lcc}
+\hline
+	\textbf{Split} & \textbf{Accuracy (\%)} & \textbf{Loss} \\
+\hline
+Training & 63.33 & 0.6884 \\
+Validation & 60.00 & 0.6972 \\
+Test & 50.00 & 0.6921 \\
+\hline
+\end{tabular}
+\end{table}
+
+
+\subsubsection{Standard Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{EEGNet ERP classification performance (standard vs Parkinson's Disease)}
+\begin{tabular}{lcc}
+\hline
+	\textbf{Split} & \textbf{Accuracy (\%)} & \textbf{Loss} \\
+\hline
+Training & 86.67 & 0.5161 \\
+Validation & 80.00 & 0.5632 \\
+Test & 70.00 & 0.7055 \\
+\hline
+\end{tabular}
+\end{table}
+
+
+
+\subsubsection{Novelty Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{EEGNet ERP classification performance (novelty vs Parkinson's Disease)}
+\begin{tabular}{lcc}
+\hline
+  \textbf{Split} & \textbf{Accuracy (\%)} & \textbf{Loss} \\
+\hline
+Training & 56.67 & 0.6900 \\
+Validation & 80.00 & 0.6760 \\
+Test & 40.00 & 0.7043 \\
+\hline
+\end{tabular}
+\end{table}
+
+
+
+\section{EEG-Inception Classification Results}
+
+\subsection{Time-Frequency Data Classification Results}
+Here are the hyperpatameters used for the time-frequency classification:
+
+\begin{itemize}
+    \item \texttt{batch\_size}: 12
+    \item \texttt{epochs}: 200
+    \item \texttt{learning\_rate}: 0.002
+    \item \texttt{dropout\_rate}: 0.25
+    \item \texttt{filters\_per\_branch}: 12
+    \item \texttt{scales\_time}: [6000, 4000, 2000]
+    \item \texttt{activation}: elu
+    \item \texttt{fs}: 1000
+    \item \texttt{normalize\_data}: true
+    \item \texttt{use\_kfold}: true
+    \item \texttt{n\_folds}: 5
+\end{itemize}
+
+\subsubsection{Target Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{EEG-Inception Time-Frequency K-Fold Cross-Validation Results (Target vs Parkinson's Disease)}
+\begin{tabular}{lc}
+\hline
+\textbf{Fold} & \textbf{Accuracy (\%)} \\
+\hline
+Fold 1 & 50.0 \\
+Fold 2 & 60.0 \\
+Fold 3 & 70.0 \\
+Fold 4 & 80.0 \\
+Fold 5 & 70.0 \\
+\hline
+Mean & 66.00 $\pm$ 10.20 \\
+Min & 50.00 \\
+Max & 80.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Classification Report for Best Model (Accuracy: 80.00\%)}
+\begin{tabular}{lccc}
+\hline
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\
+\hline
+HC-target & 0.61 & 0.88 & 0.72 \\
+PD-target & 0.79 & 0.44 & 0.56 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Standard Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{EEG-Inception Time-Frequency K-Fold Cross-Validation Results (Standard vs Parkinson's Disease)}
+\begin{tabular}{lc}
+\hline
+\textbf{Fold} & \textbf{Accuracy (\%)} \\
+\hline
+Fold 1 & 50.0 \\
+Fold 2 & 60.0 \\
+Fold 3 & 70.0 \\
+Fold 4 & 70.0 \\
+Fold 5 & 70.0 \\
+\hline
+Mean & 64.00 $\pm$ 8.00 \\
+Min & 50.00 \\
+Max & 70.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Classification Report for Best Model (Accuracy: 70.00\%)}
+\begin{tabular}{lccc}
+\hline
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\
+\hline
+HC-standard & 0.59 & 0.88 & 0.71 \\
+PD-standard & 0.77 & 0.40 & 0.53 \\
+\hline
+\end{tabular}
+\end{table}
+
+\clearpage
+
+\subsubsection{Novelty Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{EEG-Inception Time-Frequency K-Fold Cross-Validation Results (Novelty vs Parkinson's Disease)}
+\begin{tabular}{lc}
+\hline
+\textbf{Fold} & \textbf{Accuracy (\%)} \\
+\hline
+Fold 1 & 70.0 \\
+Fold 2 & 70.0 \\
+Fold 3 & 50.0 \\
+Fold 4 & 70.0 \\
+Fold 5 & 80.0 \\
+\hline
+Mean & 68.00 $\pm$ 9.80 \\
+Min & 50.00 \\
+Max & 80.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Classification Report for Best Model (Accuracy: 80.00\%)}
+\begin{tabular}{lccc}
+\hline
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\
+\hline
+HC-novelty & 0.71 & 0.60 & 0.65 \\
+PD-novelty & 0.66 & 0.76 & 0.70 \\
+\hline
+\end{tabular}
+\end{table}
+
+\clearpage
+
+\subsection{Inter-Trial Coherence Classification Results}
+Here are the hyperpatameters used for the inter-trial coherence classification:
+
+\begin{itemize}
+    \item \texttt{batch\_size}: 12
+    \item \texttt{epochs}: 50
+    \item \texttt{learning\_rate}: 0.002
+    \item \texttt{dropout\_rate}: 0.25
+    \item \texttt{filters\_per\_branch}: 12
+    \item \texttt{scales\_time}: [500, 250, 125]
+    \item \texttt{activation}: elu
+    \item \texttt{fs}: 401
+    \item \texttt{use\_kfold}: true
+    \item \texttt{n\_folds}: 5
+\end{itemize}
+
+\subsubsection{Target Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{EEG-Inception Inter-Trial Coherence K-Fold Cross-Validation Results (Target vs Parkinson's Disease)}
+\begin{tabular}{lc}
+\hline
+\textbf{Fold} & \textbf{Accuracy (\%)} \\
+\hline
+Fold 1 & 50.0 \\
+Fold 2 & 50.0 \\
+Fold 3 & 50.0 \\
+Fold 4 & 70.0 \\
+Fold 5 & 60.0 \\
+\hline
+Mean & 56.00 $\pm$ 8.00 \\
+Min & 50.00 \\
+Max & 70.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Classification Report for Best Model (Accuracy: 70.00\%)}
+\begin{tabular}{lccc}
+\hline
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\
+\hline
+HC-target & 0.57 & 0.48 & 0.52 \\
+PD-target & 0.55 & 0.64 & 0.59 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Standard Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{EEG-Inception Inter-Trial Coherence K-Fold Cross-Validation Results (Standard vs Parkinson's Disease)}
+\begin{tabular}{lc}
+\hline
+\textbf{Fold} & \textbf{Accuracy (\%)} \\
+\hline
+Fold 1 & 50.0 \\
+Fold 2 & 50.0 \\
+Fold 3 & 50.0 \\
+Fold 4 & 50.0 \\
+Fold 5 & 50.0 \\
+\hline
+Mean & 50.00 $\pm$ 0.00 \\
+Min & 50.00 \\
+Max & 50.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Classification Report for Best Model (Accuracy: 50.00\%)}
+\begin{tabular}{lccc}
+\hline
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\
+\hline
+HC-standard & 0.50 & 0.60 & 0.55 \\
+PD-standard & 0.50 & 0.40 & 0.44 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Novelty Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{EEG-Inception Inter-Trial Coherence K-Fold Cross-Validation Results (Novelty vs Parkinson's Disease)}
+\begin{tabular}{lc}
+\hline
+\textbf{Fold} & \textbf{Accuracy (\%)} \\
+\hline
+Fold 1 & 50.0 \\
+Fold 2 & 50.0 \\
+Fold 3 & 70.0 \\
+Fold 4 & 50.0 \\
+Fold 5 & 60.0 \\
+\hline
+Mean & 56.00 $\pm$ 8.00 \\
+Min & 50.00 \\
+Max & 70.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Classification Report for Best Model (Accuracy: 70.00\%)}
+\begin{tabular}{lccc}
+\hline
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\
+\hline
+HC-novelty & 0.59 & 0.40 & 0.48 \\
+PD-novelty & 0.55 & 0.72 & 0.62 \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Riemannian Classification Results}
+\subsection{Spectral Classification Results}
+Here are the hyperpatameters used for the spectral classification:
+
+\begin{itemize}
+    \item \texttt{estimator}: oas
+    \item \texttt{metric}: riemann
+    \item \texttt{kernel}: linear
+    \item \texttt{C}: 0.05
+    \item \texttt{use\_mdm}: false
+    \item \texttt{use\_deep}: true
+    \item \texttt{enable\_grid\_search}: false
+    \item \texttt{test\_size}: 0.8
+    \item \texttt{val\_split}: 0.6
+    \item \texttt{random\_state}: 42
+    \item \texttt{hidden\_dims}: [64, 32]
+    \item \texttt{dropout}: 0.65
+    \item \texttt{input\_dropout}: 0.2
+    \item \texttt{lr}: 0.0003
+    \item \texttt{max\_epochs}: 50
+    \item \texttt{batch\_size}: 128
+    \item \texttt{weight\_decay}: 0.001
+    \item \texttt{patience}: 7
+    \item \texttt{train\_split}: 0.25
+    \item \texttt{label\_smoothing}: 0.1
+\end{itemize}
+
+\subsubsection{Target Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{Riemannian Spectral K-Fold Cross-Validation Results (Target vs Parkinson's Disease)}
+\begin{tabular}{lc}
+\hline
+\textbf{Fold} & \textbf{Accuracy (\%)} \\
+\hline
+Fold 1 & 60.0 \\
+Fold 2 & 60.0 \\
+Fold 3 & 70.0 \\
+Fold 4 & 60.0 \\
+Fold 5 & 40.0 \\
+\hline
+Mean & 58.00 $\pm$ 9.80 \\
+Min & 40.00 \\
+Max & 70.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Standard Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{Riemannian Spectral K-Fold Cross-Validation Results (Standard vs Parkinson's Disease)}
+\begin{tabular}{lc}
+\hline
+\textbf{Fold} & \textbf{Accuracy (\%)} \\
+\hline
+Fold 1 & 70.0 \\
+Fold 2 & 40.0 \\
+Fold 3 & 20.0 \\
+Fold 4 & 30.0 \\
+Fold 5 & 30.0 \\
+\hline
+Mean & 38.00 $\pm$ 17.20 \\
+Min & 20.00 \\
+Max & 70.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Novelty Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{Riemannian Spectral K-Fold Cross-Validation Results (Novelty vs Parkinson's Disease)}
+\begin{tabular}{lc}
+\hline
+\textbf{Fold} & \textbf{Accuracy (\%)} \\
+\hline
+Fold 1 & 30.0 \\
+Fold 2 & 80.0 \\
+Fold 3 & 30.0 \\
+Fold 4 & 70.0 \\
+Fold 5 & 60.0 \\
+\hline
+Mean & 54.00 $\pm$ 20.59 \\
+Min & 30.00 \\
+Max & 80.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Channelwise Connectivity Classification Results}
+\subsubsection{Target Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{Riemannian Channelwise Connectivity K-Fold Cross-Validation Results (Target vs Parkinson's Disease)}
+\begin{tabular}{lc}
+\hline
+\textbf{Fold} & \textbf{Accuracy (\%)} \\
+\hline
+Fold 1 & 50.0 \\
+Fold 2 & 50.0 \\
+Fold 3 & 70.0 \\
+Fold 4 & 60.0 \\
+Fold 5 & 40.0 \\
+\hline
+Mean & 54.00 $\pm$ 10.20 \\
+Min & 40.00 \\
+Max & 70.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Standard Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{Riemannian Channelwise Connectivity K-Fold Cross-Validation Results (Standard vs Parkinson's Disease)}
+\begin{tabular}{lc}
+\hline
+\textbf{Fold} & \textbf{Accuracy (\%)} \\
+\hline
+Fold 1 & 70.0 \\
+Fold 2 & 20.0 \\
+Fold 3 & 40.0 \\
+Fold 4 & 40.0 \\
+Fold 5 & 60.0 \\
+\hline
+Mean & 46.00 $\pm$ 17.44 \\
+Min & 20.00 \\
+Max & 70.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Novelty Control Group vs Parkinson's Disease}
+
+\begin{table}[h]
+\centering
+\caption{Riemannian Channelwise Connectivity K-Fold Cross-Validation Results (Novelty vs Parkinson's Disease)}
+\begin{tabular}{lc}
+\hline
+\textbf{Fold} & \textbf{Accuracy (\%)} \\
+\hline
+Fold 1 & 80.0 \\
+Fold 2 & 30.0 \\
+Fold 3 & 60.0 \\
+Fold 4 & 50.0 \\
+Fold 5 & 60.0 \\
+\hline
+Mean & 56.00 $\pm$ 16.25 \\
+Min & 30.00 \\
+Max & 80.00 \\
+\hline
+\end{tabular}
+\end{table}
+
 
 % Chapter V
 \chapter{Conclusion and Future Work}

@@ -1,6 +1,29 @@
 \addvspace {10\p@ }
 \addvspace {10\p@ }
+\contentsline {table}{\numberline {II.1}{\ignorespaces EEGNet ERP classification performance (target vs Parkinson's Disease)}}{19}{table.caption.9}%
+\contentsline {table}{\numberline {II.2}{\ignorespaces EEGNet ERP classification performance (standard vs Parkinson's Disease)}}{19}{table.caption.11}%
 \addvspace {10\p@ }
+\contentsline {table}{\numberline {III.1}{\ignorespaces EEGNet ERP classification performance (target vs Parkinson's Disease)}}{84}{table.caption.151}%
+\contentsline {table}{\numberline {III.2}{\ignorespaces EEGNet ERP classification performance (standard vs Parkinson's Disease)}}{84}{table.caption.153}%
+\contentsline {table}{\numberline {III.3}{\ignorespaces EEGNet ERP classification performance (novelty vs Parkinson's Disease)}}{84}{table.caption.155}%
+\contentsline {table}{\numberline {III.4}{\ignorespaces EEG-Inception Time-Frequency K-Fold Cross-Validation Results (Target vs Parkinson's Disease)}}{85}{table.caption.157}%
+\contentsline {table}{\numberline {III.5}{\ignorespaces Classification Report for Best Model (Accuracy: 80.00\%)}}{85}{table.caption.158}%
+\contentsline {table}{\numberline {III.6}{\ignorespaces EEG-Inception Time-Frequency K-Fold Cross-Validation Results (Standard vs Parkinson's Disease)}}{86}{table.caption.160}%
+\contentsline {table}{\numberline {III.7}{\ignorespaces Classification Report for Best Model (Accuracy: 70.00\%)}}{86}{table.caption.161}%
+\contentsline {table}{\numberline {III.8}{\ignorespaces EEG-Inception Time-Frequency K-Fold Cross-Validation Results (Novelty vs Parkinson's Disease)}}{87}{table.caption.163}%
+\contentsline {table}{\numberline {III.9}{\ignorespaces Classification Report for Best Model (Accuracy: 80.00\%)}}{87}{table.caption.164}%
+\contentsline {table}{\numberline {III.10}{\ignorespaces EEG-Inception Inter-Trial Coherence K-Fold Cross-Validation Results (Target vs Parkinson's Disease)}}{88}{table.caption.166}%
+\contentsline {table}{\numberline {III.11}{\ignorespaces Classification Report for Best Model (Accuracy: 70.00\%)}}{89}{table.caption.167}%
+\contentsline {table}{\numberline {III.12}{\ignorespaces EEG-Inception Inter-Trial Coherence K-Fold Cross-Validation Results (Standard vs Parkinson's Disease)}}{89}{table.caption.169}%
+\contentsline {table}{\numberline {III.13}{\ignorespaces Classification Report for Best Model (Accuracy: 50.00\%)}}{90}{table.caption.170}%
+\contentsline {table}{\numberline {III.14}{\ignorespaces EEG-Inception Inter-Trial Coherence K-Fold Cross-Validation Results (Novelty vs Parkinson's Disease)}}{90}{table.caption.172}%
+\contentsline {table}{\numberline {III.15}{\ignorespaces Classification Report for Best Model (Accuracy: 70.00\%)}}{91}{table.caption.173}%
+\contentsline {table}{\numberline {III.16}{\ignorespaces Riemannian Spectral K-Fold Cross-Validation Results (Target vs Parkinson's Disease)}}{91}{table.caption.175}%
+\contentsline {table}{\numberline {III.17}{\ignorespaces Riemannian Spectral K-Fold Cross-Validation Results (Standard vs Parkinson's Disease)}}{91}{table.caption.177}%
+\contentsline {table}{\numberline {III.18}{\ignorespaces Riemannian Spectral K-Fold Cross-Validation Results (Novelty vs Parkinson's Disease)}}{92}{table.caption.179}%
+\contentsline {table}{\numberline {III.19}{\ignorespaces Riemannian Channelwise Connectivity K-Fold Cross-Validation Results (Target vs Parkinson's Disease)}}{92}{table.caption.181}%
+\contentsline {table}{\numberline {III.20}{\ignorespaces Riemannian Channelwise Connectivity K-Fold Cross-Validation Results (Standard vs Parkinson's Disease)}}{92}{table.caption.183}%
+\contentsline {table}{\numberline {III.21}{\ignorespaces Riemannian Channelwise Connectivity K-Fold Cross-Validation Results (Novelty vs Parkinson's Disease)}}{93}{table.caption.185}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }
